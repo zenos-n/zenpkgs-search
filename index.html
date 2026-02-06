@@ -1015,7 +1015,7 @@
                 
                 if (meta.maintainers && meta.maintainers.length) {
                     const maintDiv = document.createElement('div');
-                    maintDiv.innerHTML = `<div class="adw-group-title" style="margin-left:12px;">Maintainers</div><div class="chip-grid" style="padding: 0 12px 24px 12px;"></div>`;
+                    maintDiv.innerHTML = `<div class="adw-group-title" style="margin-left:12px;">Maintainers</div><div class="chip-grid" style="padding: 0 12px;"></div>`;
                     const grid = maintDiv.querySelector('.chip-grid');
                     meta.maintainers.forEach(m => {
                         const chip = document.createElement('div');
