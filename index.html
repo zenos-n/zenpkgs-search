@@ -1,0 +1,1382 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ZenPkgs Browser</title>
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible+Mono:ital,wght@0,200..800;1,200..800&family=Atkinson+Hyperlegible+Next:ital,wght@0,200..800;1,200..800&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+
+    <style>
+        :root {
+            /* --- Libadwaita Base Accents --- */
+            --accent-blue: #3584e4;
+            --accent-teal: #2190a4;
+            --accent-green: #3a944a;
+            --accent-yellow: #c88800;
+            --accent-orange: #ed5b00;
+            --accent-red: #e62d42;
+            --accent-pink: #d56199;
+            --accent-purple: #9141ac;
+            --accent-slate: #6f8396;
+
+            /* --- Link Accents --- */
+            --accent-link-blue-light:   #1c71d8;
+            --accent-link-teal-light:   #12738a;
+            --accent-link-green-light:  #26a269;
+            --accent-link-yellow-light: #a2730c;
+            --accent-link-orange-light: #c64603;
+            --accent-link-red-light:    #a51d2d;
+            --accent-link-pink-light:   #b54674;
+            --accent-link-purple-light: #813d9c;
+            --accent-link-slate-light:  #526678;
+
+            --accent-link-blue-dark:   #81d0ff;
+            --accent-link-teal-dark:   #7bdff4;
+            --accent-link-green-dark:  #8de698;
+            --accent-link-yellow-dark: #ffc057;
+            --accent-link-orange-dark: #ff9c5b;
+            --accent-link-red-dark:    #ff888c;
+            --accent-link-pink-dark:   #ffa0d8;
+            --accent-link-purple-dark: #fba7ff;
+            --accent-link-slate-dark:  #bbd1e5;
+
+            /* --- Theme Base --- */
+            --bg-left: #2E2E32;
+            --bg-right: #1D1D20;
+            --bg-header: #2E2E32;
+            --bg-modal: #222226;   
+            --bg-popover: #36363A; 
+            --bg-tree: #343437;
+            
+            --card-bg: rgba(255, 255, 255, 0.06);
+            --text-color: #ffffff;
+            --dim-label: rgba(255, 255, 255, 0.55);
+            --secondary-label: rgba(255, 255, 255, 0.7);
+            
+            --accent-bg: var(--accent-purple);
+            --accent-fg: #ffffff;
+            --link-color: var(--accent-link-purple-dark);
+
+            --border-color: rgba(255, 255, 255, 0.12);
+            --row-separator: rgba(0, 0, 0, 0.5);
+
+            --adw-group-shadow: 0 1px 2px rgba(0,0,0,0.1); 
+            --popover-shadow: 0 2px 8px 2px rgba(0, 0, 0, 0.12), 0 4px 16px 4px rgba(0, 0, 0, 0.08);
+            --window-outline: 0 0 0 1px rgba(255,255,255,0.1);
+
+            --font-ui: 'Atkinson Hyperlegible Next', sans-serif;
+            --font-mono: 'Atkinson Hyperlegible Mono', monospace;
+
+            /* Enables smooth height animation for modern browsers */
+            interpolate-size: allow-keywords; 
+        }
+
+        [data-theme="light"] {
+            --bg-left: #f0f0f0;
+            --bg-right: #fafafa;
+            --bg-header: #f0f0f0;
+            --bg-modal: #fafafa;
+            --bg-popover: #ffffff;
+            --bg-tree: #ffffff;
+            --card-bg: #ffffff;
+            --text-color: rgba(0, 0, 0, 0.8);
+            --dim-label: rgba(0, 0, 0, 0.55);
+            --secondary-label: rgba(0, 0, 0, 0.7);
+            --accent-fg: #ffffff;
+            --border-color: rgba(0, 0, 0, 0.08);
+            --row-separator: rgba(0, 0, 0, 0.08);
+            --adw-group-shadow: 0 1px 2px rgba(0,0,0,0.06); 
+            --popover-shadow: 0 2px 12px rgba(0,0,0,0.1);
+            --window-outline: 0 0 0 1px rgba(0,0,0,0.05);
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            margin: 0; height: 100vh;
+            display: flex; flex-direction: row;
+            background-color: var(--bg-right);
+            color: var(--text-color);
+            font-family: var(--font-ui);
+            overflow: hidden;
+            transition: background 0.3s, color 0.3s;
+            /* Added for 3D transforms (rotateX) */
+            perspective: 1000px; 
+        }
+
+        a { color: var(--link-color); text-decoration: underline; text-decoration-thickness: 1px; }
+        a:hover { text-decoration: none; }
+
+        /* --- BUTTONS --- */
+        .adw-button {
+            background: transparent; border: none; color: var(--text-color);
+            border-radius: 8px; padding: 0 12px; height: 34px;
+            cursor: pointer; transition: background 0.2s;
+            display: flex; align-items: center; justify-content: center;
+            gap: 8px; font-family: inherit; font-weight: 700; font-size: 0.9rem;
+            white-space: nowrap;
+        }
+        .adw-button.icon-only { padding: 0; width: 34px; max-width: 34px; }
+        .adw-button:hover { background-color: var(--dim-label); color: var(--bg-modal); }
+        [data-theme="dark"] .adw-button:hover { background-color: rgba(255,255,255,0.08); color: white; }
+        [data-theme="light"] .adw-button:hover { background-color: rgba(0,0,0,0.05); color: var(--text-color); }
+
+        .window-close-button {
+            width: 24px; height: 24px; padding: 0; 
+            border-radius: 50%; border: none; background: transparent;
+            color: var(--text-color); cursor: pointer;
+            display: flex; align-items: center; justify-content: center;
+            transition: background 0.2s;
+        }
+        [data-theme="dark"] .window-close-button:hover { background-color: rgba(255,255,255,0.1); }
+        [data-theme="light"] .window-close-button:hover { background-color: rgba(0,0,0,0.05); }
+        .window-close-button svg { width: 8px; height: 8px; fill: currentColor; }
+
+        /* --- LAYOUT --- */
+        .pane-left {
+            width: 320px; background-color: var(--bg-left); border-right: 1px solid var(--border-color);
+            display: flex; flex-direction: column; flex-shrink: 0; z-index: 20; transition: background 0.3s, border 0.3s;
+        }
+        .pane-right {
+            flex: 1; background-color: var(--bg-right); display: flex; flex-direction: column; min-width: 0; transition: background 0.3s;
+        }
+
+        .header-bar { height: 46px; display: flex; align-items: center; padding: 0 6px; }
+        .pane-left .header-bar { justify-content: space-between; background-color: var(--bg-header); transition: background 0.3s; }
+        .pane-right .header-bar { background-color: transparent; gap: 6px; /* Updated gap */ }
+
+        .header-brand { font-weight: 800; font-size: 1rem; display: flex; align-items: center; gap: 8px; white-space: nowrap; }
+        .header-brand svg path { fill: var(--text-color); }
+        .header-brand svg g clipPath rect { fill: var(--text-color); }
+
+        /* --- SEARCH & CRUMBS --- */
+        .header-bar-center-stack { flex: 1; position: relative; height: 34px; display: flex; align-items: center; }
+
+        .search-wrapper {
+            position: absolute; inset: 0; display: flex; align-items: center;
+            background-color: var(--bg-tree); border-radius: 8px; height: 34px;
+            opacity: 0; visibility: hidden;
+            transition: opacity 0.3s ease, filter 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94), transform 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+            filter: blur(20px); border: 1px solid transparent; transform: scale(0.95);
+        }
+        [data-theme="light"] .search-wrapper { border-color: var(--border-color); }
+        .search-wrapper:focus-within { box-shadow: 0 0 0 2px var(--accent-bg); border-color: transparent; }
+        .search-wrapper.visible { opacity: 1; visibility: visible; filter: blur(0); transform: scale(1); }
+
+        .adw-search { background: transparent; border: none; color: var(--text-color); padding: 0 12px; font-family: inherit; width: 100%; height: 100%; font-size: 0.9rem; outline: none; }
+
+        .breadcrumbs-wrapper {
+            position: absolute; inset: 0; display: flex; align-items: center; gap: 2px;
+            background-color: var(--bg-tree); height: 34px; padding: 0 3px;
+            overflow-x: auto; overflow-y: hidden; font-size: 0.9rem; font-weight: 600;
+            white-space: nowrap; user-select: none;
+            /* Updated Animation to match search bar */
+            transition: opacity 0.3s ease, filter 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94), transform 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+            filter: blur(0); opacity: 1; transform: scale(1);
+            scrollbar-width: none; border-radius: 8px; border: 1px solid transparent; 
+        }
+        [data-theme="light"] .breadcrumbs-wrapper { border-color: var(--border-color); }
+        /* Hidden state for breadcrumbs */
+        .breadcrumbs-wrapper.hidden { opacity: 0; visibility: hidden; filter: blur(20px); transform: scale(0.95); }
+        
+        .crumb-btn {
+            height: 28px; padding: 0 10px; border-radius: 7px;
+            display: flex; align-items: center; gap: 6px;
+            color: var(--dim-label); transition: background 0.2s, color 0.2s; cursor: pointer;
+        }
+        [data-theme="dark"] .crumb-btn:hover { background-color: rgba(255,255,255,0.08); color: var(--text-color); }
+        [data-theme="light"] .crumb-btn:hover { background-color: rgba(0,0,0,0.05); color: var(--text-color); }
+        [data-theme="dark"] .crumb-btn:active { background-color: rgba(255,255,255,0.12); }
+        [data-theme="light"] .crumb-btn:active { background-color: rgba(0,0,0,0.1); }
+        .crumb-btn.active { color: var(--text-color); font-weight: 700; cursor: default; }
+        [data-theme="dark"] .crumb-btn.active { background-color: rgba(255,255,255,0.12); }
+        [data-theme="light"] .crumb-btn.active { background-color: rgba(0,0,0,0.08); }
+        .crumb-sep { opacity: 0.3; font-size: 0.8em; margin: 0 2px; }
+        .crumb-icon svg { width: 16px; height: 16px; display: block; fill: currentColor; }
+
+        /* --- VERSION PICKER --- */
+        .version-trigger {
+            background: transparent; border: none; color: var(--text-color);
+            font-weight: 700; font-size: 0.9rem;
+            padding: 0 12px; height: 34px; border-radius: 8px;
+            cursor: pointer; display: flex; align-items: center; gap: 8px;
+            transition: background 0.2s; margin-left: auto;
+        }
+        [data-theme="dark"] .version-trigger:hover { background-color: rgba(255,255,255,0.08); }
+        [data-theme="light"] .version-trigger:hover { background-color: rgba(0,0,0,0.05); }
+
+        #version-dropdown {
+            position: absolute; top: 50px; right: 12px;
+            width: 240px; background-color: transparent;
+            display: flex; flex-direction: column;
+            z-index: 100; max-height: 70vh;
+            overflow: visible; 
+
+            /* --- Updated Animation Logic --- */
+            transform-origin: top right;
+            opacity: 0;
+            /* Hidden State mimicking window style but dropping down */
+            transform: scale(0.7) rotateX(-70deg) translateY(-10px);
+
+            transition: 
+                transform 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94), 
+                opacity 0.2s ease,
+                width 0.35s cubic-bezier(0.25, 0.46, 0.45, 0.94),
+                height 0.35s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+        }
+        #version-dropdown.visible { 
+            visibility: visible; opacity: 1; 
+            transform: scale(1) rotateX(0deg) translateY(0); 
+        }
+
+        /* Triangle */
+        #version-dropdown::before {
+            content: ''; position: absolute; top: -10px; right: 24px; 
+            border-left: 10px solid transparent; border-right: 10px solid transparent;
+            border-bottom: 10px solid var(--bg-popover);
+        }
+
+        /* Inner container for content to have radius and bg */
+        .popover-inner {
+            background-color: var(--bg-popover);
+            border-radius: 14px;
+            box-shadow: var(--popover-shadow);
+            overflow: hidden;
+            display: flex; flex-direction: column;
+            width: 100%;
+        }
+
+        .version-list { overflow-y: auto; padding: 6px; display: flex; flex-direction: column; gap: 2px; }
+        .version-item {
+            padding: 8px 12px; border-radius: 6px; cursor: pointer;
+            font-size: 0.9rem; font-weight: 500;
+            display: flex; justify-content: space-between; align-items: center;
+        }
+        [data-theme="dark"] .version-item:hover { background-color: rgba(255,255,255,0.08); }
+        [data-theme="light"] .version-item:hover { background-color: rgba(0,0,0,0.05); }
+        .version-item.active { color: var(--accent-bg); font-weight: 800; }
+        .version-item.active::after { content: '✓'; }
+
+        .version-separator {
+            height: 1px; background-color: var(--border-color); margin: 4px 12px;
+            position: relative; display: flex; justify-content: center;
+        }
+        .version-separator span {
+            position: absolute; top: -10px; background-color: var(--bg-popover);
+            padding: 0 8px; color: var(--dim-label); font-size: 0.7rem; font-weight: 800; text-transform: uppercase;
+        }
+        .version-footer { padding: 8px; border-top: 1px solid var(--border-color); background-color: var(--bg-popover); border-radius: 0 0 14px 14px !important; }
+        
+        .refresh-btn {
+            width: 100%; border-radius: 8px; height: 34px;
+            background-color: rgba(255,255,255,0.05); border: none; color: var(--text-color);
+            font-weight: 700; cursor: pointer;
+            display: flex; align-items: center; justify-content: center; gap: 8px;
+        }
+        [data-theme="light"] .refresh-btn { background-color: rgba(0,0,0,0.05); }
+        .refresh-btn:hover { opacity: 0.8; }
+
+        /* --- CONTENT AREAS --- */
+        .sidebar-content { padding: 0; overflow-y: auto; flex: 1; }
+        .main-content { padding: 0; overflow-y: auto; flex: 1; }
+        .content-container { max-width: 900px; margin: 0 auto; padding: 24px; width: 100%; position: relative; }
+
+        /* --- TREE LIST --- */
+        .adw-group-title { font-weight: 800; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 1px; color: var(--dim-label); margin: 24px 0 8px 12px; }
+        .tree-root { 
+            background-color: var(--bg-tree); border-radius: 12px;
+            box-shadow: var(--adw-group-shadow); overflow: hidden; 
+            padding: 0; display: flex; flex-direction: column; border: 1px solid transparent;
+        }
+        [data-theme="light"] .tree-root { border-color: var(--border-color); }
+        .tree-node-wrapper { margin-left: 16px; border-left: 1px solid var(--border-color); }
+        .tree-root > .tree-node-wrapper { margin-left: 0; border-left: none; }
+        .tree-row {
+            display: flex; align-items: center; padding: 8px 16px;
+            cursor: pointer; min-height: 44px; transition: background 0.1s; background-color: transparent; 
+        }
+        [data-theme="dark"] .tree-row:hover { background-color: rgba(255,255,255,0.05); } 
+        [data-theme="light"] .tree-row:hover { background-color: rgba(0,0,0,0.03); }
+        [data-theme="dark"] .tree-row:active { background-color: rgba(255,255,255,0.1); }
+        [data-theme="light"] .tree-row:active { background-color: rgba(0,0,0,0.06); }
+        [data-theme="dark"] .tree-row.selected { background-color: rgba(255,255,255,0.1); }
+        [data-theme="light"] .tree-row.selected { background-color: rgba(0,0,0,0.06); }
+        .row-icon { width: 24px; display: flex; justify-content: center; margin-right: 12px; font-size: 0.7rem; color: var(--secondary-label); transition: transform 0.2s; }
+        .row-icon.expanded { transform: rotate(90deg); color: var(--text-color); }
+        .row-label { flex: 1; font-weight: 600; font-size: 0.95rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .meta-badge { font-size: 0.65rem; font-weight: 800; background: rgba(255, 85, 85, 0.15); color: #ff5555; padding: 2px 6px; border-radius: 4px; margin-left: 8px; }
+        
+        /* Tree Animation */
+        .tree-children-wrapper { display: grid; grid-template-rows: 0fr; transition: grid-template-rows 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94); }
+        .tree-children-wrapper.open { grid-template-rows: 1fr; }
+        .tree-children { overflow: hidden; }
+
+        /* --- GROUPS / ROWS --- */
+        .adw-group {
+            background-color: transparent; border-radius: 12px;
+            box-shadow: var(--adw-group-shadow); overflow: hidden; margin-bottom: 24px;
+            display: flex; flex-direction: column; gap: 1px; border: 1px solid transparent;
+        }
+        [data-theme="light"] .adw-group { border-color: var(--border-color); }
+        .adw-group:last-child { margin-bottom: 0; }
+        .adw-row {
+            padding: 12px 16px; display: flex; align-items: center; justify-content: space-between;
+            min-height: 56px; cursor: default; background-color: var(--card-bg); 
+        }
+        .adw-row:first-child { border-top-left-radius: 12px; border-top-right-radius: 12px; }
+        .adw-row:last-child { border-bottom-left-radius: 12px; border-bottom-right-radius: 12px; }
+        [data-theme="dark"] .adw-row:hover { background-color: rgba(255,255,255,0.08); }
+        [data-theme="light"] .adw-row:hover { background-color: #f6f6f6; }
+
+        /* --- CHIPS --- */
+        .chip-grid { display: flex; flex-wrap: wrap; gap: 8px; padding: 0; } 
+        .chip {
+            background-color: var(--card-bg); border: 1px solid transparent;
+            border-radius: 99px; padding: 6px 14px;
+            font-size: 0.85rem; font-weight: 700; color: var(--text-color);
+            cursor: pointer; transition: background 0.2s; user-select: none;
+        }
+        .maintainer-chip {
+            background-color: color-mix(in srgb, var(--accent-bg) 15%, var(--bg-modal));
+            color: var(--link-color); padding: 6px 14px; font-size: 0.85rem;
+            border-radius: 99px; cursor: pointer; transition: opacity 0.2s;
+            font-weight: 700; user-select: none; border: 1px solid transparent;
+        }
+        .maintainer-chip:hover { opacity: 0.8; }
+        [data-theme="light"] .chip { border-color: var(--border-color); background-color: #ffffff; }
+        [data-theme="dark"] .chip:hover { background-color: rgba(255,255,255,0.12); }
+        [data-theme="light"] .chip:hover { background-color: #f0f0f0; }
+        .version-chip {
+            background-color: color-mix(in srgb, var(--accent-bg) 15%, var(--bg-modal));
+            color: var(--link-color); padding: 4px 12px; font-size: 0.8rem;
+            border-radius: 99px; display: inline-block; font-weight: 800;
+        }
+
+        /* --- MARKDOWN --- */
+        .markdown-body { 
+            padding: 16px; color: var(--secondary-label); line-height: 1.6; font-size: 0.95rem;
+            display: flex; flex-direction: column; gap: 14px;
+            background-color: var(--card-bg); border-radius: 12px; border: 1px solid transparent;
+        }
+        [data-theme="light"] .markdown-body { border-color: var(--border-color); }
+        #legal-content.markdown-body { background-color: transparent; border: none; }
+        .markdown-body > * { margin: 0 !important; padding-top: 0 !important; padding-bottom: 0 !important; }
+        .markdown-body h1, .markdown-body h2 { color: var(--text-color); font-size: 1.1rem; }
+        .markdown-body code { background: rgba(0,0,0,0.3); padding: 2px 5px; border-radius: 4px; font-family: var(--font-mono); font-size: 0.9em; color: white; }
+        [data-theme="light"] .markdown-body code { background: rgba(0,0,0,0.06); color: #333; }
+        .markdown-body table { display: block; overflow-x: auto; width: 100%; border-collapse: collapse; white-space: nowrap; }
+        .markdown-body th, .markdown-body td { border: 1px solid var(--border-color); padding: 8px; }
+        .markdown-body pre { background: #181818; padding: 12px !important; border-radius: 8px; overflow-x: auto; box-shadow: inset 0 0 0 1px rgba(255,255,255,0.05); color: #e0e0e0; }
+        [data-theme="light"] .markdown-body pre { background: #f4f4f4; box-shadow: inset 0 0 0 1px rgba(0,0,0,0.05); color: #333; }
+
+        /* --- MODALS (GLIDE ANIMATION) --- */
+        .overlay-backdrop {
+            position: fixed; inset: 0; background: rgba(0,0,0,0.6);
+            backdrop-filter: blur(8px); z-index: 100;
+            display: flex; align-items: center; justify-content: center;
+            /* State Transitions */
+            visibility: hidden; opacity: 0; pointer-events: none;
+            transition: opacity 0.2s ease, visibility 0.2s ease;
+        }
+        .overlay-backdrop.visible { visibility: visible; opacity: 1; pointer-events: auto; }
+
+        .adw-window {
+            width: 520px; max-width: 90vw; max-height: 85vh;
+            background-color: var(--bg-modal);
+            box-shadow: var(--window-outline); border-radius: 14px; 
+            display: flex; flex-direction: column; overflow: hidden; 
+            
+            /* UPDATED ANIMATION LOGIC */
+            transform: scale(0.7) rotateX(-70deg) translateY(30px); opacity: 0;
+            transition: 
+                transform 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94), 
+                opacity 0.2s ease,
+                width 0.35s cubic-bezier(0.25, 0.46, 0.45, 0.94),
+                height 0.35s cubic-bezier(0.25, 0.46, 0.45, 0.94) !important;
+        }
+        .overlay-backdrop.visible .adw-window {
+            /* Glide State: Visible */
+            transform: scale(1) rotateX(0deg) translateY(0); opacity: 1;
+        }
+        .adw-window.wide { width: 950px; }
+
+        .dialog-header { min-height: 48px; display: grid; grid-template-columns: 36px 1fr 36px; align-items: center; padding: 0 0 0 6px; font-weight: 800; background-color: transparent; color: var(--text-color); }
+        .dialog-header span { text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .window-content { padding: 0; overflow: hidden; flex: 1; display: flex; flex-direction: column; }
+        .window-body { padding: 24px; overflow-y: auto; height: calc(85vh - 46px); }
+
+        /* About Pages Animation */
+        .about-stack-container { 
+            display: grid; grid-template-areas: "stack"; 
+            width: 100%; position: relative;
+            overflow: hidden; /* Container clips, doesn't scroll */
+            flex: 1; min-height: 0;
+            padding: 0; /* No padding on container */
+        }
+
+        .stack-page {
+            grid-area: stack;
+            transition: transform 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94), opacity 0.3s ease;
+            width: 100%;
+            box-sizing: border-box;
+            
+            /* Inactive (Collapsed) State */
+            opacity: 0; pointer-events: none; 
+            height: 0; overflow: hidden; padding: 0;
+            
+            /* Height Constraint: Window max (85vh) - Header (46px) */
+            max-height: calc(85vh - 46px);
+        }
+
+        /* Active State */
+        .stack-page.active { 
+            opacity: 1; pointer-events: auto; transform: translateX(0);
+            height: auto; /* Fill grid cell naturally, constrained by max-height */
+            padding: 24px; /* Internal padding */
+            overflow-y: auto; /* Self scrolling */
+        }
+
+        /* Exit States (Keep visible during anim, but remove from flow via absolute) */
+        .stack-page.exit-left, .stack-page.exit-right {
+            position: absolute; top: 0; left: 0;
+            height: auto; padding: 24px; 
+            z-index: 0; /* Behind incoming */
+        }
+        
+        .stack-page.exit-left { transform: translateX(-30%); opacity: 0; }
+        .stack-page.exit-right { transform: translateX(30%); opacity: 0; }
+        
+        /* Off States (Collapsed) */
+        .stack-page.off-right { transform: translateX(100%); }
+        .stack-page.off-left { transform: translateX(-100%); }
+
+
+        /* --- POPOVERS (GLIDE ANIMATION) --- */
+        .common-popover {
+            position: fixed; display: flex; flex-direction: column; z-index: 150;
+            /* Hidden State */
+            visibility: hidden; opacity: 0; 
+            /* Use a variable for start state so JS can inject directionality */
+            transform: var(--pop-start, scale(0.9));
+            transition: all 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+            overflow: visible;
+        }
+        .common-popover.visible { visibility: visible; opacity: 1; transform: scale(1) translate(0, 0); }
+        
+        /* Specific Popover Styles */
+        #menu-popover { width: 220px; padding:6px; }
+        #menu-popover::before {
+            content: ''; position: absolute; top: -10px; left: 100px; 
+            border-left: 10px solid transparent; border-right: 10px solid transparent;
+            border-bottom: 10px solid var(--bg-popover);
+        }
+        
+        #maintainer-popup { z-index: 200; min-width: 240px; max-width: fit-content; }
+        
+        .popup-arrow {
+            position: absolute; width: 0; height: 0;
+            border-left: 10px solid transparent; border-right: 10px solid transparent;
+            left: 50%; transform: translateX(-50%);
+        }
+        .arrow-up { border-bottom: 10px solid var(--bg-popover); top: -10px; }
+        .arrow-down { border-top: 10px solid var(--bg-popover); bottom: -10px; }
+
+        .menu-item { padding: 10px 12px; border-radius: 6px; cursor: pointer; font-weight: 700; font-size: 0.9rem; }
+        [data-theme="dark"] .menu-item:hover { background-color: rgba(255,255,255,0.08); }
+        [data-theme="light"] .menu-item:hover { background-color: rgba(0,0,0,0.05); }
+
+        .mp-content { display: flex; flex-direction: column; gap: 12px; }
+        .maintainer-label { font-size: 0.65rem; font-weight: 800; color: var(--secondary-label); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 2px;}
+        .maintainer-value { font-family: var(--font-mono); font-size: 0.85rem; color: var(--text-color); }
+
+        /* Accent Picker */
+        .accent-picker { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
+        .accent-option { display: block; cursor: pointer; } 
+        .accent-option input { display: none; }
+        .accent-circle {
+            width: 24px; height: 24px; border-radius: 50%; background: var(--color);
+            display: block; position: relative; box-sizing: border-box; transition: transform 0.2s;
+        }
+        .accent-option input:checked + .accent-circle { background: transparent; box-shadow: inset 0 0 0 2px var(--color); transform: scale(1.1); }
+        .accent-option input:checked + .accent-circle::after { content: ''; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 12px; height: 12px; border-radius: 50%; background: var(--color); }
+
+        /* Loading */
+        .loader-container { display: none; flex-direction: column; align-items: center; padding: 100px 0; color: var(--dim-label); }
+        .spinner { width: 32px; height: 32px; border: 3px solid var(--border-color); border-top-color: var(--accent-bg); border-radius: 50%; animation: spin 1s linear infinite; margin-bottom: 16px; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        .copy-btn {
+            background-color: rgba(255,255,255,0.1); padding: 4px 10px; border-radius: 6px;
+            font-size: 0.7rem; font-weight: 700; cursor: pointer; color: var(--text-color);
+        }
+        [data-theme="light"] .copy-btn { background-color: rgba(0,0,0,0.1); }
+        .copy-btn:hover { opacity: 0.8; }
+
+        #toast {
+            position: fixed; bottom: 40px; left: 50%; transform: translateX(-50%) translateY(20px);
+            background-color: #36363a; color: white; padding: 10px 24px; border-radius: 24px;
+            font-weight: 700; box-shadow: var(--popover-shadow); opacity: 0; transition: all 0.3s; pointer-events: none; z-index: 1000;
+        }
+        #toast.visible { transform: translateX(-50%) translateY(0); opacity: 1; }
+
+        .adw-switch-row { cursor: pointer; }
+        .switch-toggle { width: 44px; height: 24px; background-color: rgba(120,120,120,0.3); border-radius: 24px; position: relative; transition: background 0.2s; }
+        .switch-toggle::after { content: ''; position: absolute; left: 2px; top: 2px; width: 20px; height: 20px; background-color: white; border-radius: 50%; transition: transform 0.2s; box-shadow: 0 1px 3px rgba(0,0,0,0.3); }
+        .adw-switch-row.active .switch-toggle { background-color: var(--accent-bg); }
+        .adw-switch-row.active .switch-toggle::after { transform: translateX(20px); }
+
+    </style>
+</head>
+<body>
+
+    <!-- LEFT SIDEBAR -->
+    <div class="pane-left">
+        <div class="header-bar">
+            <button class="adw-button icon-only" onclick="toggleSearch()" title="Search">
+                <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+            </button>
+            <div class="header-brand">
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <g clip-path="url(#clip0_272_121)"><path fill-rule="evenodd" clip-rule="evenodd" d="M12.5 7C10.567 7 9 5.433 9 3.5C9 1.567 10.567 0 12.5 0C14.433 0 16 1.567 16 3.5C16 5.433 14.433 7 12.5 7ZM12.5 1.5C13.6046 1.5 14.5 2.39543 14.5 3.5C14.5 4.60457 13.6046 5.5 12.5 5.5C11.3954 5.5 10.5 4.60457 10.5 3.5C10.5 2.39543 11.3954 1.5 12.5 1.5Z"/><path fill-rule="evenodd" clip-rule="evenodd" d="M12.5 16C10.567 16 9 14.433 9 12.5C9 10.567 10.567 9 12.5 9C14.433 9 16 10.567 16 12.5C16 14.433 14.433 16 12.5 16ZM12.5 10.5C13.6046 10.5 14.5 11.3954 14.5 12.5C14.5 13.6046 13.6046 14.5 12.5 14.5C11.3954 14.5 10.5 13.6046 10.5 12.5C10.5 11.3954 11.3954 10.5 12.5 10.5Z"/><path fill-rule="evenodd" clip-rule="evenodd" d="M3.5 11.5C1.567 11.5 0 9.933 0 8C0 6.067 1.567 4.5 3.5 4.5C5.433 4.5 7 6.067 7 8C7 9.933 5.433 11.5 3.5 11.5ZM3.5 6C4.60457 6 5.5 6.89543 5.5 8C5.5 9.10457 4.60457 10 3.5 10C2.39543 10 1.5 9.10457 1.5 8C1.5 6.89543 2.39543 6 3.5 6Z" fill="currentColor"/></g><defs><clipPath id="clip0_272_121"><rect width="16" height="16" fill="currentColor"/></clipPath></defs>
+                </svg>
+                <span>ZenPkgs</span>
+            </div>
+            <button class="adw-button icon-only" id="menu-btn" onclick="toggleMenu()">
+                <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16"/></svg>
+            </button>
+        </div>
+        <div class="sidebar-content" id="sidebar-body">
+            <div style="padding: 60px 20px; text-align: center; color: var(--dim-label);">
+                <div style="margin-bottom: 16px; opacity: 0.1">
+                    <svg width="80" height="80" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg>
+                </div>
+                <div style="font-weight: 700; margin-bottom: 8px;">ZenPkgs Explorer</div>
+                <div style="font-size: 0.9rem;">Select an option to view details.</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- RIGHT MAIN PANE -->
+    <div class="pane-right">
+        <div class="header-bar">
+            <div class="header-bar-center-stack">
+                <div class="breadcrumbs-wrapper" id="breadcrumbs"></div>
+                <div class="search-wrapper" id="search-bar">
+                    <input type="text" class="adw-search" id="search-input" placeholder="Search registry...">
+                </div>
+            </div>
+            <button class="version-trigger" id="version-btn" onclick="toggleVersionDropdown()">
+                <span id="current-version">Latest Commit</span>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M7 10l5 5 5-5z"/></svg>
+            </button>
+            <div id="version-dropdown">
+                <!-- Inner Wrapper for Clip + Radius -->
+                <div class="popover-inner">
+                    <div class="version-list" id="version-list-container"></div>
+                    <div class="version-footer">
+                        <button class="refresh-btn" id="refresh-releases-btn">
+                            <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10"/><path d="M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+                            Refresh Releases
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="main-content">
+            <div class="content-container">
+                <div class="loader-container" id="loader">
+                    <div class="spinner"></div>
+                    <div>Fetching Registry...</div>
+                </div>
+                <div id="registry-root"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MENU POPOVER -->
+    <div id="menu-popover" class="popover-inner common-popover">
+        <div class="menu-item" onclick="openModal('settings')">Settings</div>
+        <div class="menu-item" onclick="openModal('about')">About</div>
+    </div>
+
+    <!-- SETTINGS MODAL -->
+    <div class="overlay-backdrop" id="modal-settings">
+        <div class="adw-window">
+            <div class="dialog-header">
+                <div style="width:24px"></div>
+                <span class="dialog-title">Settings</span>
+                <button class="window-close-button" onclick="closeModal('settings')">
+                    <svg width="8" height="8" viewBox="0 0 8 8" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M2.5 4L0 1.5V0H1.5L4 2.5L6.5 0H8V1.5L5.5 4L8 6.5V8H6.5L4 5.5L1.5 8H0V6.5L2.5 4Z" fill="currentColor"/></svg>
+                </button>
+            </div>
+            <div class="window-content window-body">
+                <div class="adw-group-title">Appearance</div>
+                <div class="adw-group">
+                    <div class="adw-row" style="cursor: default;">
+                        <span style="font-weight: 700;">Accent Color</span>
+                        <div class="accent-picker">
+                            <label class="accent-option"><input type="radio" name="accent" value="blue"><span class="accent-circle" style="--color: var(--accent-blue)"></span></label>
+                            <label class="accent-option"><input type="radio" name="accent" value="teal"><span class="accent-circle" style="--color: var(--accent-teal)"></span></label>
+                            <label class="accent-option"><input type="radio" name="accent" value="green"><span class="accent-circle" style="--color: var(--accent-green)"></span></label>
+                            <label class="accent-option"><input type="radio" name="accent" value="yellow"><span class="accent-circle" style="--color: var(--accent-yellow)"></span></label>
+                            <label class="accent-option"><input type="radio" name="accent" value="orange"><span class="accent-circle" style="--color: var(--accent-orange)"></span></label>
+                            <label class="accent-option"><input type="radio" name="accent" value="red"><span class="accent-circle" style="--color: var(--accent-red)"></span></label>
+                            <label class="accent-option"><input type="radio" name="accent" value="pink"><span class="accent-circle" style="--color: var(--accent-pink)"></span></label>
+                            <label class="accent-option"><input type="radio" name="accent" value="purple" checked><span class="accent-circle" style="--color: var(--accent-purple)"></span></label>
+                            <label class="accent-option"><input type="radio" name="accent" value="slate"><span class="accent-circle" style="--color: var(--accent-slate)"></span></label>
+                        </div>
+                    </div>
+                    <div class="adw-row adw-switch-row" onclick="toggleTheme()" id="theme-row">
+                        <span style="font-weight: 700;">Dark Mode</span>
+                        <div class="switch-toggle"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ABOUT MODAL -->
+    <div class="overlay-backdrop" id="modal-about">
+        <div class="adw-window" id="about-window" style="max-width: 400px; text-align: center;">
+            <div class="dialog-header">
+                <button class="adw-button icon-only" id="about-back-btn" onclick="aboutNav('main')" style="visibility: hidden;">
+                    <svg xmlns="http://www.w3.org/2000/svg" height="16px" viewBox="0 0 16 16" width="16px"><path d="m 9.292969 13.707031 l -5 -5 c -0.390625 -0.390625 -0.390625 -1.023437 0 -1.414062 l 5 -5 c 0.390625 -0.390625 1.023437 -0.390625 1.414062 0 s 0.390625 1.023437 0 1.414062 l -4.292969 4.292969 l 4.292969 4.292969 c 0.390625 0.390625 0.390625 1.023437 0 1.414062 s -1.023437 0.390625 -1.414062 0 z m 0 0" fill="currentColor" fill-rule="evenodd"/></svg>
+                </button>
+                <span id="about-title" class="dialog-title">About</span>
+                <button class="window-close-button" onclick="closeModal('about')">
+                    <svg width="8" height="8" viewBox="0 0 8 8" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M2.5 4L0 1.5V0H1.5L4 2.5L6.5 0H8V1.5L5.5 4L8 6.5V8H6.5L4 5.5L1.5 8H0V6.5L2.5 4Z" fill="currentColor"/></svg>
+                </button>
+            </div>
+            
+            <div class="window-content about-stack-container">
+                <!-- MAIN ABOUT PAGE -->
+                <div id="about-main" class="stack-page active">
+                    <div style="margin-bottom: 24px; display: flex; justify-content: center;">
+                        <svg width="80" height="80" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <g clip-path="url(#clip0_272_121)"><path fill-rule="evenodd" clip-rule="evenodd" d="M12.5 7C10.567 7 9 5.433 9 3.5C9 1.567 10.567 0 12.5 0C14.433 0 16 1.567 16 3.5C16 5.433 14.433 7 12.5 7ZM12.5 1.5C13.6046 1.5 14.5 2.39543 14.5 3.5C14.5 4.60457 13.6046 5.5 12.5 5.5C11.3954 5.5 10.5 4.60457 10.5 3.5C10.5 2.39543 11.3954 1.5 12.5 1.5Z" fill="currentColor"/><path fill-rule="evenodd" clip-rule="evenodd" d="M12.5 16C10.567 16 9 14.433 9 12.5C9 10.567 10.567 9 12.5 9C14.433 9 16 10.567 16 12.5C16 14.433 14.433 16 12.5 16ZM12.5 10.5C13.6046 10.5 14.5 11.3954 14.5 12.5C14.5 13.6046 13.6046 14.5 12.5 14.5C11.3954 14.5 10.5 13.6046 10.5 12.5C10.5 11.3954 11.3954 10.5 12.5 10.5Z" fill="currentColor"/><path fill-rule="evenodd" clip-rule="evenodd" d="M3.5 11.5C1.567 11.5 0 9.933 0 8C0 6.067 1.567 4.5 3.5 4.5C5.433 4.5 7 6.067 7 8C7 9.933 5.433 11.5 3.5 11.5ZM3.5 6C4.60457 6 5.5 6.89543 5.5 8C5.5 9.10457 4.60457 10 3.5 10C2.39543 10 1.5 9.10457 1.5 8C1.5 6.89543 2.39543 6 3.5 6Z" fill="currentColor"/></g><defs><clipPath id="clip0_272_121"><rect width="16" height="16" fill="white"/></clipPath></defs>
+                        </svg>
+                    </div>
+                    <div style="font-weight: 800; font-size: 1.5rem; margin-bottom: 8px;">ZenPkgs Browser</div>
+                    <div style="margin-bottom: 24px;">
+                        <span class="version-chip">v1.0</span>
+                    </div>
+                    
+                    <div class="adw-group">
+                        <div class="adw-row" style="cursor: pointer;" onclick="aboutNav('legal')">
+                            <div style="font-weight:700">Legal</div>
+                            <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" style="opacity:0.5"><path d="M9 18l6-6-6-6"/></svg>
+                        </div>
+                        <div class="adw-row" style="cursor: pointer;" onclick="aboutNav('credits')">
+                            <div style="font-weight:700">Credits</div>
+                            <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" style="opacity:0.5"><path d="M9 18l6-6-6-6"/></svg>
+                        </div>
+                        <div class="adw-row">
+                            <div style="font-weight:700">Registry Source</div>
+                            <a href="https://github.com/zenos-n/zenpkgs" target="_blank">GitHub</a>
+                        </div>
+                        <div class="adw-row">
+                            <div style="font-weight:700">Website Source</div>
+                            <a href="https://github.com/zenos-n/zenpkgs-search" target="_blank">GitHub</a>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- LEGAL PAGE -->
+                <div id="about-legal" class="stack-page off-right">
+                    <div class="loader-container" id="legal-loader">
+                        <div class="spinner"></div>
+                        <div>Loading License...</div>
+                    </div>
+                    <div id="legal-content" class="markdown-body" style="text-align: left; padding: 0;"></div>
+                </div>
+
+                <!-- CREDITS PAGE -->
+                <div id="about-credits" class="stack-page off-right">
+                   <div style="font-size: 0.9rem;">
+                       <div class="adw-group-title">Core Team</div>
+                       <div class="adw-group">
+                           <div class="adw-row">
+                               <span style="color:var(--secondary-label); font-size:0.85rem">Lead Designer</span>
+                               <span style="font-weight:700">doromiert</span>
+                           </div>
+                           <div class="adw-row">
+                               <span style="color:var(--secondary-label); font-size:0.85rem">Developers</span>
+                               <span style="font-weight:700">CatNowBlue, Zaka</span>
+                           </div>
+                       </div>
+                       
+                       <div class="adw-group-title">Special Thanks</div>
+                       <div class="adw-group">
+                           <div class="adw-row" style="flex-direction: column; align-items: flex-start; gap: 4px;">
+                               <span style="font-weight:700">Gnome</span>
+                               <span style="font-size:0.8rem; color:var(--dim-label)">For Adwaita</span>
+                           </div>
+                           <div class="adw-row" style="flex-direction: column; align-items: flex-start; gap: 4px;">
+                               <span style="font-weight:700">Google</span>
+                               <span style="font-size:0.8rem; color:var(--dim-label)">For Gemini</span>
+                           </div>
+                           <div class="adw-row" style="flex-direction: column; align-items: flex-start; gap: 4px;">
+                               <span style="font-weight:700">Blade0 & Jeyphr</span>
+                               <span style="font-size:0.8rem; color:var(--dim-label)">For being cool</span>
+                           </div>
+                       </div>
+                   </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MAINTAINER POPOVER -->
+    <div id="maintainer-popup" class="popover-inner common-popover">
+        <div class="popup-arrow" id="mp-arrow"></div>
+        <div class="mp-content" id="mp-content" style="padding: 16px;"></div>
+    </div>
+
+    <!-- Popups -->
+    <div id="toast">Copied to Clipboard</div>
+
+    <script>
+        const CONFIG = { OWNER: "zenos-n", REPO: "zenpkgs", BRANCH: "json" };
+        const state = { 
+            data: null, 
+            versions: [], 
+            selectedVersion: null,
+            theme: 'dark',
+            accent: 'purple'
+        };
+
+        // --- Theme & Accent Logic ---
+        function updateStyles() {
+            const colorMap = {
+                blue: 'var(--accent-blue)', teal: 'var(--accent-teal)', green: 'var(--accent-green)',
+                yellow: 'var(--accent-yellow)', orange: 'var(--accent-orange)', red: 'var(--accent-red)',
+                pink: 'var(--accent-pink)', purple: 'var(--accent-purple)', slate: 'var(--accent-slate)'
+            };
+            document.documentElement.style.setProperty('--accent-bg', colorMap[state.accent]);
+            const mode = state.theme === 'light' ? 'light' : 'dark';
+            const linkVar = `var(--accent-link-${state.accent}-${mode})`;
+            document.documentElement.style.setProperty('--link-color', linkVar);
+        }
+
+        document.querySelectorAll('input[name="accent"]').forEach(radio => {
+            radio.addEventListener('change', (e) => {
+                state.accent = e.target.value;
+                updateStyles();
+            });
+        });
+
+        function toggleTheme() {
+            state.theme = state.theme === 'dark' ? 'light' : 'dark';
+            document.documentElement.setAttribute('data-theme', state.theme);
+            const row = document.getElementById('theme-row');
+            if(state.theme === 'dark') { row.classList.add('active'); } else { row.classList.remove('active'); }
+            updateStyles();
+        }
+
+        document.getElementById('theme-row').classList.add('active'); 
+        updateStyles();
+
+        // --- Core Logic ---
+        async function init() {
+            try {
+                const metaRes = await fetch(`https://raw.githubusercontent.com/${CONFIG.OWNER}/${CONFIG.REPO}/${CONFIG.BRANCH}/latestCommit.json`);
+                let meta;
+                try { meta = await metaRes.json(); } 
+                catch(e) {
+                    console.error("JSON Parse Error:", e);
+                    document.getElementById('loader').innerHTML = `
+                        <div style="color:var(--accent-red)">Metadata Error</div>
+                        <div style="font-size:0.8rem">Invalid JSON response</div>
+                    `;
+                    return;
+                }
+
+                try {
+                    const atomRes = await fetch(`https://github.com/${CONFIG.OWNER}/${CONFIG.REPO}/releases.atom`);
+                    const xml = new DOMParser().parseFromString(await atomRes.text(), "text/xml");
+                    state.versions = Array.from(xml.querySelectorAll("entry > title")).map(t => t.textContent.trim());
+                } catch(e) {}
+
+                if (meta.options || meta.pkgs) {
+                    state.data = meta;
+                    state.selectedVersion = "Latest Commit";
+                    renderRegistry(meta);
+                } else {
+                    loadVersion(meta.latest);
+                }
+                
+                updateVersionUI();
+                updateBreadcrumbs('');
+            } catch (e) {
+                const l = document.getElementById('loader');
+                if (l) l.innerHTML = `Error: ${e.message}`;
+            }
+        }
+
+        async function loadVersion(v) {
+            const loader = document.getElementById('loader');
+            const root = document.getElementById('registry-root');
+            root.style.display = 'none';
+            loader.style.display = 'flex';
+            loader.innerHTML = '<div class="spinner"></div><div>Fetching Registry...</div>';
+            
+            try {
+                const url = `https://raw.githubusercontent.com/${CONFIG.OWNER}/${CONFIG.REPO}/${CONFIG.BRANCH}/${v}.json`;
+                const res = await fetch(url);
+                state.data = await res.json();
+                state.selectedVersion = v;
+                renderRegistry(state.data);
+                updateVersionUI();
+                updateBreadcrumbs('');
+            } catch(e) { 
+                console.error(e); 
+                loader.innerHTML = `<div>Error loading ${v}</div>`;
+            }
+            loader.style.display = 'none';
+            root.style.display = 'block';
+        }
+
+        function updateVersionUI() {
+            document.getElementById('current-version').textContent = state.selectedVersion || "Latest Commit";
+            const container = document.getElementById('version-list-container');
+            container.innerHTML = '';
+            
+            const addOption = (v, label) => {
+                const item = document.createElement('div');
+                item.className = 'version-item ' + (state.selectedVersion === v ? 'active' : '');
+                item.textContent = label;
+                item.onclick = () => {
+                    loadVersion(v);
+                    document.getElementById('version-dropdown').classList.remove('visible');
+                };
+                container.appendChild(item);
+            };
+
+            addOption("latestCommit.json", "Latest Commit");
+            if (state.versions.length > 0) {
+                const sep = document.createElement('div');
+                sep.className = 'version-separator';
+                sep.innerHTML = '<span>RELEASES</span>';
+                container.appendChild(sep);
+                state.versions.forEach(v => addOption(v, v));
+            }
+        }
+
+        function toggleVersionDropdown() {
+            const dd = document.getElementById('version-dropdown');
+            dd.classList.toggle('visible');
+        }
+
+        // --- Rendering ---
+        function renderRegistry(data) {
+            const root = document.getElementById('registry-root');
+            root.innerHTML = '';
+
+            const categories = [
+                { key: 'options', label: 'Nix Options' },
+                { key: 'pkgs', label: 'Packages' },
+                { key: 'maintainers', label: 'Maintainers' }
+            ];
+
+            categories.forEach(cat => {
+                if (!data[cat.key]) return;
+                const title = document.createElement('div');
+                title.className = 'adw-group-title';
+                title.textContent = cat.label;
+                root.appendChild(title);
+
+                const container = document.createElement('div');
+                if (cat.key === 'maintainers') {
+                    container.className = 'chip-grid';
+                    renderMaintainerGrid(data[cat.key], container);
+                } else {
+                    container.className = 'tree-root';
+                    renderRecursiveTree(data[cat.key], container, '', cat.key);
+                }
+                root.appendChild(container);
+            });
+        }
+
+        function renderMaintainerGrid(list, container) {
+            Object.keys(list).sort().forEach(key => {
+                const chip = document.createElement('div');
+                chip.className = 'maintainer-chip'; 
+                const mData = list[key];
+                chip.textContent = mData.name || key; 
+                chip.onclick = (e) => showMaintainerPopup(key, mData, e.currentTarget);
+                container.appendChild(chip);
+            });
+        }
+
+        function renderRecursiveTree(nodes, container, path, type) {
+            Object.keys(nodes).sort().forEach(key => {
+                const node = nodes[key];
+                const currentPath = path ? `${path}.${key}` : key;
+                const hasSub = node.sub && Object.keys(node.sub).length > 0;
+                
+                const wrapper = document.createElement('div');
+                wrapper.className = 'tree-node-wrapper';
+
+                const row = createTreeRow(key, hasSub, !!node.meta);
+                
+                // Closure fix for button clicks (also applies here logically, though not needed for tree)
+                // but crucially needed for breadcrumbs below
+                
+                row.onclick = (e) => {
+                    e.stopPropagation();
+                    openInspector(currentPath, node.meta, type);
+                    updateBreadcrumbs(currentPath, type); 
+                    if (hasSub) {
+                        const childrenWrapper = wrapper.querySelector('.tree-children-wrapper');
+                        const icon = row.querySelector('.row-icon');
+                        childrenWrapper.classList.toggle('open');
+                        icon.classList.toggle('expanded', childrenWrapper.classList.contains('open'));
+                    }
+                };
+
+                wrapper.appendChild(row);
+
+                if (hasSub) {
+                    const animWrapper = document.createElement('div');
+                    animWrapper.className = 'tree-children-wrapper';
+                    
+                    const children = document.createElement('div');
+                    children.className = 'tree-children';
+                    renderRecursiveTree(node.sub, children, currentPath, type);
+                    
+                    animWrapper.appendChild(children);
+                    wrapper.appendChild(animWrapper);
+                }
+                container.appendChild(wrapper);
+            });
+        }
+
+        function createTreeRow(label, isFolder, hasMeta) {
+            const row = document.createElement('div');
+            row.className = 'tree-row';
+            const icon = document.createElement('div');
+            icon.className = 'row-icon ' + (isFolder ? '' : 'leaf');
+            icon.textContent = isFolder ? '▶' : '●';
+            const text = document.createElement('div');
+            text.className = 'row-label';
+            text.textContent = label;
+            row.appendChild(icon);
+            row.appendChild(text);
+
+            if (!hasMeta && !isFolder) { 
+                const badge = document.createElement('div');
+                badge.className = 'meta-badge';
+                badge.textContent = 'NO META';
+                row.appendChild(badge);
+            }
+            return row;
+        }
+
+        // --- Sidebar Inspector ---
+        function openInspector(path, meta, type) {
+            const body = document.getElementById('sidebar-body');
+            document.querySelectorAll('.tree-row.selected').forEach(r => r.classList.remove('selected'));
+            
+            const safePath = document.createElement('div');
+            let displayPath = path;
+            if (path.length > 45) {
+                const parts = path.split('.');
+                if (parts.length > 2) {
+                    displayPath = `${parts[0]}.(...).${parts[parts.length-1]}`;
+                }
+            }
+            safePath.textContent = displayPath;
+            safePath.title = path; 
+            safePath.style.cssText = "font-family:var(--font-mono); font-size:0.85rem; color:var(--text-color); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;";
+
+            const container = document.createElement('div');
+            container.innerHTML = `
+                <div class="adw-group-title" style="margin-top:12px; margin-left:12px;">Identifier</div>
+                <div class="adw-group" style="margin: 0 12px 24px 12px;">
+                    <div class="adw-row">
+                        <div id="inspector-path-target" style="flex:1; min-width:0; margin-right:12px;"></div>
+                        <div class="copy-btn">COPY</div>
+                    </div>
+                </div>
+            `;
+            container.querySelector('#inspector-path-target').appendChild(safePath);
+            container.querySelector('.copy-btn').onclick = () => copyToClipboard(path);
+
+            if (meta) {
+                if (meta.description) {
+                    const descDiv = document.createElement('div');
+                    descDiv.innerHTML = `<div class="adw-group-title" style="margin-left:12px;">Description</div><div class="adw-group" style="margin: 0 12px 24px 12px;"><div class="adw-row" style="cursor:default; padding:16px; color:var(--text-color)">${meta.description}</div></div>`;
+                    container.appendChild(descDiv);
+                }
+                
+                if (meta.maintainers && meta.maintainers.length) {
+                    const maintDiv = document.createElement('div');
+                    maintDiv.innerHTML = `<div class="adw-group-title" style="margin-left:12px;">Maintainers</div><div class="chip-grid" style="padding: 0 12px 24px 12px;"></div>`;
+                    const grid = maintDiv.querySelector('.chip-grid');
+                    meta.maintainers.forEach(m => {
+                        const chip = document.createElement('div');
+                        chip.className = 'maintainer-chip'; 
+                        chip.textContent = m;
+                        chip.onclick = (e) => {
+                            const mData = state.data?.maintainers?.[m] || { name: m };
+                            showMaintainerPopup(m, mData, e.currentTarget);
+                        };
+                        grid.appendChild(chip);
+                    });
+                    container.appendChild(maintDiv);
+                }
+
+                if (meta.longDescription) {
+                    const docDiv = document.createElement('div');
+                    docDiv.innerHTML = `<div class="adw-group-title" style="margin-left:12px;">Documentation</div><div class="markdown-body" style="margin: 0 12px 24px 12px;">${marked.parse(meta.longDescription.trim())}</div>`;
+                    container.appendChild(docDiv);
+                }
+            }
+            body.innerHTML = '';
+            body.appendChild(container);
+        }
+
+        function toggleSearch() {
+            const bar = document.getElementById('search-bar');
+            const crumbs = document.getElementById('breadcrumbs');
+            const input = document.getElementById('search-input');
+            const isVisible = bar.classList.toggle('visible');
+            
+            if (isVisible) {
+                crumbs.classList.add('hidden');
+                input.focus();
+            } else {
+                input.value = '';
+                crumbs.classList.remove('hidden');
+                input.dispatchEvent(new Event('input'));
+            }
+        }
+        
+        document.getElementById('search-input').addEventListener('blur', (e) => {
+            if (!e.target.value) {
+                document.getElementById('search-bar').classList.remove('visible');
+                document.getElementById('breadcrumbs').classList.remove('hidden');
+            }
+        });
+
+        function updateBreadcrumbs(path, type) {
+            const container = document.getElementById('breadcrumbs');
+            container.innerHTML = '';
+            
+            // Root
+            const rootBtn = document.createElement('div');
+            rootBtn.className = 'crumb-btn icon-only';
+            rootBtn.innerHTML = `<svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><g clip-path="url(#clip0_272_121)"><path fill-rule="evenodd" clip-rule="evenodd" d="M12.5 7C10.567 7 9 5.433 9 3.5C9 1.567 10.567 0 12.5 0C14.433 0 16 1.567 16 3.5C16 5.433 14.433 7 12.5 7ZM12.5 1.5C13.6046 1.5 14.5 2.39543 14.5 3.5C14.5 4.60457 13.6046 5.5 12.5 5.5C11.3954 5.5 10.5 4.60457 10.5 3.5C10.5 2.39543 11.3954 1.5 12.5 1.5Z" fill="currentColor"/><path fill-rule="evenodd" clip-rule="evenodd" d="M12.5 16C10.567 16 9 14.433 9 12.5C9 10.567 10.567 9 12.5 9C14.433 9 16 10.567 16 12.5C16 14.433 14.433 16 12.5 16ZM12.5 10.5C13.6046 10.5 14.5 11.3954 14.5 12.5C14.5 13.6046 13.6046 14.5 12.5 14.5C11.3954 14.5 10.5 13.6046 10.5 12.5C10.5 11.3954 11.3954 10.5 12.5 10.5Z" fill="currentColor"/><path fill-rule="evenodd" clip-rule="evenodd" d="M3.5 11.5C1.567 11.5 0 9.933 0 8C0 6.067 1.567 4.5 3.5 4.5C5.433 4.5 7 6.067 7 8C7 9.933 5.433 11.5 3.5 11.5ZM3.5 6C4.60457 6 5.5 6.89543 5.5 8C5.5 9.10457 4.60457 10 3.5 10C2.39543 10 1.5 9.10457 1.5 8C1.5 6.89543 2.39543 6 3.5 6Z" fill="currentColor"/></g><defs><clipPath id="clip0_272_121"><rect width="16" height="16" fill="white"/></clipPath></defs></svg> <span>zenpkgs</span>`;
+            rootBtn.onclick = () => { updateBreadcrumbs('', ''); document.getElementById('sidebar-body').innerHTML = '<div style="padding: 60px 20px; text-align: center; color: var(--dim-label);"><div style="margin-bottom: 16px; opacity: 0.1"><svg width="80" height="80" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg></div><div style="font-weight: 700; margin-bottom: 8px;">ZenPkgs Explorer</div><div style="font-size: 0.9rem;">Select an option to view details.</div></div>'; };
+            container.appendChild(rootBtn);
+
+            if (!path) return;
+
+            // Category Button
+            const catLabel = type === 'options' ? 'options' : (type === 'pkgs' ? 'packages' : type);
+            const sep = document.createElement('span'); sep.className = 'crumb-sep'; sep.textContent = '›';
+            container.appendChild(sep);
+            
+            const catBtn = document.createElement('div');
+            catBtn.className = 'crumb-btn';
+            catBtn.textContent = catLabel;
+            catBtn.onclick = () => { selectByPath('', type); }; // Reset to Category Root
+            container.appendChild(catBtn);
+
+            const parts = path.split('.');
+            let buildPath = '';
+            parts.forEach((part, i) => {
+                const isLast = i === parts.length - 1;
+                buildPath = buildPath ? `${buildPath}.${part}` : part;
+                
+                // Closure fix: capture buildPath state for this button
+                const clickTarget = buildPath; 
+
+                const s = document.createElement('span'); s.className = 'crumb-sep'; s.textContent = '›';
+                container.appendChild(s);
+                
+                const crumb = document.createElement('div');
+                crumb.className = 'crumb-btn' + (isLast ? ' active' : '');
+                crumb.textContent = part;
+                if (!isLast) crumb.onclick = () => selectByPath(clickTarget, type);
+                container.appendChild(crumb);
+            });
+            container.scrollLeft = container.scrollWidth;
+        }
+
+        function selectByPath(fullPath, type) {
+            // Logic handled by clearing if path empty or finding node
+            if (!fullPath) {
+                // Reset View Logic
+                updateBreadcrumbs('', type);
+                openInspector(type, { description: `Root of ${type}` }, type); // Dummy
+                return;
+            }
+            
+            let current = state.data[type];
+            let node = null;
+            if (current) {
+                const parts = fullPath.split('.');
+                node = current[parts[0]];
+                for(let i=1; i<parts.length; i++) {
+                    if (node && node.sub && node.sub[parts[i]]) { node = node.sub[parts[i]]; } else { node = null; break; }
+                }
+            }
+            if (node) { openInspector(fullPath, node.meta, type); updateBreadcrumbs(fullPath, type); }
+        }
+
+        function toggleMenu() {
+            const menu = document.getElementById('menu-popover');
+            const btn = document.getElementById('menu-btn');
+            
+            // Toggle Logic
+            const isVisible = menu.classList.contains('visible');
+            
+            if (isVisible) {
+                menu.classList.remove('visible');
+            } else {
+                const rect = btn.getBoundingClientRect();
+                const menuWidth = 220;
+                const left = rect.left + (rect.width/2) - (menuWidth/2);
+                menu.style.left = `${left}px`;
+                menu.style.top = `${rect.bottom + 8}px`;
+                
+                // Animate from top down
+                menu.style.setProperty('--pop-start', 'scale(0.9) translateY(-10px)');
+                menu.classList.add('visible');
+            }
+        }
+
+        function openModal(id) {
+            document.getElementById('menu-popover').classList.remove('visible');
+            document.getElementById(`modal-${id}`).classList.add('visible');
+            if (id === 'about') aboutNav('main');
+        }
+
+        function closeModal(id) { 
+            document.getElementById(`modal-${id}`).classList.remove('visible');
+            // Reset About width after delay to ensure smooth closing
+            if(id === 'about') { setTimeout(() => { document.getElementById('about-window').classList.remove('wide'); }, 300); }
+        }
+
+        async function aboutNav(target) {
+            const main = document.getElementById('about-main');
+            const legal = document.getElementById('about-legal');
+            const credits = document.getElementById('about-credits');
+            
+            const title = document.getElementById('about-title');
+            const backBtn = document.getElementById('about-back-btn');
+            const win = document.getElementById('about-window');
+
+            [main, legal, credits].forEach(el => {
+                if(!el) return;
+                el.classList.remove('active', 'exit-left', 'exit-right', 'off-right', 'off-left');
+            });
+
+            if (target === 'main') {
+                main.classList.add('active'); 
+                legal.classList.add('off-right');
+                credits.classList.add('off-right');
+                title.textContent = 'About';
+                backBtn.style.visibility = 'hidden';
+                win.classList.remove('wide');
+            } else if (target === 'legal' || target === 'credits') {
+                main.classList.add('exit-left'); 
+                if(target === 'legal') {
+                    legal.classList.add('active');
+                    credits.classList.add('off-right');
+                    title.textContent = 'NAP License';
+                    if (!document.getElementById('legal-content').innerHTML) {
+                        try {
+                            const res = await fetch('https://raw.githubusercontent.com/negative-zero-inft/nap-license/master/LICENSE');
+                            const text = await res.text();
+                            document.getElementById('legal-content').innerHTML = marked.parse(text);
+                            document.getElementById('legal-loader').style.display = 'none';
+                        } catch(e) { document.getElementById('legal-loader').innerHTML = `Failed to load license.`; }
+                    }
+                } else {
+                    credits.classList.add('active');
+                    legal.classList.add('off-right');
+                    title.textContent = 'Credits';
+                }
+                backBtn.style.visibility = 'visible';
+                win.classList.add('wide');
+            }
+        }
+
+        function showMaintainerPopup(id, data, targetEl) {
+            const popup = document.getElementById('maintainer-popup');
+            const arrow = document.getElementById('mp-arrow');
+            const content = document.getElementById('mp-content');
+            
+            let html = `
+                <div style="border-bottom:1px solid var(--border-color); padding-bottom:8px; margin-bottom:12px; display:flex; justify-content:space-between; align-items:center">
+                    <span style="font-weight:800; font-size:1rem">${data.name || id}</span>
+                    <span style="font-size:0.65rem; font-weight:800; background:color-mix(in srgb, var(--accent-bg) 20%, var(--bg-modal)); color:var(--link-color); padding:2px 6px; border-radius:4px">${data.role || 'MAINTAINER'}</span>
+                </div>
+            `;
+            Object.keys(data).forEach(k => {
+                if (k !== 'name' && k !== 'role') {
+                    html += `
+                        <div class="maintainer-row">
+                            <div class="maintainer-label">${k}</div>
+                            <div class="maintainer-value">${data[k]}</div>
+                        </div>
+                    `;
+                }
+            });
+            content.innerHTML = html;
+            
+            const rect = targetEl.getBoundingClientRect();
+            const popHeight = popup.offsetHeight;
+            const popWidth = 240;
+            
+            let top = rect.top - popHeight - 12;
+            let left = rect.left + (rect.width/2) - (popWidth/2);
+            let arrowDir = 'down';
+
+            if (top < 10) { 
+                top = rect.bottom + 12; 
+                arrow.className = 'popup-arrow arrow-up'; 
+                arrowDir = 'up';
+            } else {
+                arrow.className = 'popup-arrow arrow-down';
+                arrowDir = 'down';
+            }
+            
+            if (left + popWidth > window.innerWidth) { left = window.innerWidth - popWidth - 20; }
+            if (left < 10) left = 10;
+
+            popup.style.top = top + 'px';
+            popup.style.left = left + 'px';
+            
+            const arrowLeft = rect.left + (rect.width/2) - left;
+            arrow.style.left = `${arrowLeft}px`;
+            arrow.style.transform = 'translateX(-50%)';
+
+            const originY = arrowDir === 'up' ? '0%' : '100%';
+            popup.style.transformOrigin = `${arrowLeft}px ${originY}`;
+            
+            // Set dynamic start transform based on direction
+            if (arrowDir === 'up') {
+                // Arrow points UP, popup is BELOW. Slide down from arrow.
+                popup.style.setProperty('--pop-start', 'scale(0.9) translateY(-10px)');
+            } else {
+                // Arrow points DOWN, popup is ABOVE. Slide up from arrow.
+                popup.style.setProperty('--pop-start', 'scale(0.9) translateY(10px)');
+            }
+
+            popup.classList.add('visible');
+        }
+
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest('#menu-popover') && !e.target.closest('#menu-btn')) {
+                document.getElementById('menu-popover').classList.remove('visible');
+            }
+            if (!e.target.closest('#version-dropdown') && !e.target.closest('#version-btn')) {
+                document.getElementById('version-dropdown').classList.remove('visible');
+            }
+            if (document.getElementById('maintainer-popup').classList.contains('visible') && 
+                !e.target.closest('#maintainer-popup') && !e.target.closest('.maintainer-chip')) {
+                document.getElementById('maintainer-popup').classList.remove('visible');
+            }
+            if (e.target.classList.contains('overlay-backdrop')) {
+                // Find open modal and close it
+                if(document.getElementById('modal-settings').classList.contains('visible')) closeModal('settings');
+                if(document.getElementById('modal-about').classList.contains('visible')) closeModal('about');
+            }
+        });
+
+        function copyToClipboard(text) { 
+            navigator.clipboard.writeText(text); 
+            const toast = document.getElementById('toast');
+            toast.classList.add('visible');
+            setTimeout(() => toast.classList.remove('visible'), 2000);
+        }
+        
+        document.getElementById('refresh-releases-btn').onclick = () => init();
+        
+        document.getElementById('search-input').addEventListener('input', (e) => {
+            const query = e.target.value.toLowerCase();
+            if (!query) { renderRegistry(state.data); return; }
+            const root = document.getElementById('registry-root');
+            root.innerHTML = '';
+            
+            ['options', 'pkgs', 'maintainers'].forEach(catKey => {
+                if (!state.data[catKey]) return;
+                const catTitle = document.createElement('div');
+                catTitle.className = 'adw-group-title';
+                catTitle.textContent = catKey;
+                root.appendChild(catTitle);
+                
+                if (catKey === 'maintainers') {
+                    const filtered = {};
+                    Object.keys(state.data[catKey]).forEach(k => { if(k.toLowerCase().includes(query)) filtered[k] = state.data[catKey][k]; });
+                    const container = document.createElement('div');
+                    container.className = 'chip-grid';
+                    renderMaintainerGrid(filtered, container);
+                    root.appendChild(container);
+                } else {
+                    const container = document.createElement('div');
+                    container.className = 'tree-root';
+                    renderFilteredTree(state.data[catKey], container, '', catKey, query);
+                    root.appendChild(container);
+                }
+            });
+        });
+
+        function renderFilteredTree(nodes, container, path, type, query) {
+            Object.keys(nodes).sort().forEach(key => {
+                const node = nodes[key];
+                const currentPath = path ? `${path}.${key}` : key;
+                const hasSub = node.sub && Object.keys(node.sub).length > 0;
+                const selfMatch = currentPath.toLowerCase().includes(query);
+                const childMatch = hasSub && checkDeepMatch(node.sub, query);
+
+                if (!selfMatch && !childMatch) return;
+                const wrapper = document.createElement('div');
+                wrapper.className = 'tree-node-wrapper';
+                const row = createTreeRow(key, hasSub, !!node.meta);
+                
+                let expanded = !!query; 
+                row.onclick = (e) => {
+                    e.stopPropagation();
+                    openInspector(currentPath, node.meta, type);
+                    if (hasSub) {
+                        const childrenWrapper = wrapper.querySelector('.tree-children-wrapper');
+                        const icon = row.querySelector('.row-icon');
+                        childrenWrapper.classList.toggle('open');
+                        icon.classList.toggle('expanded', childrenWrapper.classList.contains('open'));
+                    }
+                };
+                if (expanded && hasSub) row.querySelector('.row-icon').classList.add('expanded');
+                wrapper.appendChild(row);
+
+                if (hasSub) {
+                    const animWrapper = document.createElement('div');
+                    animWrapper.className = 'tree-children-wrapper';
+                    if (expanded) animWrapper.classList.add('open'); 
+
+                    const children = document.createElement('div');
+                    children.className = 'tree-children';
+                    renderFilteredTree(node.sub, children, currentPath, type, query);
+                    
+                    animWrapper.appendChild(children);
+                    wrapper.appendChild(animWrapper);
+                }
+                container.appendChild(wrapper);
+            });
+        }
+        function checkDeepMatch(sub, query) {
+            if (!sub) return false;
+            return Object.keys(sub).some(k => k.toLowerCase().includes(query) || checkDeepMatch(sub[k].sub, query));
+        }
+
+        init();
+    </script>
+</body>
+</html>

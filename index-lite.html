@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ZenPkgs</title>
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<style>
+:root{--b1:#2E2E32;--b2:#1D1D20;--b3:#36363A;--t1:#fff;--t2:#ffffffb3;--a:#9141ac;--l:#fba7ff;--br:#ffffff1f;--h:#ffffff14;--f:system-ui,sans-serif;--m:monospace}
+*{box-sizing:border-box}
+body{margin:0;height:100vh;display:flex;background:var(--b2);color:var(--t1);font:15px var(--f);overflow:hidden}
+a{color:var(--l)}
+.b{background:0 0;border:0;color:var(--t1);border-radius:8px;height:34px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;font:700 15px var(--f);padding:0 12px;transition:.2s}
+.b:hover,.r:hover,.id:hover{background:var(--h)}
+.i{padding:0;width:34px}
+.L{width:320px;background:var(--b1);border-right:1px solid var(--br);display:flex;flex-direction:column;z-index:2}
+.R{flex:1;display:flex;flex-direction:column;min-width:0}
+.H{height:46px;display:flex;align-items:center;padding:0 6px;gap:6px;flex-shrink:0}
+.L .H{background:var(--b1);justify-content:space-between}
+.br{font-weight:800;display:flex;align-items:center;gap:8px}
+.z{flex:1;position:relative;height:34px}
+.s,.c{position:absolute;inset:0;display:flex;align-items:center;background:var(--b3);border-radius:8px;transition:.2s}
+.s{opacity:0;pointer-events:none;transform:scale(.95)}
+.s.v{opacity:1;pointer-events:auto;transform:scale(1)}
+.s input{background:0 0;border:0;color:var(--t1);padding:0 12px;width:100%;height:100%;outline:0;font:inherit}
+.c{padding:0 3px;overflow-x:auto;gap:2px}
+.c.h{opacity:0;pointer-events:none}
+.n{height:28px;padding:0 10px;border-radius:7px;display:flex;align-items:center;color:var(--t2);cursor:pointer;font-size:.9rem;white-space:nowrap}
+.n:hover{background:var(--h);color:var(--t1)}
+.n.a{color:var(--t1);font-weight:700;cursor:default}
+.p{position:fixed;background:var(--b3);border-radius:12px;box-shadow:0 4px 16px #00000066;z-index:9;opacity:0;visibility:hidden;transform:scale(.9);transition:.2s;flex-direction:column;overflow:hidden}
+.p.v{opacity:1;visibility:visible;transform:scale(1)}
+.vl{max-height:60vh;overflow-y:auto;padding:4px}
+.vi{padding:8px 12px;border-radius:6px;cursor:pointer;font-size:.9rem;display:flex;justify-content:space-between}
+.vi.a{color:var(--l);font-weight:800}
+.x{max-width:900px;margin:0 auto;padding:24px;width:100%;overflow-y:auto;flex:1}
+.L .x{padding:16px}
+.g{font:800 .75rem var(--f);color:var(--t2);margin:24px 0 8px 12px;text-transform:uppercase}
+.t{background:var(--b3);border-radius:12px;overflow:hidden}
+.r{display:flex;align-items:center;padding:8px 16px;cursor:pointer;min-height:44px;transition:.1s}
+.rd{width:24px;height:24px;display:flex;justify-content:center;align-items:center;color:var(--t2);font-size:.7rem;transition:.2s;flex-shrink:0}
+.rd.r{transform:rotate(90deg);color:var(--t1)}
+.rl{flex:1;font-weight:600;font-size:.95rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.su{display:none;padding-left:16px;border-left:1px solid var(--br)}
+.su.o{display:block}
+.cg{display:flex;flex-wrap:wrap;gap:8px}
+.ch{background:#454549;color:var(--l);padding:4px 12px;border-radius:99px;font-size:.85rem;font-weight:700;cursor:pointer}
+.ch:hover{opacity:.8}
+.md{padding:16px;background:var(--br);border-radius:12px;line-height:1.6;font-size:.95rem;color:var(--t2);display:flex;flex-direction:column;gap:12px}
+.md *{margin:0}
+.md code{background:#0000004d;padding:2px 5px;border-radius:4px;font-family:var(--m)}
+.md pre{background:#111;padding:12px;border-radius:8px;overflow-x:auto}
+.id{padding:12px;background:var(--br);border-radius:8px;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--l);font-family:var(--m);font-size:.85rem;margin:0;transition:.2s;border:1px solid #0000}
+.id:hover{color:var(--t1);border-color:var(--h)}
+.id:active{transform:scale(.99);border-color:var(--l)}
+.M{position:fixed;inset:0;background:#00000099;backdrop-filter:blur(5px);z-index:100;display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:.2s}
+.M.v{opacity:1;pointer-events:auto}
+.W{width:500px;max-width:90vw;max-height:85vh;background:var(--b1);border-radius:14px;display:flex;flex-direction:column;box-shadow:0 0 0 1px var(--br);transform:translateY(20px);transition:.2s}
+.M.v .W{transform:translateY(0)}
+.wh{padding:12px;display:flex;justify-content:space-between;border-bottom:1px solid var(--br);font-weight:700}
+.wc{padding:24px;overflow-y:auto}
+.S{width:24px;height:24px;border:3px solid var(--br);border-top-color:var(--a);border-radius:50%;animation:s 1s linear infinite;margin:20px auto}
+@keyframes s{to{transform:rotate(360deg)}}
+.T{position:fixed;bottom:30px;left:50%;transform:translate(-50%,20px);background:var(--b3);padding:10px 24px;border-radius:24px;opacity:0;transition:.3s;pointer-events:none;font-weight:700;box-shadow:0 4px 12px #0000004d}
+.T.v{transform:translate(-50%,0);opacity:1}
+.va{font-size:.5em;margin-left:6px;opacity:.7}
+</style>
+</head>
+<body>
+<div class="L">
+ <div class="H">
+  <button class="b i" onclick="tSch()"><svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg></button>
+  <div class="br"><svg width="16" height="16" viewBox="0 0 16 16" fill="var(--t1)"><path fill-rule="evenodd" clip-rule="evenodd" d="M12.5 7C10.567 7 9 5.433 9 3.5C9 1.567 10.567 0 12.5 0C14.433 0 16 1.567 16 3.5C16 5.433 14.433 7 12.5 7ZM12.5 1.5C13.6046 1.5 14.5 2.39543 14.5 3.5C14.5 4.60457 13.6046 5.5 12.5 5.5C11.3954 5.5 10.5 4.60457 10.5 3.5C10.5 2.39543 11.3954 1.5 12.5 1.5Z"/><path fill-rule="evenodd" clip-rule="evenodd" d="M12.5 16C10.567 16 9 14.433 9 12.5C9 10.567 10.567 9 12.5 9C14.433 9 16 10.567 16 12.5C16 14.433 14.433 16 12.5 16ZM12.5 10.5C13.6046 10.5 14.5 11.3954 14.5 12.5C14.5 13.6046 13.6046 14.5 12.5 14.5C11.3954 14.5 10.5 13.6046 10.5 12.5C10.5 11.3954 11.3954 10.5 12.5 10.5Z"/><path fill-rule="evenodd" clip-rule="evenodd" d="M3.5 11.5C1.567 11.5 0 9.933 0 8C0 6.067 1.567 4.5 3.5 4.5C5.433 4.5 7 6.067 7 8C7 9.933 5.433 11.5 3.5 11.5ZM3.5 6C4.60457 6 5.5 6.89543 5.5 8C5.5 9.10457 4.60457 10 3.5 10C2.39543 10 1.5 9.10457 1.5 8C1.5 6.89543 2.39543 6 3.5 6Z"/></svg>ZenPkgs</div>
+  <button class="b i" id="mB" onclick="tMenu()"><svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button>
+ </div>
+ <div class="x" id="sb"></div>
+</div>
+<div class="R">
+ <div class="H">
+  <div class="z">
+   <div class="c" id="c"></div>
+   <div class="s" id="bx"><input type="text" id="si" placeholder="Search..."></div>
+  </div>
+  <button class="b" id="vB" onclick="tVer()"><span id="cv">Latest</span><span class="va">▼</span></button>
+ </div>
+ <div class="x" id="rt"></div>
+</div>
+<div id="vP" class="p" style="right:12px;top:50px;width:240px"><div id="vL" class="vl"></div></div>
+<div id="mP" class="p" style="left:240px;top:50px;width:150px"><div class="vi" onclick="mod('ab')">About</div></div>
+<div id="hP" class="p" style="padding:12px;min-width:200px"><div id="hC"></div></div>
+<div id="ab" class="M">
+ <div class="W">
+  <div class="wh"><span>About</span><button class="b i" onclick="mod('ab',0)">✕</button></div>
+  <div class="wc" style="text-align:center">
+   <h2>ZenPkgs Browser</h2><span class="ch">v1.0 - JSON Edition</span>
+   <div style="margin-top:20px;display:flex;flex-direction:column;gap:10px">
+    <button class="b" onclick="ldL()">View License</button><a href="https://github.com/zenos-n/zenpkgs" target="_blank" class="b">Registry Source</a>
+   </div>
+   <div id="lic" class="md" style="text-align:left;margin-top:20px;display:none"></div>
+  </div>
+ </div>
+</div>
+<div id="T" class="T">Copied</div>
+<script>
+const Cfg={O:"zenos-n",R:"zenpkgs",B:"json"},St={d:null,v:[],sv:null};
+const El=(t,c,i)=>{const e=document.createElement(t);if(c)e.className=c;if(i)e.innerHTML=i;return e};
+const Id=i=>document.getElementById(i);
+async function init(){
+ try{
+  Id('rt').innerHTML='<div class="S"></div>';
+  const m=await(await fetch(`https://raw.githubusercontent.com/${Cfg.O}/${Cfg.R}/${Cfg.B}/latestCommit.json`)).json();
+  try{
+   const x=new DOMParser().parseFromString(await(await fetch(`https://github.com/${Cfg.O}/${Cfg.R}/releases.atom`)).text(),"text/xml");
+   St.v=Array.from(x.querySelectorAll("entry>title")).map(t=>t.textContent.trim());
+  }catch(e){}
+  m.options||m.pkgs?(St.d=m,St.sv="Latest",rend(m)):ldV(m.latest);
+  uVer();uCr('');defSb();
+ }catch(e){Id('rt').innerHTML='Load Error';}
+}
+async function ldV(v){
+ Id('rt').innerHTML='<div class="S"></div>';Id('sb').innerHTML='';
+ try{St.d=await(await fetch(`https://raw.githubusercontent.com/${Cfg.O}/${Cfg.R}/${Cfg.B}/${v}.json`)).json();St.sv=v;rend(St.d);uVer();uCr('')}catch(e){Id('rt').innerText='Err'}
+}
+function uVer(){
+ Id('cv').innerText=St.sv;const c=Id('vL');c.innerHTML='';
+ const lb=El('div','vi '+(St.sv==='Latest'?'a':''),'Latest Commit');lb.onclick=()=>{init();tog('vP')};c.append(lb);
+ const add=(v)=>{const i=El('div','vi '+(St.sv===v?'a':''),v);i.onclick=()=>{ldV(v);tog('vP')};c.append(i)};
+ if(St.v.length)St.v.forEach(v=>add(v));
+}
+function rend(d,q=''){
+ const r=Id('rt');r.innerHTML='';
+ const cats=[{k:'options',l:'Options'},{k:'pkgs',l:'Packages'},{k:'maintainers',l:'Maintainers'}];
+ cats.forEach(c=>{
+  if(!d[c.k])return;
+  if(q&&c.k==='maintainers'){
+     const f={};Object.keys(d[c.k]).forEach(k=>{if(k.toLowerCase().includes(q))f[k]=d[c.k][k]});
+     if(!Object.keys(f).length)return;
+     r.append(El('div','g',c.l));const g=El('div','cg');rM(f,g);r.append(g);return;
+  }
+  if(q && !match(d[c.k],q)) return;
+  r.append(El('div','g',c.l));const box=c.k==='maintainers'?El('div','cg'):El('div','t');
+  c.k==='maintainers'?rM(d[c.k],box):rT(d[c.k],box,'',c.k,q);
+  r.append(box);
+ });
+}
+function rM(l,c){
+ Object.keys(l).sort().forEach(k=>{const p=El('div','ch');p.textContent=l[k].name||k;p.onclick=(e)=>hov(k,l[k],e.target);c.append(p)});
+}
+function match(n,q){return Object.keys(n).some(k=>k.toLowerCase().includes(q)||(n[k].sub&&match(n[k].sub,q)))}
+function rT(n,c,p,t,q){
+ Object.keys(n).sort().forEach(k=>{
+  const node=n[k],cp=p?`${p}.${k}`:k,hs=node.sub&&Object.keys(node.sub).length>0,sm=cp.toLowerCase().includes(q),cm=hs&&match(node.sub,q);
+  if(q&&!sm&&!cm)return;
+  const w=El('div','tw'),row=El('div','r');
+  const ic=El('div',`rd ${hs?'':'l'}`,hs?'▶':'●'),tx=El('div','rl');tx.textContent=k;row.append(ic,tx);
+  let exp=!!q;
+  row.onclick=(e)=>{e.stopPropagation();insp(cp,node.meta,t);uCr(cp,t);if(hs){const sw=w.querySelector('.su'),ic=row.querySelector('.rd');sw.classList.toggle('o');ic.classList.toggle('r',sw.classList.contains('o'))}};
+  if(exp&&hs)row.querySelector('.rd').classList.add('r');
+  w.append(row);if(hs){const ch=El('div','su '+(exp?'o':''));rT(node.sub,ch,cp,t,q);w.append(ch)}c.append(w);
+ });
+}
+function insp(p,m,t){
+ const b=Id('sb');b.innerHTML='';const ib=El('div','id');ib.textContent=p;ib.title=p;ib.onclick=()=>nav.cb(p);const c=El('div','',`<div class="g">ID</div>`);c.append(ib);
+ if(m){
+  if(m.description)c.append(El('div','g','Desc'),El('div','md',m.description));
+  if(m.maintainers){const md=El('div','cg');md.style.padding='0 12px';m.maintainers.forEach(mn=>{const ch=El('div','ch',mn);ch.onclick=(e)=>hov(mn,St.d?.maintainers?.[mn]||{name:mn},e.target);md.append(ch)});c.append(El('div','g','Maint'),md)}
+  if(m.longDescription)c.append(El('div','g','Docs'),El('div','md',marked.parse(m.longDescription)));
+ }
+ b.append(c);
+}
+function uCr(p,t){
+ const c=Id('c');c.innerHTML='';
+ const add=(l,fn,a)=>{const b=El('div','n '+(a?'a':''));b.textContent=l;if(fn)b.onclick=fn;c.append(b);if(!a)c.append(El('span','','›'))};
+ add('root',defSb);
+ if(p){add(t,()=>insp(t,{description:`Root of ${t}`},t));const pts=p.split('.');const pt=[];pts.forEach((x,i)=>{pt.push(x);const cp=pt.join('.');add(x,i<pts.length-1?()=>insp(cp,St.d[t],t):null,i===pts.length-1)})}
+}
+function defSb(){uCr('');Id('sb').innerHTML='<div style="text-align:center;color:var(--t2);padding-top:60px"><h3>ZenPkgs</h3><p>Select an item</p></div>'}
+function tog(i,cls){Id(i).classList.toggle(cls||'v')}
+function tSch(){tog('bx');tog('c','h');if(Id('bx').classList.contains('v'))Id('si').focus()}
+function tMenu(){tog('mP')}
+function tVer(){tog('vP')}
+function mod(i,s=1){Id(i).classList[s?'add':'remove']('v')}
+Id('si').addEventListener('input',e=>{rend(St.d,e.target.value.toLowerCase())});
+function hov(id,d,t){
+ const p=Id('hP'),r=t.getBoundingClientRect();p.innerHTML=`<b>${d.name||id}</b><br><small>${d.role||'MAINTAINER'}</small>`;
+ Object.keys(d).forEach(k=>{if(!['name','role'].includes(k))p.innerHTML+=`<div><small>${k}</small> ${d[k]}</div>`});
+ p.classList.add('v');let tp=r.top-p.offsetHeight-10,lt=r.left+(r.width/2)-(p.offsetWidth/2);
+ if(tp<10)tp=r.bottom+10;if(lt<10)lt=10;p.style.top=tp+'px';p.style.left=lt+'px';
+}
+document.onclick=e=>{if(!e.target.closest('#mB')&&!e.target.closest('#mP'))Id('mP').classList.remove('v');if(!e.target.closest('#vB')&&!e.target.closest('#vP'))Id('vP').classList.remove('v');if(!e.target.closest('#hP')&&!e.target.closest('.ch'))Id('hP').classList.remove('v')};
+window.nav={cb:t=>{navigator.clipboard.writeText(t);tog('T');setTimeout(()=>tog('T'),2e3)}};
+async function ldL(){const l=Id('lic');l.style.display='block';l.innerText='Loading...';try{l.innerHTML=marked.parse(await(await fetch('https://raw.githubusercontent.com/negative-zero-inft/nap-license/master/LICENSE')).text())}catch(e){l.innerText='Error'}}
+init();
+</script>
+</body>
+</html>
