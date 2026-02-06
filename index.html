@@ -8,9 +8,17 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible+Mono:ital,wght@0,200..800;1,200..800&family=Atkinson+Hyperlegible+Next:ital,wght@0,200..800;1,200..800&display=swap" rel="stylesheet">
+    
+    <!-- Dependencies -->
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/localforage@1.10.0/dist/localforage.min.js"></script>
 
     <style>
+        .row-label b {
+    color: var(--accent-bg);
+    text-decoration: underline;
+    font-weight: 800;
+}
         :root {
             /* --- Libadwaita Base Accents --- */
             --accent-blue: #3584e4;
@@ -52,7 +60,8 @@
             --bg-popover: #36363A; 
             --bg-tree: #343437;
             
-            --card-bg: rgba(255, 255, 255, 0.06);
+            --card-opacity: 0.06;
+            --card-bg: rgba(255, 255, 255, var(--card-opacity));
             --text-color: #ffffff;
             --dim-label: rgba(255, 255, 255, 0.55);
             --secondary-label: rgba(255, 255, 255, 0.7);
@@ -71,7 +80,6 @@
             --font-ui: 'Atkinson Hyperlegible Next', sans-serif;
             --font-mono: 'Atkinson Hyperlegible Mono', monospace;
 
-            /* Enables smooth height animation for modern browsers */
             interpolate-size: allow-keywords; 
         }
 
@@ -82,7 +90,7 @@
             --bg-modal: #fafafa;
             --bg-popover: #ffffff;
             --bg-tree: #ffffff;
-            --card-bg: #ffffff;
+            --card-bg: #ffffff; 
             --text-color: rgba(0, 0, 0, 0.8);
             --dim-label: rgba(0, 0, 0, 0.55);
             --secondary-label: rgba(0, 0, 0, 0.7);
@@ -94,6 +102,9 @@
             --window-outline: 0 0 0 1px rgba(0,0,0,0.05);
         }
 
+        /* Transparency Override Handling */
+        [data-theme="light"] { --card-bg: rgba(255,255,255, 1); } 
+        
         * { box-sizing: border-box; }
 
         body {
@@ -104,14 +115,19 @@
             font-family: var(--font-ui);
             overflow: hidden;
             transition: background 0.3s, color 0.3s;
-            /* Added for 3D transforms (rotateX) */
             perspective: 1000px; 
+        }
+
+        body.reduce-motion * {
+            animation-duration: 0.01ms !important;
+            animation-iteration-count: 1 !important;
+            transition-duration: 0.01ms !important;
+            scroll-behavior: auto !important;
         }
 
         a { color: var(--link-color); text-decoration: underline; text-decoration-thickness: 1px; }
         a:hover { text-decoration: none; }
 
-        /* --- BUTTONS --- */
         .adw-button {
             background: transparent; border: none; color: var(--text-color);
             border-radius: 8px; padding: 0 12px; height: 34px;
@@ -120,6 +136,9 @@
             gap: 8px; font-family: inherit; font-weight: 700; font-size: 0.9rem;
             white-space: nowrap;
         }
+        .adw-button.destructive { color: var(--accent-red); }
+        .adw-button.destructive:hover { background-color: rgba(230, 45, 66, 0.1) !important; color: var(--accent-red) !important; }
+
         .adw-button.icon-only { padding: 0; width: 34px; max-width: 34px; }
         .adw-button:hover { background-color: var(--dim-label); color: var(--bg-modal); }
         [data-theme="dark"] .adw-button:hover { background-color: rgba(255,255,255,0.08); color: white; }
@@ -147,13 +166,12 @@
 
         .header-bar { height: 46px; display: flex; align-items: center; padding: 0 6px; }
         .pane-left .header-bar { justify-content: space-between; background-color: var(--bg-header); transition: background 0.3s; }
-        .pane-right .header-bar { background-color: transparent; gap: 6px; /* Updated gap */ }
+        .pane-right .header-bar { background-color: transparent; gap: 6px; }
 
         .header-brand { font-weight: 800; font-size: 1rem; display: flex; align-items: center; gap: 8px; white-space: nowrap; }
         .header-brand svg path { fill: var(--text-color); }
         .header-brand svg g clipPath rect { fill: var(--text-color); }
 
-        /* --- SEARCH & CRUMBS --- */
         .header-bar-center-stack { flex: 1; position: relative; height: 34px; display: flex; align-items: center; }
 
         .search-wrapper {
@@ -174,13 +192,11 @@
             background-color: var(--bg-tree); height: 34px; padding: 0 3px;
             overflow-x: auto; overflow-y: hidden; font-size: 0.9rem; font-weight: 600;
             white-space: nowrap; user-select: none;
-            /* Updated Animation to match search bar */
             transition: opacity 0.3s ease, filter 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94), transform 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
             filter: blur(0); opacity: 1; transform: scale(1);
             scrollbar-width: none; border-radius: 8px; border: 1px solid transparent; 
         }
         [data-theme="light"] .breadcrumbs-wrapper { border-color: var(--border-color); }
-        /* Hidden state for breadcrumbs */
         .breadcrumbs-wrapper.hidden { opacity: 0; visibility: hidden; filter: blur(20px); transform: scale(0.95); }
         
         .crumb-btn {
@@ -190,8 +206,6 @@
         }
         [data-theme="dark"] .crumb-btn:hover { background-color: rgba(255,255,255,0.08); color: var(--text-color); }
         [data-theme="light"] .crumb-btn:hover { background-color: rgba(0,0,0,0.05); color: var(--text-color); }
-        [data-theme="dark"] .crumb-btn:active { background-color: rgba(255,255,255,0.12); }
-        [data-theme="light"] .crumb-btn:active { background-color: rgba(0,0,0,0.1); }
         .crumb-btn.active { color: var(--text-color); font-weight: 700; cursor: default; }
         [data-theme="dark"] .crumb-btn.active { background-color: rgba(255,255,255,0.12); }
         [data-theme="light"] .crumb-btn.active { background-color: rgba(0,0,0,0.08); }
@@ -215,37 +229,24 @@
             display: flex; flex-direction: column;
             z-index: 100; max-height: 70vh;
             overflow: visible; 
-
-            /* --- Updated Animation Logic --- */
             transform-origin: top right;
             opacity: 0;
-            /* Hidden State mimicking window style but dropping down */
             transform: scale(0.7) rotateX(-70deg) translateY(-10px);
-
-            transition: 
-                transform 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94), 
-                opacity 0.2s ease,
-                width 0.35s cubic-bezier(0.25, 0.46, 0.45, 0.94),
-                height 0.35s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+            transition: transform 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94), opacity 0.2s ease;
+            visibility: hidden;
         }
-        #version-dropdown.visible { 
-            visibility: visible; opacity: 1; 
-            transform: scale(1) rotateX(0deg) translateY(0); 
-        }
+        #version-dropdown.visible { visibility: visible; opacity: 1; transform: scale(1) rotateX(0deg) translateY(0); }
 
-        /* Triangle */
         #version-dropdown::before {
             content: ''; position: absolute; top: -10px; right: 24px; 
             border-left: 10px solid transparent; border-right: 10px solid transparent;
             border-bottom: 10px solid var(--bg-popover);
         }
 
-        /* Inner container for content to have radius and bg */
         .popover-inner {
             background-color: var(--bg-popover);
             border-radius: 14px;
             box-shadow: var(--popover-shadow);
-            overflow: hidden;
             display: flex; flex-direction: column;
             width: 100%;
         }
@@ -269,7 +270,7 @@
             position: absolute; top: -10px; background-color: var(--bg-popover);
             padding: 0 8px; color: var(--dim-label); font-size: 0.7rem; font-weight: 800; text-transform: uppercase;
         }
-        .version-footer { padding: 8px; border-top: 1px solid var(--border-color); background-color: var(--bg-popover); border-radius: 0 0 14px 14px !important; }
+        .version-footer { padding: 8px; border-top: 1px solid var(--border-color); }
         
         .refresh-btn {
             width: 100%; border-radius: 8px; height: 34px;
@@ -301,16 +302,13 @@
         }
         [data-theme="dark"] .tree-row:hover { background-color: rgba(255,255,255,0.05); } 
         [data-theme="light"] .tree-row:hover { background-color: rgba(0,0,0,0.03); }
-        [data-theme="dark"] .tree-row:active { background-color: rgba(255,255,255,0.1); }
-        [data-theme="light"] .tree-row:active { background-color: rgba(0,0,0,0.06); }
-        [data-theme="dark"] .tree-row.selected { background-color: rgba(255,255,255,0.1); }
-        [data-theme="light"] .tree-row.selected { background-color: rgba(0,0,0,0.06); }
+        .tree-row.selected { background-color: rgba(255,255,255,0.1); }
+        [data-theme="light"] .tree-row.selected { background-color: rgba(0,0,0,0.08); }
         .row-icon { width: 24px; display: flex; justify-content: center; margin-right: 12px; font-size: 0.7rem; color: var(--secondary-label); transition: transform 0.2s; }
         .row-icon.expanded { transform: rotate(90deg); color: var(--text-color); }
         .row-label { flex: 1; font-weight: 600; font-size: 0.95rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .meta-badge { font-size: 0.65rem; font-weight: 800; background: rgba(255, 85, 85, 0.15); color: #ff5555; padding: 2px 6px; border-radius: 4px; margin-left: 8px; }
         
-        /* Tree Animation */
         .tree-children-wrapper { display: grid; grid-template-rows: 0fr; transition: grid-template-rows 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94); }
         .tree-children-wrapper.open { grid-template-rows: 1fr; }
         .tree-children { overflow: hidden; }
@@ -318,11 +316,10 @@
         /* --- GROUPS / ROWS --- */
         .adw-group {
             background-color: transparent; border-radius: 12px;
-            box-shadow: var(--adw-group-shadow); overflow: hidden; margin-bottom: 24px;
+            box-shadow: var(--adw-group-shadow); overflow: hidden; 
             display: flex; flex-direction: column; gap: 1px; border: 1px solid transparent;
         }
         [data-theme="light"] .adw-group { border-color: var(--border-color); }
-        .adw-group:last-child { margin-bottom: 0; }
         .adw-row {
             padding: 12px 16px; display: flex; align-items: center; justify-content: space-between;
             min-height: 56px; cursor: default; background-color: var(--card-bg); 
@@ -334,22 +331,17 @@
 
         /* --- CHIPS --- */
         .chip-grid { display: flex; flex-wrap: wrap; gap: 8px; padding: 0; } 
-        .chip {
+        .chip, .maintainer-chip {
             background-color: var(--card-bg); border: 1px solid transparent;
             border-radius: 99px; padding: 6px 14px;
             font-size: 0.85rem; font-weight: 700; color: var(--text-color);
-            cursor: pointer; transition: background 0.2s; user-select: none;
+            cursor: pointer; transition: background 0.2s, opacity 0.2s; user-select: none;
         }
         .maintainer-chip {
             background-color: color-mix(in srgb, var(--accent-bg) 15%, var(--bg-modal));
-            color: var(--link-color); padding: 6px 14px; font-size: 0.85rem;
-            border-radius: 99px; cursor: pointer; transition: opacity 0.2s;
-            font-weight: 700; user-select: none; border: 1px solid transparent;
+            color: var(--link-color);
         }
         .maintainer-chip:hover { opacity: 0.8; }
-        [data-theme="light"] .chip { border-color: var(--border-color); background-color: #ffffff; }
-        [data-theme="dark"] .chip:hover { background-color: rgba(255,255,255,0.12); }
-        [data-theme="light"] .chip:hover { background-color: #f0f0f0; }
         .version-chip {
             background-color: color-mix(in srgb, var(--accent-bg) 15%, var(--bg-modal));
             color: var(--link-color); padding: 4px 12px; font-size: 0.8rem;
@@ -362,23 +354,18 @@
             display: flex; flex-direction: column; gap: 14px;
             background-color: var(--card-bg); border-radius: 12px; border: 1px solid transparent;
         }
+        .markdown-body * { margin: 0 !important; }
         [data-theme="light"] .markdown-body { border-color: var(--border-color); }
-        #legal-content.markdown-body { background-color: transparent; border: none; }
-        .markdown-body > * { margin: 0 !important; padding-top: 0 !important; padding-bottom: 0 !important; }
-        .markdown-body h1, .markdown-body h2 { color: var(--text-color); font-size: 1.1rem; }
         .markdown-body code { background: rgba(0,0,0,0.3); padding: 2px 5px; border-radius: 4px; font-family: var(--font-mono); font-size: 0.9em; color: white; }
-        [data-theme="light"] .markdown-body code { background: rgba(0,0,0,0.06); color: #333; }
-        .markdown-body table { display: block; overflow-x: auto; width: 100%; border-collapse: collapse; white-space: nowrap; }
-        .markdown-body th, .markdown-body td { border: 1px solid var(--border-color); padding: 8px; }
-        .markdown-body pre { background: #181818; padding: 12px !important; border-radius: 8px; overflow-x: auto; box-shadow: inset 0 0 0 1px rgba(255,255,255,0.05); color: #e0e0e0; }
-        [data-theme="light"] .markdown-body pre { background: #f4f4f4; box-shadow: inset 0 0 0 1px rgba(0,0,0,0.05); color: #333; }
+        .markdown-body pre { background: #181818; padding: 12px !important; border-radius: 8px; overflow-x: auto; color: #e0e0e0; }
+        /* Fix for legal content needing no background */
+        #legal-content.markdown-body { background-color: transparent; border: none; }
 
-        /* --- MODALS (GLIDE ANIMATION) --- */
+        /* --- MODALS --- */
         .overlay-backdrop {
             position: fixed; inset: 0; background: rgba(0,0,0,0.6);
             backdrop-filter: blur(8px); z-index: 100;
             display: flex; align-items: center; justify-content: center;
-            /* State Transitions */
             visibility: hidden; opacity: 0; pointer-events: none;
             transition: opacity 0.2s ease, visibility 0.2s ease;
         }
@@ -389,35 +376,30 @@
             background-color: var(--bg-modal);
             box-shadow: var(--window-outline); border-radius: 14px; 
             display: flex; flex-direction: column; overflow: hidden; 
-            
-            /* UPDATED ANIMATION LOGIC */
             transform: scale(0.7) rotateX(-70deg) translateY(30px); opacity: 0;
-            transition: 
-                transform 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94), 
-                opacity 0.2s ease,
-                width 0.35s cubic-bezier(0.25, 0.46, 0.45, 0.94),
-                height 0.35s cubic-bezier(0.25, 0.46, 0.45, 0.94) !important;
+            transition: transform 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94), 
+                        opacity 0.2s ease,
+                        width 0.35s cubic-bezier(0.25, 0.46, 0.45, 0.94),
+                        height 0.35s cubic-bezier(0.25, 0.46, 0.45, 0.94) !important;
         }
-        .overlay-backdrop.visible .adw-window {
-            /* Glide State: Visible */
-            transform: scale(1) rotateX(0deg) translateY(0); opacity: 1;
-        }
-        .adw-window.wide { width: 950px; }
+        .overlay-backdrop.visible .adw-window { transform: scale(1) rotateX(0deg) translateY(0); opacity: 1; }
+        .adw-window.wide { width: 950px; } /* From index.html */
 
         .dialog-header { min-height: 48px; display: grid; grid-template-columns: 36px 1fr 36px; align-items: center; padding: 0 0 0 6px; font-weight: 800; background-color: transparent; color: var(--text-color); }
         .dialog-header span { text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .window-content { padding: 0; overflow: hidden; flex: 1; display: flex; flex-direction: column; }
-        .window-body { padding: 24px; overflow-y: auto; height: calc(85vh - 46px); }
+        .window-body { padding: 24px; overflow-y: auto; flex: 1; }
+        
+        .window-content { padding: 0; overflow: hidden; flex: 1; display: flex; flex-direction: column; } /* From index.html */
 
-        /* About Pages Animation */
+        /* About Pages Stack */
         .about-stack-container { 
             display: grid; grid-template-areas: "stack"; 
             width: 100%; position: relative;
-            overflow: hidden; /* Container clips, doesn't scroll */
+            overflow: hidden; 
             flex: 1; min-height: 0;
-            padding: 0; /* No padding on container */
+            padding: 0;
         }
-
+        
         .stack-page {
             grid-area: stack;
             transition: transform 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94), opacity 0.3s ease;
@@ -440,7 +422,7 @@
             overflow-y: auto; /* Self scrolling */
         }
 
-        /* Exit States (Keep visible during anim, but remove from flow via absolute) */
+        /* Exit States */
         .stack-page.exit-left, .stack-page.exit-right {
             position: absolute; top: 0; left: 0;
             height: auto; padding: 24px; 
@@ -454,54 +436,40 @@
         .stack-page.off-right { transform: translateX(100%); }
         .stack-page.off-left { transform: translateX(-100%); }
 
-
-        /* --- POPOVERS (GLIDE ANIMATION) --- */
+        /* --- POPOVERS --- */
         .common-popover {
             position: fixed; display: flex; flex-direction: column; z-index: 150;
-            /* Hidden State */
             visibility: hidden; opacity: 0; 
-            /* Use a variable for start state so JS can inject directionality */
             transform: var(--pop-start, scale(0.9));
             transition: all 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-            overflow: visible;
         }
         .common-popover.visible { visibility: visible; opacity: 1; transform: scale(1) translate(0, 0); }
-        
-        /* Specific Popover Styles */
-        #menu-popover { width: 220px; padding:6px; }
+        #maintainer-popup { z-index: 200; width: 240px; }
+        #menu-popover { width: 220px; padding: 6px; --pop-start: translateY(-10px) scale(0.9); }
+
         #menu-popover::before {
-            content: ''; position: absolute; top: -10px; left: 100px; 
+            content: ''; position: absolute; top: -10px; left: 100px;
             border-left: 10px solid transparent; border-right: 10px solid transparent;
             border-bottom: 10px solid var(--bg-popover);
         }
         
-        #maintainer-popup { z-index: 200; min-width: 240px; max-width: fit-content; }
-        
-        .popup-arrow {
-            position: absolute; width: 0; height: 0;
-            border-left: 10px solid transparent; border-right: 10px solid transparent;
-            left: 50%; transform: translateX(-50%);
-        }
+        .popup-arrow { position: absolute; width: 0; height: 0; border-left: 10px solid transparent; border-right: 10px solid transparent; left: 50%; transform: translateX(-50%); }
         .arrow-up { border-bottom: 10px solid var(--bg-popover); top: -10px; }
         .arrow-down { border-top: 10px solid var(--bg-popover); bottom: -10px; }
 
         .menu-item { padding: 10px 12px; border-radius: 6px; cursor: pointer; font-weight: 700; font-size: 0.9rem; }
         [data-theme="dark"] .menu-item:hover { background-color: rgba(255,255,255,0.08); }
         [data-theme="light"] .menu-item:hover { background-color: rgba(0,0,0,0.05); }
-
-        .mp-content { display: flex; flex-direction: column; gap: 12px; }
-        .maintainer-label { font-size: 0.65rem; font-weight: 800; color: var(--secondary-label); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 2px;}
+        
+        /* Maintainer specifics from index.html */
+        .maintainer-label { font-size: 0.65rem; font-weight: 800; color: var(--secondary-label); text-transform: uppercase; letter-spacing: 0.5px; }
         .maintainer-value { font-family: var(--font-mono); font-size: 0.85rem; color: var(--text-color); }
 
         /* Accent Picker */
         .accent-picker { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
-        .accent-option { display: block; cursor: pointer; } 
+        .accent-circle { width: 24px; height: 24px; border-radius: 50%; background: var(--color); display: block; position: relative; transition: transform 0.2s; cursor: pointer; }
         .accent-option input { display: none; }
-        .accent-circle {
-            width: 24px; height: 24px; border-radius: 50%; background: var(--color);
-            display: block; position: relative; box-sizing: border-box; transition: transform 0.2s;
-        }
-        .accent-option input:checked + .accent-circle { background: transparent; box-shadow: inset 0 0 0 2px var(--color); transform: scale(1.1); }
+        .accent-option input:checked + .accent-circle { box-shadow: inset 0 0 0 2px var(--color); transform: scale(1.1); background: transparent; }
         .accent-option input:checked + .accent-circle::after { content: ''; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 12px; height: 12px; border-radius: 50%; background: var(--color); }
 
         /* Loading */
@@ -509,31 +477,44 @@
         .spinner { width: 32px; height: 32px; border: 3px solid var(--border-color); border-top-color: var(--accent-bg); border-radius: 50%; animation: spin 1s linear infinite; margin-bottom: 16px; }
         @keyframes spin { to { transform: rotate(360deg); } }
 
-        .copy-btn {
-            background-color: rgba(255,255,255,0.1); padding: 4px 10px; border-radius: 6px;
-            font-size: 0.7rem; font-weight: 700; cursor: pointer; color: var(--text-color);
-        }
-        [data-theme="light"] .copy-btn { background-color: rgba(0,0,0,0.1); }
-        .copy-btn:hover { opacity: 0.8; }
-
-        #toast {
-            position: fixed; bottom: 40px; left: 50%; transform: translateX(-50%) translateY(20px);
-            background-color: #36363a; color: white; padding: 10px 24px; border-radius: 24px;
-            font-weight: 700; box-shadow: var(--popover-shadow); opacity: 0; transition: all 0.3s; pointer-events: none; z-index: 1000;
-        }
+        .copy-btn { background-color: rgba(255,255,255,0.1); padding: 4px 10px; border-radius: 6px; font-size: 0.7rem; font-weight: 700; cursor: pointer; color: var(--text-color); }
+        #toast { position: fixed; bottom: 40px; left: 50%; transform: translateX(-50%) translateY(20px); background-color: #36363a; color: white; padding: 10px 24px; border-radius: 24px; font-weight: 700; opacity: 0; transition: all 0.3s; pointer-events: none; z-index: 1000; }
         #toast.visible { transform: translateX(-50%) translateY(0); opacity: 1; }
 
-        .adw-switch-row { cursor: pointer; }
         .switch-toggle { width: 44px; height: 24px; background-color: rgba(120,120,120,0.3); border-radius: 24px; position: relative; transition: background 0.2s; }
         .switch-toggle::after { content: ''; position: absolute; left: 2px; top: 2px; width: 20px; height: 20px; background-color: white; border-radius: 50%; transition: transform 0.2s; box-shadow: 0 1px 3px rgba(0,0,0,0.3); }
+        .adw-switch-row { cursor: pointer; }
         .adw-switch-row.active .switch-toggle { background-color: var(--accent-bg); }
         .adw-switch-row.active .switch-toggle::after { transform: translateX(20px); }
+
+        /* Range Slider */
+        .adw-range { -webkit-appearance: none; width: 100%; height: 6px; border-radius: 3px; background: rgba(120,120,120,0.3); outline: none; }
+        .adw-range::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 20px; height: 20px; border-radius: 50%; background: var(--accent-bg); cursor: pointer; border: 2px solid var(--bg-modal); box-shadow: 0 1px 3px rgba(0,0,0,0.3); }
+        
+        /* Input Field */
+        .adw-input { width: 100%; background: rgba(0,0,0,0.2); border: 1px solid var(--border-color); border-radius: 8px; padding: 8px 12px; color: var(--text-color); font-family: inherit; font-size: 0.9rem; outline: none; transition: border 0.2s; }
+        .adw-input:focus { border-color: var(--accent-bg); }
+        [data-theme="light"] .adw-input { background: rgba(0,0,0,0.05); }
+
+        /* Keybind specific */
+        .keybind-input { width: 80px; text-align: center; font-family: var(--font-mono); text-transform: lowercase; }
+        
+        /* Dropdown */
+        .adw-select { 
+            background: rgba(0,0,0,0.2); border: 1px solid var(--border-color); 
+            border-radius: 8px; padding: 8px 12px; color: var(--text-color); 
+            font-family: inherit; font-size: 0.9rem; outline: none; cursor: pointer;
+        }
+        .adw-select option { background-color: var(--bg-modal); color: var(--text-color); }
+
+        /* Keybind Table */
+        .kb-key { font-family: var(--font-mono); background: rgba(255,255,255,0.1); padding: 2px 6px; border-radius: 4px; font-size: 0.85rem; }
+        [data-theme="light"] .kb-key { background: rgba(0,0,0,0.08); color: #333; }
 
     </style>
 </head>
 <body>
 
-    <!-- LEFT SIDEBAR -->
     <div class="pane-left">
         <div class="header-bar">
             <button class="adw-button icon-only" onclick="toggleSearch()" title="Search">
@@ -546,7 +527,7 @@
                 <span>ZenPkgs</span>
             </div>
             <button class="adw-button icon-only" id="menu-btn" onclick="toggleMenu()">
-                <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16"/></svg>
+                <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
             </button>
         </div>
         <div class="sidebar-content" id="sidebar-body">
@@ -556,11 +537,11 @@
                 </div>
                 <div style="font-weight: 700; margin-bottom: 8px;">ZenPkgs Explorer</div>
                 <div style="font-size: 0.9rem;">Select an option to view details.</div>
+                <div style="font-size: 0.75rem; margin-top: 24px; color: var(--secondary-label)"><code>/</code> to search<br><code>hjkl</code> to navigate</div>
             </div>
         </div>
     </div>
 
-    <!-- RIGHT MAIN PANE -->
     <div class="pane-right">
         <div class="header-bar">
             <div class="header-bar-center-stack">
@@ -574,7 +555,6 @@
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M7 10l5 5 5-5z"/></svg>
             </button>
             <div id="version-dropdown">
-                <!-- Inner Wrapper for Clip + Radius -->
                 <div class="popover-inner">
                     <div class="version-list" id="version-list-container"></div>
                     <div class="version-footer">
@@ -597,9 +577,10 @@
         </div>
     </div>
 
-    <!-- MENU POPOVER -->
+    <!-- POPOVERS & MODALS -->
     <div id="menu-popover" class="popover-inner common-popover">
-        <div class="menu-item" onclick="openModal('settings')">Settings</div>
+        <div class="menu-item" onclick="openModal('settings')">Settings <span style="opacity:0.5; font-size:0.8em; margin-left:8px">Ctrl+.</span></div>
+        <div class="menu-item" onclick="openModal('keybinds')">Keybinds <span style="opacity:0.5; font-size:0.8em; margin-left:8px">Ctrl+/</span></div>
         <div class="menu-item" onclick="openModal('about')">About</div>
     </div>
 
@@ -608,15 +589,15 @@
         <div class="adw-window">
             <div class="dialog-header">
                 <div style="width:24px"></div>
-                <span class="dialog-title">Settings</span>
+                <span>Settings</span>
                 <button class="window-close-button" onclick="closeModal('settings')">
-                    <svg width="8" height="8" viewBox="0 0 8 8" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M2.5 4L0 1.5V0H1.5L4 2.5L6.5 0H8V1.5L5.5 4L8 6.5V8H6.5L4 5.5L1.5 8H0V6.5L2.5 4Z" fill="currentColor"/></svg>
+                    <svg width="8" height="8" viewBox="0 0 8 8" fill="none"><path d="M2.5 4L0 1.5V0H1.5L4 2.5L6.5 0H8V1.5L5.5 4L8 6.5V8H6.5L4 5.5L1.5 8H0V6.5L2.5 4Z" fill="currentColor"/></svg>
                 </button>
             </div>
-            <div class="window-content window-body">
+            <div class="window-body">
                 <div class="adw-group-title">Appearance</div>
                 <div class="adw-group">
-                    <div class="adw-row" style="cursor: default;">
+                    <div class="adw-row">
                         <span style="font-weight: 700;">Accent Color</span>
                         <div class="accent-picker">
                             <label class="accent-option"><input type="radio" name="accent" value="blue"><span class="accent-circle" style="--color: var(--accent-blue)"></span></label>
@@ -634,12 +615,98 @@
                         <span style="font-weight: 700;">Dark Mode</span>
                         <div class="switch-toggle"></div>
                     </div>
+                    <div class="adw-row adw-switch-row" onclick="toggleReducedMotion()" id="motion-row">
+                        <span style="font-weight: 700;">Reduced Motion</span>
+                        <div class="switch-toggle"></div>
+                    </div>
+                    <div class="adw-row" style="flex-direction: column; align-items: flex-start; gap: 8px;">
+                        <span style="font-weight: 700;">Transparency</span>
+                        <input type="range" class="adw-range" min="0" max="1" step="0.05" id="transparency-slider" oninput="updateTransparency(this.value)">
+                    </div>
+                </div>
+
+                <div class="adw-group-title">Keybinds</div>
+                <div class="adw-group">
+                    <div class="adw-row">
+                        <span style="font-weight:700">Preset</span>
+                        <select class="adw-select" id="kb-preset" onchange="applyKbPreset(this.value)">
+                            <option value="standard">Standard (Arrows)</option>
+                            <option value="vim">Vim-like (hjkl)</option>
+                            <option value="emacs">Emacs-like (pnbf)</option>
+                        </select>
+                    </div>
+                    <div class="adw-row" style="flex-direction: column; align-items: flex-start; gap: 8px;">
+                        <span style="font-weight: 700;">Combo Timeout (ms)</span>
+                        <input type="range" class="adw-range" min="100" max="2000" step="50" id="combo-timeout-slider" oninput="updateComboTimeout(this.value)">
+                        <span style="font-size: 0.75rem; color: var(--dim-label)" id="combo-timeout-val">500ms</span>
+                    </div>
+                    <div class="adw-row"><span>Search</span><input type="text" class="adw-input keybind-input" data-bind="search" readonly></div>
+                    <div class="adw-row"><span>Up</span><input type="text" class="adw-input keybind-input" data-bind="up" readonly></div>
+                    <div class="adw-row"><span>Down</span><input type="text" class="adw-input keybind-input" data-bind="down" readonly></div>
+                    <div class="adw-row"><span>Left (Close/Parent)</span><input type="text" class="adw-input keybind-input" data-bind="left" readonly></div>
+                    <div class="adw-row"><span>Right (Open/Child)</span><input type="text" class="adw-input keybind-input" data-bind="right" readonly></div>
+                    <div class="adw-row"><span>Copy ID</span><input type="text" class="adw-input keybind-input" data-bind="copyId" readonly></div>
+                    <div class="adw-row"><span>Copy Desc</span><input type="text" class="adw-input keybind-input" data-bind="copyDesc" readonly></div>
+                    <div class="adw-row"><span>Switch Version</span><input type="text" class="adw-input keybind-input" data-bind="version" readonly></div>
+                    <div class="adw-row"><span>Open Settings</span><input type="text" class="adw-input keybind-input" data-bind="settings" readonly></div>
+                    <div class="adw-row"><span>Open About</span><input type="text" class="adw-input keybind-input" data-bind="about" readonly></div>
+                    <div class="adw-row"><span>Go Top</span><input type="text" class="adw-input keybind-input" data-bind="top" readonly></div>
+                    <div class="adw-row"><span>Go Bottom</span><input type="text" class="adw-input keybind-input" data-bind="bottom" readonly></div>
+                    <div class="adw-row"><span>Next Match</span><input type="text" class="adw-input keybind-input" data-bind="nextMatch" readonly></div>
+                    <div class="adw-row"><span>Previous Match</span><input type="text" class="adw-input keybind-input" data-bind="prevMatch" readonly></div>
+                </div>
+
+                <div class="adw-group-title">Connectivity</div>
+                <div class="adw-group">
+                    <div class="adw-row" style="flex-direction: column; align-items: flex-start; gap: 8px;">
+                        <span style="font-weight: 700;">GitHub Token</span>
+                        <input type="password" class="adw-input" id="gh-token-input" placeholder="ghp_..." onchange="saveSettings()">
+                        <span style="font-size: 0.75rem; color: var(--dim-label);">Used to increase API rate limits.</span>
+                    </div>
+                </div>
+                
+                <div class="adw-group-title">Productivity</div>
+                 <div class="adw-group">
+                    <div class="adw-row adw-switch-row" onclick="toggleSnippets()" id="snippet-row">
+                        <div style="display: flex; flex-direction: column; gap: 4px;">
+                            <span style="font-weight: 700;">Nix Code Snippets</span>
+                            <span style="font-size: 0.75rem; color: var(--dim-label);">Show copy-paste config in inspector.</span>
+                        </div>
+                        <div class="switch-toggle"></div>
+                    </div>
+                 </div>
+
+                <div class="adw-group-title">Cache</div>
+                <div class="adw-group">
+                    <div class="adw-row">
+                        <div style="display: flex; flex-direction: column; gap: 4px;">
+                            <span style="font-weight: 700;">Registry Data</span>
+                            <span style="font-size: 0.75rem; color: var(--dim-label);"><span id="cache-stats">Calculating...</span></span>
+                        </div>
+                        <button class="adw-button destructive" onclick="clearDataCache()">Clear Cache</button>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- ABOUT MODAL -->
+    <!-- KEYBINDS VIEW MODAL -->
+    <div class="overlay-backdrop" id="modal-keybinds">
+        <div class="adw-window" style="width:400px">
+            <div class="dialog-header">
+                <div style="width:24px"></div>
+                <span>Keyboard Shortcuts</span>
+                <button class="window-close-button" onclick="closeModal('keybinds')">
+                    <svg width="8" height="8" viewBox="0 0 8 8" fill="none"><path d="M2.5 4L0 1.5V0H1.5L4 2.5L6.5 0H8V1.5L5.5 4L8 6.5V8H6.5L4 5.5L1.5 8H0V6.5L2.5 4Z" fill="currentColor"/></svg>
+                </button>
+            </div>
+            <div class="window-body" id="kb-view-content">
+                <!-- Dynamically populated -->
+            </div>
+        </div>
+    </div>
+
+    <!-- ABOUT MODAL (From index.html) -->
     <div class="overlay-backdrop" id="modal-about">
         <div class="adw-window" id="about-window" style="max-width: 400px; text-align: center;">
             <div class="dialog-header">
@@ -730,440 +797,272 @@
         </div>
     </div>
 
-    <!-- MAINTAINER POPOVER -->
-    <div id="maintainer-popup" class="popover-inner common-popover">
-        <div class="popup-arrow" id="mp-arrow"></div>
-        <div class="mp-content" id="mp-content" style="padding: 16px;"></div>
-    </div>
-
-    <!-- Popups -->
+    <div id="maintainer-popup" class="popover-inner common-popover"><div class="popup-arrow" id="mp-arrow"></div><div id="mp-content" style="padding: 16px; gap: 10px; display: flex;flex-direction: column;"></div></div>
     <div id="toast">Copied to Clipboard</div>
 
     <script>
+        window.cycleSearchMatches = (direction = 1) => {
+            const query = document.getElementById('search-input').value;
+            if (!query) return;
+
+            const matches = Array.from(document.querySelectorAll('.tree-root .tree-row')).filter(row => 
+                row.querySelector('.row-label b')
+            );
+
+            if (matches.length === 0) return;
+
+            // Calculate new index with wrap-around logic
+            if (state.searchMatchIndex === -1 && direction === -1) {
+                state.searchMatchIndex = matches.length - 1;
+            } else {
+                state.searchMatchIndex = (state.searchMatchIndex + direction + matches.length) % matches.length;
+            }
+
+            const target = matches[state.searchMatchIndex];
+
+            selectNode(
+                target, 
+                target.dataset.path, 
+                null, 
+                target.dataset.type, 
+                target.parentElement, 
+                target.dataset.hasSub === 'true'
+            );
+            
+            showToast(`Match ${state.searchMatchIndex + 1} of ${matches.length}`);
+        };
+        // Helper to escape risky HTML symbols
+const escapeHTML = (str) => {
+    if (!str) return "";
+    return str.toString()
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+};
         const CONFIG = { OWNER: "zenos-n", REPO: "zenpkgs", BRANCH: "json" };
         const state = { 
-            data: null, 
-            versions: [], 
-            selectedVersion: null,
-            theme: 'dark',
-            accent: 'purple'
+            searchMatchIndex: -1,
+            data: null, versions: [], selectedVersion: null,
+            theme: 'dark', accent: 'purple', reducedMotion: false,
+            transparency: 0.06, ghToken: '', showSnippets: false,
+            focusedRow: null, comboTimeout: 500,
+            keybinds: { 
+                search: 'Ctrl+f', up: 'ArrowUp', down: 'ArrowDown', left: 'ArrowLeft', right: 'ArrowRight', 
+                copyId: 'Ctrl+c', copyDesc: 'Ctrl+Shift+c', version: 'Ctrl+,', settings: 'Ctrl+.', 
+                about: 'Ctrl+Shift+a', top: 'g g', bottom: 'Shift+g', nextMatch: 'Ctrl+g', prevMatch: 'Ctrl+Shift+g'
+            }
         };
 
-        // --- Theme & Accent Logic ---
-        function updateStyles() {
-            const colorMap = {
-                blue: 'var(--accent-blue)', teal: 'var(--accent-teal)', green: 'var(--accent-green)',
-                yellow: 'var(--accent-yellow)', orange: 'var(--accent-orange)', red: 'var(--accent-red)',
-                pink: 'var(--accent-pink)', purple: 'var(--accent-purple)', slate: 'var(--accent-slate)'
-            };
-            document.documentElement.style.setProperty('--accent-bg', colorMap[state.accent]);
-            const mode = state.theme === 'light' ? 'light' : 'dark';
-            const linkVar = `var(--accent-link-${state.accent}-${mode})`;
-            document.documentElement.style.setProperty('--link-color', linkVar);
-        }
+        const settingsStore = localforage.createInstance({ name: "settings" });
+        const dataStore = localforage.createInstance({ name: "registry_cache" });
 
-        document.querySelectorAll('input[name="accent"]').forEach(radio => {
-            radio.addEventListener('change', (e) => {
-                state.accent = e.target.value;
-                updateStyles();
-            });
-        });
+        // --- GLOBAL EXPORTS ---
+        window.toggleSearch = () => { 
+    const s = document.getElementById('search-bar');
+    const b = document.getElementById('breadcrumbs');
+    const input = document.getElementById('search-input');
+    const v = s.classList.toggle('visible');
+    
+    b.classList.toggle('hidden', v);
+    
+    if(v) {
+        input.focus();
+    } else {
+        input.value = '';
+        input.blur();
+        renderRegistry(state.data);
+    }
+};
 
-        function toggleTheme() {
-            state.theme = state.theme === 'dark' ? 'light' : 'dark';
-            document.documentElement.setAttribute('data-theme', state.theme);
-            const row = document.getElementById('theme-row');
-            if(state.theme === 'dark') { row.classList.add('active'); } else { row.classList.remove('active'); }
-            updateStyles();
-        }
-
-        document.getElementById('theme-row').classList.add('active'); 
-        updateStyles();
-
-        // --- Core Logic ---
-        async function init() {
-            try {
-                const metaRes = await fetch(`https://raw.githubusercontent.com/${CONFIG.OWNER}/${CONFIG.REPO}/${CONFIG.BRANCH}/latestCommit.json`);
-                let meta;
-                try { meta = await metaRes.json(); } 
-                catch(e) {
-                    console.error("JSON Parse Error:", e);
-                    document.getElementById('loader').innerHTML = `
-                        <div style="color:var(--accent-red)">Metadata Error</div>
-                        <div style="font-size:0.8rem">Invalid JSON response</div>
-                    `;
-                    return;
-                }
-
-                try {
-                    const atomRes = await fetch(`https://github.com/${CONFIG.OWNER}/${CONFIG.REPO}/releases.atom`);
-                    const xml = new DOMParser().parseFromString(await atomRes.text(), "text/xml");
-                    state.versions = Array.from(xml.querySelectorAll("entry > title")).map(t => t.textContent.trim());
-                } catch(e) {}
-
-                if (meta.options || meta.pkgs) {
-                    state.data = meta;
-                    state.selectedVersion = "Latest Commit";
-                    renderRegistry(meta);
-                } else {
-                    loadVersion(meta.latest);
-                }
-                
-                updateVersionUI();
-                updateBreadcrumbs('');
-            } catch (e) {
-                const l = document.getElementById('loader');
-                if (l) l.innerHTML = `Error: ${e.message}`;
-            }
-        }
-
-        async function loadVersion(v) {
-            const loader = document.getElementById('loader');
-            const root = document.getElementById('registry-root');
-            root.style.display = 'none';
-            loader.style.display = 'flex';
-            loader.innerHTML = '<div class="spinner"></div><div>Fetching Registry...</div>';
-            
-            try {
-                const url = `https://raw.githubusercontent.com/${CONFIG.OWNER}/${CONFIG.REPO}/${CONFIG.BRANCH}/${v}.json`;
-                const res = await fetch(url);
-                state.data = await res.json();
-                state.selectedVersion = v;
-                renderRegistry(state.data);
-                updateVersionUI();
-                updateBreadcrumbs('');
-            } catch(e) { 
-                console.error(e); 
-                loader.innerHTML = `<div>Error loading ${v}</div>`;
-            }
-            loader.style.display = 'none';
-            root.style.display = 'block';
-        }
-
-        function updateVersionUI() {
-            document.getElementById('current-version').textContent = state.selectedVersion || "Latest Commit";
-            const container = document.getElementById('version-list-container');
-            container.innerHTML = '';
-            
-            const addOption = (v, label) => {
-                const item = document.createElement('div');
-                item.className = 'version-item ' + (state.selectedVersion === v ? 'active' : '');
-                item.textContent = label;
-                item.onclick = () => {
-                    loadVersion(v);
-                    document.getElementById('version-dropdown').classList.remove('visible');
-                };
-                container.appendChild(item);
-            };
-
-            addOption("latestCommit", "Latest Commit");
-            if (state.versions.length > 0) {
-                const sep = document.createElement('div');
-                sep.className = 'version-separator';
-                sep.innerHTML = '<span>RELEASES</span>';
-                container.appendChild(sep);
-                state.versions.forEach(v => addOption(v, v));
-            }
-        }
-
-        function toggleVersionDropdown() {
-            const dd = document.getElementById('version-dropdown');
-            dd.classList.toggle('visible');
-        }
-
-        // --- Rendering ---
-        function renderRegistry(data) {
-            const root = document.getElementById('registry-root');
-            root.innerHTML = '';
-
-            const categories = [
-                { key: 'options', label: 'Nix Options' },
-                { key: 'pkgs', label: 'Packages' },
-                { key: 'maintainers', label: 'Maintainers' }
-            ];
-
-            categories.forEach(cat => {
-                if (!data[cat.key]) return;
-                const title = document.createElement('div');
-                title.className = 'adw-group-title';
-                title.textContent = cat.label;
-                root.appendChild(title);
-
-                const container = document.createElement('div');
-                if (cat.key === 'maintainers') {
-                    container.className = 'chip-grid';
-                    renderMaintainerGrid(data[cat.key], container);
-                } else {
-                    container.className = 'tree-root';
-                    renderRecursiveTree(data[cat.key], container, '', cat.key);
-                }
-                root.appendChild(container);
-            });
-        }
-
-        function renderMaintainerGrid(list, container) {
-            Object.keys(list).sort().forEach(key => {
-                const chip = document.createElement('div');
-                chip.className = 'maintainer-chip'; 
-                const mData = list[key];
-                chip.textContent = mData.name || key; 
-                chip.onclick = (e) => showMaintainerPopup(key, mData, e.currentTarget);
-                container.appendChild(chip);
-            });
-        }
-
-        function renderRecursiveTree(nodes, container, path, type) {
-            Object.keys(nodes).sort().forEach(key => {
-                const node = nodes[key];
-                const currentPath = path ? `${path}.${key}` : key;
-                const hasSub = node.sub && Object.keys(node.sub).length > 0;
-                
-                const wrapper = document.createElement('div');
-                wrapper.className = 'tree-node-wrapper';
-
-                const row = createTreeRow(key, hasSub, !!node.meta);
-                
-                // Closure fix for button clicks (also applies here logically, though not needed for tree)
-                // but crucially needed for breadcrumbs below
-                
-                row.onclick = (e) => {
-                    e.stopPropagation();
-                    openInspector(currentPath, node.meta, type);
-                    updateBreadcrumbs(currentPath, type); 
-                    if (hasSub) {
-                        const childrenWrapper = wrapper.querySelector('.tree-children-wrapper');
-                        const icon = row.querySelector('.row-icon');
-                        childrenWrapper.classList.toggle('open');
-                        icon.classList.toggle('expanded', childrenWrapper.classList.contains('open'));
-                    }
-                };
-
-                wrapper.appendChild(row);
-
-                if (hasSub) {
-                    const animWrapper = document.createElement('div');
-                    animWrapper.className = 'tree-children-wrapper';
-                    
-                    const children = document.createElement('div');
-                    children.className = 'tree-children';
-                    renderRecursiveTree(node.sub, children, currentPath, type);
-                    
-                    animWrapper.appendChild(children);
-                    wrapper.appendChild(animWrapper);
-                }
-                container.appendChild(wrapper);
-            });
-        }
-
-        function createTreeRow(label, isFolder, hasMeta) {
-            const row = document.createElement('div');
-            row.className = 'tree-row';
-            const icon = document.createElement('div');
-            icon.className = 'row-icon ' + (isFolder ? '' : 'leaf');
-            icon.textContent = isFolder ? '▶' : '●';
-            const text = document.createElement('div');
-            text.className = 'row-label';
-            text.textContent = label;
-            row.appendChild(icon);
-            row.appendChild(text);
-
-            if (!hasMeta && !isFolder) { 
-                const badge = document.createElement('div');
-                badge.className = 'meta-badge';
-                badge.textContent = 'NO META';
-                row.appendChild(badge);
-            }
-            return row;
-        }
-
-        // --- Sidebar Inspector ---
-        function openInspector(path, meta, type) {
-            const body = document.getElementById('sidebar-body');
-            document.querySelectorAll('.tree-row.selected').forEach(r => r.classList.remove('selected'));
-            
-            const safePath = document.createElement('div');
-            let displayPath = path;
-            if (path.length > 45) {
-                const parts = path.split('.');
-                if (parts.length > 2) {
-                    displayPath = `${parts[0]}.(...).${parts[parts.length-1]}`;
-                }
-            }
-            safePath.textContent = displayPath;
-            safePath.title = path; 
-            safePath.style.cssText = "font-family:var(--font-mono); font-size:0.85rem; color:var(--text-color); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;";
-
-            const container = document.createElement('div');
-            container.innerHTML = `
-                <div class="adw-group-title" style="margin-top:12px; margin-left:12px;">Identifier</div>
-                <div class="adw-group" style="margin: 0 12px 24px 12px;">
-                    <div class="adw-row">
-                        <div id="inspector-path-target" style="flex:1; min-width:0; margin-right:12px;"></div>
-                        <div class="copy-btn">COPY</div>
-                    </div>
-                </div>
-            `;
-            container.querySelector('#inspector-path-target').appendChild(safePath);
-            container.querySelector('.copy-btn').onclick = () => copyToClipboard(path);
-
-            if (meta) {
-                if (meta.description) {
-                    const descDiv = document.createElement('div');
-                    descDiv.innerHTML = `<div class="adw-group-title" style="margin-left:12px;">Description</div><div class="adw-group" style="margin: 0 12px 24px 12px;"><div class="adw-row" style="cursor:default; padding:16px; color:var(--text-color)">${meta.description}</div></div>`;
-                    container.appendChild(descDiv);
-                }
-                
-                if (meta.maintainers && meta.maintainers.length) {
-                    const maintDiv = document.createElement('div');
-                    maintDiv.innerHTML = `<div class="adw-group-title" style="margin-left:12px;">Maintainers</div><div class="chip-grid" style="padding: 0 12px;"></div>`;
-                    const grid = maintDiv.querySelector('.chip-grid');
-                    meta.maintainers.forEach(m => {
-                        const chip = document.createElement('div');
-                        chip.className = 'maintainer-chip'; 
-                        chip.textContent = m;
-                        chip.onclick = (e) => {
-                            const mData = state.data?.maintainers?.[m] || { name: m };
-                            showMaintainerPopup(m, mData, e.currentTarget);
-                        };
-                        grid.appendChild(chip);
-                    });
-                    container.appendChild(maintDiv);
-                }
-
-                if (meta.longDescription) {
-                    const docDiv = document.createElement('div');
-                    docDiv.innerHTML = `<div class="adw-group-title" style="margin-left:12px;">Documentation</div><div class="markdown-body" style="margin: 0 12px 24px 12px;">${marked.parse(meta.longDescription.trim())}</div>`;
-                    container.appendChild(docDiv);
-                }
-            }
-            body.innerHTML = '';
-            body.appendChild(container);
-        }
-
-        function toggleSearch() {
-            const bar = document.getElementById('search-bar');
-            const crumbs = document.getElementById('breadcrumbs');
-            const input = document.getElementById('search-input');
-            const isVisible = bar.classList.toggle('visible');
-            
-            if (isVisible) {
-                crumbs.classList.add('hidden');
-                input.focus();
-            } else {
-                input.value = '';
-                crumbs.classList.remove('hidden');
-                input.dispatchEvent(new Event('input'));
-            }
-        }
-        
-        document.getElementById('search-input').addEventListener('blur', (e) => {
-            if (!e.target.value) {
-                document.getElementById('search-bar').classList.remove('visible');
-                document.getElementById('breadcrumbs').classList.remove('hidden');
-            }
-        });
-
-        function updateBreadcrumbs(path, type) {
-            const container = document.getElementById('breadcrumbs');
-            container.innerHTML = '';
-            
-            // Root
-            const rootBtn = document.createElement('div');
-            rootBtn.className = 'crumb-btn icon-only';
-            rootBtn.innerHTML = `<svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><g clip-path="url(#clip0_272_121)"><path fill-rule="evenodd" clip-rule="evenodd" d="M12.5 7C10.567 7 9 5.433 9 3.5C9 1.567 10.567 0 12.5 0C14.433 0 16 1.567 16 3.5C16 5.433 14.433 7 12.5 7ZM12.5 1.5C13.6046 1.5 14.5 2.39543 14.5 3.5C14.5 4.60457 13.6046 5.5 12.5 5.5C11.3954 5.5 10.5 4.60457 10.5 3.5C10.5 2.39543 11.3954 1.5 12.5 1.5Z" fill="currentColor"/><path fill-rule="evenodd" clip-rule="evenodd" d="M12.5 16C10.567 16 9 14.433 9 12.5C9 10.567 10.567 9 12.5 9C14.433 9 16 10.567 16 12.5C16 14.433 14.433 16 12.5 16ZM12.5 10.5C13.6046 10.5 14.5 11.3954 14.5 12.5C14.5 13.6046 13.6046 14.5 12.5 14.5C11.3954 14.5 10.5 13.6046 10.5 12.5C10.5 11.3954 11.3954 10.5 12.5 10.5Z" fill="currentColor"/><path fill-rule="evenodd" clip-rule="evenodd" d="M3.5 11.5C1.567 11.5 0 9.933 0 8C0 6.067 1.567 4.5 3.5 4.5C5.433 4.5 7 6.067 7 8C7 9.933 5.433 11.5 3.5 11.5ZM3.5 6C4.60457 6 5.5 6.89543 5.5 8C5.5 9.10457 4.60457 10 3.5 10C2.39543 10 1.5 9.10457 1.5 8C1.5 6.89543 2.39543 6 3.5 6Z" fill="currentColor"/></g><defs><clipPath id="clip0_272_121"><rect width="16" height="16" fill="white"/></clipPath></defs></svg> <span>zenpkgs</span>`;
-            rootBtn.onclick = () => { updateBreadcrumbs('', ''); document.getElementById('sidebar-body').innerHTML = '<div style="padding: 60px 20px; text-align: center; color: var(--dim-label);"><div style="margin-bottom: 16px; opacity: 0.1"><svg width="80" height="80" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg></div><div style="font-weight: 700; margin-bottom: 8px;">ZenPkgs Explorer</div><div style="font-size: 0.9rem;">Select an option to view details.</div></div>'; };
-            container.appendChild(rootBtn);
-
-            if (!path) return;
-
-            // Category Button
-            const catLabel = type === 'options' ? 'options' : (type === 'pkgs' ? 'packages' : type);
-            const sep = document.createElement('span'); sep.className = 'crumb-sep'; sep.textContent = '›';
-            container.appendChild(sep);
-            
-            const catBtn = document.createElement('div');
-            catBtn.className = 'crumb-btn';
-            catBtn.textContent = catLabel;
-            catBtn.onclick = () => { selectByPath('', type); }; // Reset to Category Root
-            container.appendChild(catBtn);
-
-            const parts = path.split('.');
-            let buildPath = '';
-            parts.forEach((part, i) => {
-                const isLast = i === parts.length - 1;
-                buildPath = buildPath ? `${buildPath}.${part}` : part;
-                
-                // Closure fix: capture buildPath state for this button
-                const clickTarget = buildPath; 
-
-                const s = document.createElement('span'); s.className = 'crumb-sep'; s.textContent = '›';
-                container.appendChild(s);
-                
-                const crumb = document.createElement('div');
-                crumb.className = 'crumb-btn' + (isLast ? ' active' : '');
-                crumb.textContent = part;
-                if (!isLast) crumb.onclick = () => selectByPath(clickTarget, type);
-                container.appendChild(crumb);
-            });
-            container.scrollLeft = container.scrollWidth;
-        }
-
-        function selectByPath(fullPath, type) {
-            // Logic handled by clearing if path empty or finding node
-            if (!fullPath) {
-                // Reset View Logic
-                updateBreadcrumbs('', type);
-                openInspector(type, { description: `Root of ${type}` }, type); // Dummy
-                return;
-            }
-            
-            let current = state.data[type];
-            let node = null;
-            if (current) {
-                const parts = fullPath.split('.');
-                node = current[parts[0]];
-                for(let i=1; i<parts.length; i++) {
-                    if (node && node.sub && node.sub[parts[i]]) { node = node.sub[parts[i]]; } else { node = null; break; }
-                }
-            }
-            if (node) { openInspector(fullPath, node.meta, type); updateBreadcrumbs(fullPath, type); }
-        }
-
-        function toggleMenu() {
+        window.toggleMenu = () => {
             const menu = document.getElementById('menu-popover');
             const btn = document.getElementById('menu-btn');
-            
-            // Toggle Logic
-            const isVisible = menu.classList.contains('visible');
-            
-            if (isVisible) {
+            if (menu.classList.contains('visible')) {
                 menu.classList.remove('visible');
             } else {
                 const rect = btn.getBoundingClientRect();
                 const menuWidth = 220;
-                const left = rect.left + (rect.width/2) - (menuWidth/2);
-                menu.style.left = `${left}px`;
-                menu.style.top = `${rect.bottom + 8}px`;
-                
-                // Animate from top down
-                menu.style.setProperty('--pop-start', 'scale(0.9) translateY(-10px)');
+                menu.style.left = `${rect.left + rect.width/2 - menuWidth/2}px`;
+                menu.style.top = `${rect.bottom + 12}px`;
                 menu.classList.add('visible');
             }
-        }
+        };
 
-        function openModal(id) {
+        window.openModal = (id) => {
             document.getElementById('menu-popover').classList.remove('visible');
             document.getElementById(`modal-${id}`).classList.add('visible');
-            if (id === 'about') aboutNav('main');
-        }
-
-        function closeModal(id) { 
-            document.getElementById(`modal-${id}`).classList.remove('visible');
-            // Reset About width after delay to ensure smooth closing
+            if(id === 'about') window.aboutNav('main');
+            if(id === 'keybinds') window.renderKeybindView();
+        };
+        
+        window.closeModal = (id) => { 
+            document.getElementById(`modal-${id}`).classList.remove('visible'); 
             if(id === 'about') { setTimeout(() => { document.getElementById('about-window').classList.remove('wide'); }, 300); }
-        }
+        };
+        
+        window.toggleVersionDropdown = () => { document.getElementById('version-dropdown').classList.toggle('visible'); };
+        
+        window.toggleTheme = () => {
+            state.theme = state.theme === 'dark' ? 'light' : 'dark';
+            applyTheme(); updateStyles(); saveSettings();
+        };
 
-        async function aboutNav(target) {
+        window.toggleReducedMotion = () => {
+            state.reducedMotion = !state.reducedMotion;
+            document.body.classList.toggle('reduce-motion', state.reducedMotion);
+            document.getElementById('motion-row').classList.toggle('active', state.reducedMotion);
+            saveSettings();
+        };
+
+        window.toggleSnippets = () => {
+            state.showSnippets = !state.showSnippets;
+            document.getElementById('snippet-row').classList.toggle('active', state.showSnippets);
+            saveSettings();
+        };
+
+        window.updateTransparency = (val) => {
+            state.transparency = val;
+            updateStyles();
+            saveSettings();
+        };
+
+        window.updateComboTimeout = (val) => {
+            state.comboTimeout = val;
+            document.getElementById('combo-timeout-val').textContent = `${val}ms`;
+            saveSettings();
+        };
+
+        window.saveSettings = async () => {
+            state.ghToken = document.getElementById('gh-token-input').value;
+            await settingsStore.setItem('user_prefs', {
+                theme: state.theme, accent: state.accent,
+                reducedMotion: state.reducedMotion, transparency: state.transparency,
+                ghToken: state.ghToken, showSnippets: state.showSnippets,
+                keybinds: state.keybinds, comboTimeout: state.comboTimeout
+            });
+        };
+
+        window.applyKbPreset = (preset) => {
+            if (preset === 'standard') {
+                state.keybinds = { search: 'Ctrl+f', up: 'ArrowUp', down: 'ArrowDown', left: 'ArrowLeft', right: 'ArrowRight', copyId: 'Ctrl+c', copyDesc: 'Ctrl+Shift+c', version: 'Ctrl+,', settings: 'Ctrl+.', about: 'Ctrl+Shift+a', top: 'Home', bottom: 'End', nextMatch: 'F3', prevMatch: 'Shift+F3', clearSearch: 'Escape' };
+            } else if (preset === 'vim') {
+                state.keybinds = { search: '/', up: 'k', down: 'j', left: 'h', right: 'l', copyId: 'y', copyDesc: 'Y', version: 'Ctrl+,', settings: 'Ctrl+.', about: 'Ctrl+Shift+a', top: 'g g', bottom: 'Shift+g', nextMatch: 'n', prevMatch: 'Shift+n', clearSearch: 'Escape' };
+            } else if (preset === 'emacs') {
+                state.keybinds = { search: 'Ctrl+s', up: 'Ctrl+p', down: 'Ctrl+n', left: 'Ctrl+b', right: 'Ctrl+f', copyId: 'Alt+w', copyDesc: 'Alt+Shift+w', version: 'Ctrl+,', settings: 'Ctrl+.', about: 'Ctrl+Shift+a', top: 'Alt+<', bottom: 'Alt+>', nextMatch: 'Ctrl+g', prevMatch: 'Ctrl+Shift+g', clearSearch: 'Escape' };
+            }
+            // Update UI
+            document.querySelectorAll('.keybind-input').forEach(input => {
+                input.value = state.keybinds[input.dataset.bind];
+            });
+            window.saveSettings();
+            showToast("Keybind Preset Applied");
+        };
+
+        window.closeSearch = () => {
+    const s = document.getElementById('search-bar');
+    const b = document.getElementById('breadcrumbs');
+    const input = document.getElementById('search-input');
+    
+    s.classList.remove('visible');
+    b.classList.remove('hidden');
+    input.value = '';
+    input.blur();
+    
+    state.searchMatchIndex = -1;
+    renderRegistry(state.data); // Restore full tree
+    showToast("Search cleared");
+};
+
+        window.renderKeybindView = () => {
+            const container = document.getElementById('kb-view-content');
+            let html = '<div class="adw-group" style="margin-top:0">';
+            Object.entries(state.keybinds).forEach(([k, v]) => {
+                html += `<div class="adw-row" style="min-height:44px; padding:8px 16px"><span style="text-transform:capitalize">${k}</span><span class="kb-key">${v}</span></div>`;
+            });
+            // Add Globals not in map
+            html += `<div class="adw-row" style="min-height:44px; padding:8px 16px"><span>Global: Keybinds</span><span class="kb-key">Ctrl+/</span></div>`;
+            html += '</div>';
+            container.innerHTML = html;
+        };
+
+        // Improved Keybind Recorder (Sequence Support)
+        const keyInputs = document.querySelectorAll('.keybind-input');
+        let recordTimeout;
+        let recordBuffer = [];
+
+        keyInputs.forEach(input => {
+            input.addEventListener('keydown', (e) => {
+                e.preventDefault(); e.stopPropagation();
+                
+                // If just modifier, ignore
+                if (['Control', 'Shift', 'Alt', 'Meta'].includes(e.key)) return;
+
+                let parts = [];
+                if (e.ctrlKey) parts.push('Ctrl');
+                if (e.shiftKey) parts.push('Shift');
+                if (e.altKey) parts.push('Alt');
+                if (e.metaKey) parts.push('Meta');
+                
+                let key = e.key;
+                if(key === ' ') key = 'Space';
+                if(key.length === 1) key = key.toLowerCase();
+                
+                parts.push(key);
+                const chord = parts.join('+');
+
+                // If modifier present, it's likely an instant bind (Ctrl+C), not a sequence
+                if (parts.length > 1 && (e.ctrlKey || e.altKey || e.metaKey)) {
+                    clearTimeout(recordTimeout);
+                    recordBuffer = [];
+                    input.value = chord;
+                    state.keybinds[input.dataset.bind] = chord;
+                    window.saveSettings();
+                    input.blur();
+                    showToast(`Bound to ${chord}`);
+                    return;
+                }
+
+                // Sequence Recording
+                recordBuffer.push(chord);
+                input.value = recordBuffer.join(' ') + ' ...';
+                
+                clearTimeout(recordTimeout);
+                recordTimeout = setTimeout(() => {
+                    const finalBind = recordBuffer.join(' ');
+                    input.value = finalBind;
+                    state.keybinds[input.dataset.bind] = finalBind;
+                    window.saveSettings();
+                    input.blur();
+                    showToast(`Bound to ${finalBind}`);
+                    recordBuffer = [];
+                }, state.comboTimeout);
+            });
+        });
+
+        window.saveKeybinds = async () => { /* Auto-saves */ };
+
+        window.clearDataCache = async () => {
+            await dataStore.clear();
+            showToast("Cache cleared. Refreshing...");
+            setTimeout(() => location.reload(), 1000);
+        };
+
+        const LICENSE_FALLBACK = `
+# NAP License 1.0
+
+This software is released under the **NAP License** (Non-Aggression Principle License).
+
+1.  **Freedom**: You are free to use, modify, and distribute this software for any purpose.
+2.  **Non-Aggression**: You may not use this software to initiate force, violence, or coercion against other individuals or their property.
+3.  **Liability**: The author is not liable for any damages arising from the use of this software.
+
+*Note: This is a local fallback. The original source could not be reached.*
+        `;
+
+        // --- ABOUT LOGIC FROM INDEX.HTML ---
+        window.aboutNav = async (target) => {
             const main = document.getElementById('about-main');
             const legal = document.getElementById('about-legal');
             const credits = document.getElementById('about-credits');
@@ -1193,10 +1092,14 @@
                     if (!document.getElementById('legal-content').innerHTML) {
                         try {
                             const res = await fetch('https://raw.githubusercontent.com/negative-zero-inft/nap-license/master/LICENSE');
+                            if (!res.ok) throw new Error("Fetch failed");
                             const text = await res.text();
                             document.getElementById('legal-content').innerHTML = marked.parse(text);
                             document.getElementById('legal-loader').style.display = 'none';
-                        } catch(e) { document.getElementById('legal-loader').innerHTML = `Failed to load license.`; }
+                        } catch(e) { 
+                            document.getElementById('legal-loader').style.display = 'none';
+                            document.getElementById('legal-content').innerHTML = marked.parse(LICENSE_FALLBACK);
+                        }
                     }
                 } else {
                     credits.classList.add('active');
@@ -1208,13 +1111,13 @@
             }
         }
 
-        function showMaintainerPopup(id, data, targetEl) {
+        window.showMaintainerPopup = (id, data, targetEl) => {
             const popup = document.getElementById('maintainer-popup');
             const arrow = document.getElementById('mp-arrow');
             const content = document.getElementById('mp-content');
             
             let html = `
-                <div style="border-bottom:1px solid var(--border-color); padding-bottom:8px; margin-bottom:12px; display:flex; justify-content:space-between; align-items:center">
+                <div style="border-bottom:1px solid var(--border-color); padding-bottom:8px;  display:flex; justify-content:space-between; align-items:center">
                     <span style="font-weight:800; font-size:1rem">${data.name || id}</span>
                     <span style="font-size:0.65rem; font-weight:800; background:color-mix(in srgb, var(--accent-bg) 20%, var(--bg-modal)); color:var(--link-color); padding:2px 6px; border-radius:4px">${data.role || 'MAINTAINER'}</span>
                 </div>
@@ -1222,9 +1125,9 @@
             Object.keys(data).forEach(k => {
                 if (k !== 'name' && k !== 'role') {
                     html += `
-                        <div class="maintainer-row">
-                            <div class="maintainer-label">${k}</div>
-                            <div class="maintainer-value">${data[k]}</div>
+                        <div class="maintainer-row" style="display:flex; justify-content:space-between; margin-bottom:4px; flex-direction:column; gap:4px;">
+                            <div class="maintainer-label" style="text-align:left">${k}</div>
+                            <div class="maintainer-value" >${data[k]}</div>
                         </div>
                     `;
                 }
@@ -1261,51 +1164,396 @@
             const originY = arrowDir === 'up' ? '0%' : '100%';
             popup.style.transformOrigin = `${arrowLeft}px ${originY}`;
             
-            // Set dynamic start transform based on direction
             if (arrowDir === 'up') {
-                // Arrow points UP, popup is BELOW. Slide down from arrow.
                 popup.style.setProperty('--pop-start', 'scale(0.9) translateY(-10px)');
             } else {
-                // Arrow points DOWN, popup is ABOVE. Slide up from arrow.
                 popup.style.setProperty('--pop-start', 'scale(0.9) translateY(10px)');
             }
 
             popup.classList.add('visible');
         }
 
-        document.addEventListener('click', (e) => {
-            if (!e.target.closest('#menu-popover') && !e.target.closest('#menu-btn')) {
-                document.getElementById('menu-popover').classList.remove('visible');
-            }
-            if (!e.target.closest('#version-dropdown') && !e.target.closest('#version-btn')) {
-                document.getElementById('version-dropdown').classList.remove('visible');
-            }
-            if (document.getElementById('maintainer-popup').classList.contains('visible') && 
-                !e.target.closest('#maintainer-popup') && !e.target.closest('.maintainer-chip')) {
-                document.getElementById('maintainer-popup').classList.remove('visible');
-            }
-            if (e.target.classList.contains('overlay-backdrop')) {
-                // Find open modal and close it
-                if(document.getElementById('modal-settings').classList.contains('visible')) closeModal('settings');
-                if(document.getElementById('modal-about').classList.contains('visible')) closeModal('about');
-            }
-        });
+        window.copyToClipboard = (text) => { navigator.clipboard.writeText(text); showToast("Copied to Clipboard"); };
 
-        function copyToClipboard(text) { 
-            navigator.clipboard.writeText(text); 
-            const toast = document.getElementById('toast');
-            toast.classList.add('visible');
-            setTimeout(() => toast.classList.remove('visible'), 2000);
+        // --- INTERNAL LOGIC ---
+        async function loadSettings() {
+            const prefs = await settingsStore.getItem('user_prefs');
+            if (prefs) {
+                state.theme = prefs.theme || 'dark';
+                state.accent = prefs.accent || 'purple';
+                state.reducedMotion = !!prefs.reducedMotion;
+                state.transparency = prefs.transparency !== undefined ? prefs.transparency : 0.06;
+                state.ghToken = prefs.ghToken || '';
+                state.showSnippets = !!prefs.showSnippets;
+                state.comboTimeout = prefs.comboTimeout || 500;
+                if(prefs.keybinds) state.keybinds = { ...state.keybinds, ...prefs.keybinds };
+
+                const radio = document.querySelector(`input[name="accent"][value="${state.accent}"]`);
+                if(radio) radio.checked = true;
+                
+                document.getElementById('transparency-slider').value = state.transparency;
+                document.getElementById('combo-timeout-slider').value = state.comboTimeout;
+                document.getElementById('combo-timeout-val').textContent = state.comboTimeout + 'ms';
+                document.getElementById('gh-token-input').value = state.ghToken;
+                
+                document.getElementById('motion-row').classList.toggle('active', state.reducedMotion);
+                document.getElementById('snippet-row').classList.toggle('active', state.showSnippets);
+                document.body.classList.toggle('reduce-motion', state.reducedMotion);
+            }
+            // Populate Keybinds inputs
+            document.querySelectorAll('.keybind-input').forEach(input => {
+                input.value = state.keybinds[input.dataset.bind];
+            });
+            // Ensure Theme Applied correctly
+            applyTheme();
+            updateStyles();
+            updateCacheStats();
         }
+
+        function applyTheme() {
+            document.documentElement.setAttribute('data-theme', state.theme);
+            // Fix: explicit check ensuring switch matches state
+            document.getElementById('theme-row').classList.toggle('active', state.theme === 'dark');
+        }
+
+        function updateStyles() {
+            const colorMap = { blue: '#3584e4', teal: '#2190a4', green: '#3a944a', yellow: '#c88800', orange: '#ed5b00', red: '#e62d42', pink: '#d56199', purple: '#9141ac', slate: '#6f8396' };
+            document.documentElement.style.setProperty('--accent-bg', colorMap[state.accent]);
+            const mode = state.theme === 'light' ? 'light' : 'dark';
+            document.documentElement.style.setProperty('--link-color', `var(--accent-link-${state.accent}-${mode})`);
+            document.documentElement.style.setProperty('--card-opacity', state.transparency);
+        }
+
+        async function init() {
+            const loader = document.getElementById('loader');
+            loader.style.display = 'flex';
+            await loadSettings(); 
+
+            try {
+                const cachedReleases = await dataStore.getItem('releases_list');
+                if (cachedReleases) state.versions = cachedReleases;
+
+                fetchReleases().then(v => { state.versions = v; updateVersionUI(); });
+
+                // Fetch latest
+                const metaRes = await fetchWithAuth(`https://raw.githubusercontent.com/${CONFIG.OWNER}/${CONFIG.REPO}/${CONFIG.BRANCH}/latestCommit.json`);
+                const meta = await metaRes.json();
+
+                if (meta.options || meta.pkgs) {
+                    state.data = meta;
+                    state.selectedVersion = "Latest Commit"; 
+                    renderRegistry(meta);
+                } else {
+                    await loadVersion(meta.latest);
+                }
+                
+                updateVersionUI();
+                updateBreadcrumbs('');
+                
+                setInterval(() => fetchReleases().then(v => { state.versions = v; updateVersionUI(); }), 300000);
+
+            } catch (e) { loader.innerHTML = `<div style="color:var(--accent-red)">Failed to initialize: ${e.message}</div>`; }
+            loader.style.display = 'none';
+        }
+
+        async function fetchWithAuth(url) {
+            const headers = {};
+            if (state.ghToken) headers['Authorization'] = `Bearer ${state.ghToken}`;
+            const res = await fetch(url, { headers });
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            return res;
+        }
+
+        async function fetchReleases() {
+            try {
+                const atomRes = await fetchWithAuth(`https://github.com/${CONFIG.OWNER}/${CONFIG.REPO}/releases.atom`);
+                const xml = new DOMParser().parseFromString(await atomRes.text(), "text/xml");
+                const versions = Array.from(xml.querySelectorAll("entry > title")).map(t => t.textContent.trim());
+                await dataStore.setItem('releases_list', versions);
+                return versions;
+            } catch(e) { return state.versions; }
+        }
+
+        async function loadVersion(v) {
+            const loader = document.getElementById('loader');
+            const root = document.getElementById('registry-root');
+            root.style.display = 'none';
+            loader.style.display = 'flex';
+            
+            try {
+                let data = await dataStore.getItem(`version_${v}`);
+                if (!data) {
+                    const res = await fetchWithAuth(`https://raw.githubusercontent.com/${CONFIG.OWNER}/${CONFIG.REPO}/${CONFIG.BRANCH}/${v}.json`);
+                    data = await res.json();
+                    await dataStore.setItem(`version_${v}`, data);
+                }
+                state.data = data;
+                state.selectedVersion = v;
+                renderRegistry(data);
+                updateVersionUI();
+                updateBreadcrumbs('');
+                updateCacheStats();
+            } catch(e) { loader.innerHTML = `<div>Error loading ${v}</div>`; }
+            loader.style.display = 'none';
+            root.style.display = 'block';
+        }
+
+        async function updateCacheStats() {
+            const keys = await dataStore.keys();
+            document.getElementById('cache-stats').textContent = `${keys.length} items cached`;
+        }
+
+        function updateVersionUI() {
+            if (!state.selectedVersion) state.selectedVersion = "Latest Commit";
+            document.getElementById('current-version').textContent = state.selectedVersion === "latestCommit" ? "Latest Commit" : state.selectedVersion;
+            const container = document.getElementById('version-list-container');
+            container.innerHTML = '';
+            const addOption = (v, label) => {
+                const item = document.createElement('div');
+                item.className = 'version-item ' + (state.selectedVersion === v ? 'active' : '');
+                item.textContent = label;
+                item.onclick = () => { loadVersion(v); document.getElementById('version-dropdown').classList.remove('visible'); };
+                container.appendChild(item);
+            };
+            addOption("latestCommit", "Latest Commit");
+            if (state.versions.length > 0) {
+                const sep = document.createElement('div');
+                sep.className = 'version-separator';
+                sep.innerHTML = '<span>RELEASES</span>';
+                container.appendChild(sep);
+                state.versions.forEach(v => addOption(v, v));
+            }
+        }
+
+        function renderRegistry(data) {
+            const root = document.getElementById('registry-root');
+            root.innerHTML = '';
+            const categories = [{ k: 'options', l: 'Nix Options' }, { k: 'pkgs', l: 'Packages' }, { k: 'maintainers', l: 'Maintainers' }];
+
+            categories.forEach(cat => {
+                if (!data[cat.k]) return;
+                const title = document.createElement('div');
+                title.className = 'adw-group-title';
+                title.textContent = cat.l;
+                root.appendChild(title);
+
+                const container = document.createElement('div');
+                if (cat.k === 'maintainers') {
+                    container.className = 'chip-grid';
+                    Object.keys(data[cat.k]).sort().forEach(key => {
+                        const chip = document.createElement('div');
+                        chip.className = 'maintainer-chip';
+                        chip.textContent = data[cat.k][key].name || key;
+                        chip.onclick = (e) => showMaintainerPopup(key, data[cat.k][key], e.currentTarget);
+                        container.appendChild(chip);
+                    });
+                } else {
+                    container.className = 'tree-root';
+                    renderRecursiveTree(data[cat.k], container, '', cat.k);
+                }
+                root.appendChild(container);
+            });
+        }
+
+        function renderRecursiveTree(nodes, container, path, type) {
+            Object.keys(nodes).sort().forEach(key => {
+                const node = nodes[key];
+                const currentPath = path ? `${path}.${key}` : key;
+                const hasSub = node.sub && Object.keys(node.sub).length > 0;
+                
+                const wrapper = document.createElement('div');
+                wrapper.className = 'tree-node-wrapper';
+                const row = document.createElement('div');
+                row.className = 'tree-row';
+                // Store data for keybinds
+                row.dataset.path = currentPath;
+                row.dataset.hasSub = hasSub;
+                row.dataset.type = type;
+
+row.innerHTML = `<div class="row-icon ${hasSub ? '' : 'leaf'}">${hasSub ? '▶' : '●'}</div><div class="row-label">${escapeHTML(key)}</div>`;
+                if (!node.meta && !hasSub) row.innerHTML += `<div class="meta-badge">NO META</div>`;
+
+                row.onclick = (e) => {
+                    e.stopPropagation();
+                    // Click always acts as "Action" -> Select AND Toggle if folder
+                    selectNode(row, currentPath, node, type, wrapper, hasSub);
+                    if (hasSub) {
+                         const children = wrapper.querySelector('.tree-children-wrapper');
+                         const isClosed = !children.classList.contains('open');
+                         if(isClosed) {
+                             children.classList.add('open');
+                             row.querySelector('.row-icon').classList.add('expanded');
+                         } else {
+                             children.classList.remove('open');
+                             row.querySelector('.row-icon').classList.remove('expanded');
+                         }
+                    }
+                };
+                wrapper.appendChild(row);
+
+                if (hasSub) {
+                    const anim = document.createElement('div');
+                    anim.className = 'tree-children-wrapper';
+                    const children = document.createElement('div');
+                    children.className = 'tree-children';
+                    renderRecursiveTree(node.sub, children, currentPath, type);
+                    anim.appendChild(children);
+                    wrapper.appendChild(anim);
+                }
+                container.appendChild(wrapper);
+            });
+        }
+
+        // Pure Selection Logic (Focus)
+        function selectNode(rowEl, path, node, type, wrapper, hasSub) {
+            document.querySelectorAll('.tree-row.selected').forEach(r => r.classList.remove('selected'));
+            rowEl.classList.add('selected');
+            state.focusedRow = { el: rowEl, path, node, type, wrapper, hasSub };
+            
+            openInspector(path, node ? node.meta : null, type);
+            updateBreadcrumbs(path, type);
+            rowEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+
+        window.navigateToPath = (path, type) => {
+    if (!path && !type) {
+        // Reset to home view
+        document.querySelectorAll('.tree-row.selected').forEach(r => r.classList.remove('selected'));
+        state.focusedRow = null;
+        document.getElementById('sidebar-body').innerHTML = `<div class="sidebar-content" id="sidebar-body">
+            <div style="padding: 60px 20px; text-align: center; color: var(--dim-label);">
+                <div style="margin-bottom: 16px; opacity: 0.1">
+                    <svg width="80" height="80" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg>
+                </div>
+                <div style="font-weight: 700; margin-bottom: 8px;">ZenPkgs Explorer</div>
+                <div style="font-size: 0.9rem;">Select an option to view details.</div>
+                <div style="font-size: 0.75rem; margin-top: 24px; color: var(--secondary-label)"><code>/</code> to search<br><code>hjkl</code> to navigate</div>
+            </div>
+        </div>
+`;
+        updateBreadcrumbs('', '');
+        renderRegistry(state.data);
+        return;
+    }
+
+    // Find the target row in the DOM
+    const targetRow = document.querySelector(`.tree-row[data-path="${path}"][data-type="${type}"]`);
+    
+    if (targetRow) {
+        // 1. Expand all parent containers so the row is visible
+        let parent = targetRow.parentElement.closest('.tree-node-wrapper');
+        while (parent) {
+            const parentRow = parent.querySelector(':scope > .tree-row');
+            const childrenWrapper = parent.querySelector(':scope > .tree-children-wrapper');
+            if (childrenWrapper) {
+                childrenWrapper.classList.add('open');
+                if (parentRow) parentRow.querySelector('.row-icon').classList.add('expanded');
+            }
+            parent = parent.parentElement.closest('.tree-node-wrapper');
+        }
+
+        // 2. Trigger the existing selection logic
+        const hasSub = targetRow.dataset.hasSub === 'true';
+        selectNode(targetRow, path, null, type, targetRow.parentElement, hasSub);
+    }
+};
+
+        function openInspector(path, meta, type) {
+            const body = document.getElementById('sidebar-body');
+            let html = `
+                <div class="adw-group-title" style="margin-top:12px; margin-left:12px;">Identifier</div>
+                <div class="adw-group" style="margin: 0 12px 24px 12px;">
+                    <div class="adw-row">
+                        <div style="font-family:var(--font-mono); font-size:0.8rem; overflow:hidden; text-overflow:ellipsis;" id="inspector-id-text">${path}</div>
+                        <div class="copy-btn" onclick="copyToClipboard('${path}')">COPY</div>
+                    </div>
+                </div>
+            `;
+            if (state.showSnippets) {
+                const snippet = type === 'options' ? `${path} = ...;` : `pkgs.${path}`;
+                html += `<div class="adw-group-title" style="margin-left:12px;">Nix Snippet</div><div class="markdown-body" style="margin: 0 12px 24px 12px;"><pre><code>${snippet}</code></pre></div>`;
+            }
+
+            if (meta) {
+                if (meta.description) html += `<div class="adw-group-title" style="margin-left:12px;">Description</div><div class="adw-group" style="margin: 0 12px 24px 12px;"><div class="adw-row" style="cursor:default; padding:16px; color:var(--text-color)" id="inspector-desc-text">${escapeHTML(meta.description)}</div></div>`;
+                if (meta.maintainers && meta.maintainers.length) {
+                    html += `<div class="adw-group-title" style="margin-left:12px;">Maintainers</div><div class="chip-grid" style="padding: 0 12px; margin-bottom:24px;">`;
+                    meta.maintainers.forEach(m => {
+                         html += `<div class="maintainer-chip" onclick="showMaintainerPopup('${m}', {name:'${escapeHTML(m)}'}, this)">${escapeHTML(m)}</div>`;
+                    });
+                    html += `</div>`;
+                }
+                if (meta.longDescription) html += `<div class="adw-group-title" style="margin-left:12px;">Documentation</div><div class="markdown-body" style="margin: 0 12px 24px 12px;">${marked.parse(meta.longDescription)}</div>`;
+            }
+            body.innerHTML = html;
+        }
+
+        function updateBreadcrumbs(path, type) {
+    const container = document.getElementById('breadcrumbs');
+    const iconSvg = `<svg width="16" height="16" viewBox="0 0 16 16" fill="var(--dim-label)" xmlns="http://www.w3.org/2000/svg">
+                    <g clip-path="url(#clip0_272_121)"><path fill-rule="evenodd" clip-rule="evenodd" d="M12.5 7C10.567 7 9 5.433 9 3.5C9 1.567 10.567 0 12.5 0C14.433 0 16 1.567 16 3.5C16 5.433 14.433 7 12.5 7ZM12.5 1.5C13.6046 1.5 14.5 2.39543 14.5 3.5C14.5 4.60457 13.6046 5.5 12.5 5.5C11.3954 5.5 10.5 4.60457 10.5 3.5C10.5 2.39543 11.3954 1.5 12.5 1.5Z"></path><path fill-rule="evenodd" clip-rule="evenodd" d="M12.5 16C10.567 16 9 14.433 9 12.5C9 10.567 10.567 9 12.5 9C14.433 9 16 10.567 16 12.5C16 14.433 14.433 16 12.5 16ZM12.5 10.5C13.6046 10.5 14.5 11.3954 14.5 12.5C14.5 13.6046 13.6046 14.5 12.5 14.5C11.3954 14.5 10.5 13.6046 10.5 12.5C10.5 11.3954 11.3954 10.5 12.5 10.5Z"></path><path fill-rule="evenodd" clip-rule="evenodd" d="M3.5 11.5C1.567 11.5 0 9.933 0 8C0 6.067 1.567 4.5 3.5 4.5C5.433 4.5 7 6.067 7 8C7 9.933 5.433 11.5 3.5 11.5ZM3.5 6C4.60457 6 5.5 6.89543 5.5 8C5.5 9.10457 4.60457 10 3.5 10C2.39543 10 1.5 9.10457 1.5 8C1.5 6.89543 2.39543 6 3.5 6Z" fill="currentColor"></path></g><defs><clipPath id="clip0_272_121"><rect width="16" height="16" fill="currentColor"></rect></clipPath></defs>
+                </svg>`; // Keep your SVG here
+    
+    // Root link: now clears search and selection
+    container.innerHTML = `<div class="crumb-btn" onclick="navigateToPath('', '')">${iconSvg}<span>zenpkgs</span></div>`;
+    if (!path) return;
+
+    // Type link (options/pkgs)
+    container.innerHTML += `<span class="crumb-sep">›</span><div class="crumb-btn" onclick="navigateToPath('', '${type}')">${escapeHTML(type)}</div>`;
+    
+    let currentAcc = [];
+    path.split('.').forEach((part, i, arr) => {
+        currentAcc.push(part);
+        const fullPath = currentAcc.join('.');
+        const activeClass = i === arr.length - 1 ? 'active' : '';
         
-        document.getElementById('refresh-releases-btn').onclick = () => init();
-        
+        // Added onclick to trigger navigation to this specific segment
+        container.innerHTML += `
+            <span class="crumb-sep">›</span>
+            <div class="crumb-btn ${activeClass}" onclick="navigateToPath('${fullPath}', '${type}')">
+                ${escapeHTML(part)}
+            </div>`;
+    });
+    container.scrollLeft = container.scrollWidth;
+}
+
+        // --- SEARCH RE-IMPLEMENTATION ---
+        document.getElementById('search-input').addEventListener('keydown', (e) => {
+            state.searchMatchIndex = 0
+            
+    if (e.key === 'Enter') {
+        const query = e.target.value.toLowerCase();
+        if (!query) return;
+
+        // Target the first tree row that contains a highlight (the <b> tag)
+        const allVisibleRows = Array.from(document.querySelectorAll('.tree-root .tree-row'));
+        const firstHighlighted = allVisibleRows.find(row => row.querySelector('.row-label b'));
+
+        if (firstHighlighted) {
+            const path = firstHighlighted.dataset.path;
+            const type = firstHighlighted.dataset.type;
+            const hasSub = firstHighlighted.dataset.hasSub === 'true';
+            
+            // Execute the selection
+            selectNode(firstHighlighted, path, null, type, firstHighlighted.parentElement, hasSub);
+            
+            // Clean up UI
+            e.target.blur();
+            showToast(`Focused: ${path}`);
+        }
+    }
+});
+
+// Keep your existing 'input' listener for the live-filtering, 
+// but ensure it calls the updated renderFilteredTree below.
         document.getElementById('search-input').addEventListener('input', (e) => {
+            
             const query = e.target.value.toLowerCase();
-            if (!query) { renderRegistry(state.data); return; }
             const root = document.getElementById('registry-root');
             root.innerHTML = '';
             
+            if (!query) { renderRegistry(state.data); return; }
+
             ['options', 'pkgs', 'maintainers'].forEach(catKey => {
                 if (!state.data[catKey]) return;
                 const catTitle = document.createElement('div');
@@ -1313,12 +1561,22 @@
                 catTitle.textContent = catKey;
                 root.appendChild(catTitle);
                 
+                
                 if (catKey === 'maintainers') {
                     const filtered = {};
-                    Object.keys(state.data[catKey]).forEach(k => { if(k.toLowerCase().includes(query)) filtered[k] = state.data[catKey][k]; });
+                    Object.keys(state.data[catKey]).forEach(k => { 
+                        if(k.toLowerCase().includes(query)) filtered[k] = state.data[catKey][k]; 
+                    });
                     const container = document.createElement('div');
                     container.className = 'chip-grid';
-                    renderMaintainerGrid(filtered, container);
+                    // Re-use logic
+                    Object.keys(filtered).sort().forEach(key => {
+                        const chip = document.createElement('div');
+                        chip.className = 'maintainer-chip';
+                        chip.textContent = escapeHTML(filtered[key].name || key);
+                        chip.onclick = (e) => showMaintainerPopup(key, filtered[key], e.currentTarget);
+                        container.appendChild(chip);
+                    });
                     root.appendChild(container);
                 } else {
                     const container = document.createElement('div');
@@ -1330,51 +1588,287 @@
         });
 
         function renderFilteredTree(nodes, container, path, type, query) {
-            Object.keys(nodes).sort().forEach(key => {
-                const node = nodes[key];
-                const currentPath = path ? `${path}.${key}` : key;
-                const hasSub = node.sub && Object.keys(node.sub).length > 0;
-                const selfMatch = currentPath.toLowerCase().includes(query);
-                const childMatch = hasSub && checkDeepMatch(node.sub, query);
+    Object.keys(nodes).sort().forEach(key => {
+        const node = nodes[key];
+        const currentPath = path ? `${path}.${key}` : key;
+        const hasSub = node.sub && Object.keys(node.sub).length > 0;
+        
+        const selfMatch = currentPath.toLowerCase().includes(query);
+        const childMatch = hasSub && checkDeepMatch(node.sub, query);
 
-                if (!selfMatch && !childMatch) return;
-                const wrapper = document.createElement('div');
-                wrapper.className = 'tree-node-wrapper';
-                const row = createTreeRow(key, hasSub, !!node.meta);
-                
-                let expanded = !!query; 
-                row.onclick = (e) => {
-                    e.stopPropagation();
-                    openInspector(currentPath, node.meta, type);
-                    if (hasSub) {
-                        const childrenWrapper = wrapper.querySelector('.tree-children-wrapper');
-                        const icon = row.querySelector('.row-icon');
-                        childrenWrapper.classList.toggle('open');
-                        icon.classList.toggle('expanded', childrenWrapper.classList.contains('open'));
-                    }
-                };
-                if (expanded && hasSub) row.querySelector('.row-icon').classList.add('expanded');
-                wrapper.appendChild(row);
+        if (!selfMatch && !childMatch) return;
 
-                if (hasSub) {
-                    const animWrapper = document.createElement('div');
-                    animWrapper.className = 'tree-children-wrapper';
-                    if (expanded) animWrapper.classList.add('open'); 
+        const wrapper = document.createElement('div');
+        wrapper.className = 'tree-node-wrapper';
+        const row = document.createElement('div');
+        row.className = 'tree-row';
+        row.dataset.path = currentPath;
+        row.dataset.hasSub = hasSub;
+        row.dataset.type = type;
 
-                    const children = document.createElement('div');
-                    children.className = 'tree-children';
-                    renderFilteredTree(node.sub, children, currentPath, type, query);
-                    
-                    animWrapper.appendChild(children);
-                    wrapper.appendChild(animWrapper);
-                }
-                container.appendChild(wrapper);
-            });
+        // Apply highlighting to the label
+        let displayLabel = escapeHTML(key);
+        if (query) {
+            const regex = new RegExp(`(${query})`, 'gi');
+            displayLabel = displayLabel.replace(regex, '<b>$1</b>');
         }
+
+        row.innerHTML = `<div class="row-icon ${hasSub ? 'expanded' : 'leaf'}">${hasSub ? '▶' : '●'}</div><div class="row-label">${displayLabel}</div>`;
+        
+        if (!node.meta && !hasSub) row.innerHTML += `<div class="meta-badge">NO META</div>`;
+
+        let expanded = !!query; 
+        row.onclick = (e) => {
+            e.stopPropagation();
+            selectNode(row, currentPath, node, type, wrapper, hasSub);
+            if (hasSub) {
+                const children = wrapper.querySelector('.tree-children-wrapper');
+                children.classList.toggle('open');
+                row.querySelector('.row-icon').classList.toggle('expanded');
+            }
+        };
+        wrapper.appendChild(row);
+
+        if (hasSub) {
+            const anim = document.createElement('div');
+            anim.className = 'tree-children-wrapper';
+            if (expanded) anim.classList.add('open'); 
+
+            const children = document.createElement('div');
+            children.className = 'tree-children';
+            renderFilteredTree(node.sub, children, currentPath, type, query);
+            anim.appendChild(children);
+            wrapper.appendChild(anim);
+        }
+        container.appendChild(wrapper);
+    });
+}
+
         function checkDeepMatch(sub, query) {
             if (!sub) return false;
             return Object.keys(sub).some(k => k.toLowerCase().includes(query) || checkDeepMatch(sub[k].sub, query));
         }
+
+        // --- Keybinds & Motions ---
+        let keyBuffer = [];
+        let keyTimer = null;
+
+        document.addEventListener('keydown', (e) => {
+            
+            if (e.target.tagName === 'INPUT') {
+                if(e.key === 'Escape') { 
+                    e.target.blur();
+                    if(e.target.id === 'search-input') window.toggleSearch(); 
+                }
+                return;
+            }
+
+            // Modifier construction
+            let parts = [];
+            if (e.ctrlKey) parts.push('Ctrl');
+            if (e.shiftKey) parts.push('Shift');
+            if (e.altKey) parts.push('Alt');
+            if (e.metaKey) parts.push('Meta');
+            
+            let key = e.key;
+            if(key === ' ') key = 'Space';
+            if(key.length === 1) key = key.toLowerCase();
+            
+            parts.push(key);
+            const combo = parts.join('+');
+
+            // 1. Check Global/Immediate binds first
+            const kb = state.keybinds;
+            const check = (setting) => setting === combo;
+            // Inside document.addEventListener('keydown', (e) => { ... })
+            let matched = false;
+            if (check(kb.search)) { 
+    e.preventDefault(); 
+    
+    const searchBar = document.getElementById('search-bar');
+    const searchInput = document.getElementById('search-input');
+    const isVisible = searchBar.classList.contains('visible');
+    const isFocused = document.activeElement === searchInput;
+
+    if (isVisible && !isFocused) {
+        // Case: Bar is open but user is navigating the tree. Focus the input.
+        searchInput.focus();
+        // Optional: Select the text so the user can immediately overwrite the old query
+        searchInput.select(); 
+    } else if (isVisible && isFocused) {
+        // Case: Already focused. You can choose to close it or do nothing.
+        // Most power-users prefer it to stay focused.
+    } else {
+        // Case: Bar is closed. Open it.
+        window.toggleSearch(); 
+    }
+    matched = true; 
+}
+            else if (check(kb.copyId)) { if (state.focusedRow) window.copyToClipboard(state.focusedRow.path); matched = true; }
+            else if (check(kb.copyDesc)) { const desc = document.getElementById('inspector-desc-text'); if (desc) window.copyToClipboard(desc.textContent); matched = true; }
+            else if (check(kb.version)) { window.toggleVersionDropdown(); matched = true; }
+            else if (check(kb.settings)) { window.openModal('settings'); matched = true; }
+            else if (check(kb.about)) { window.openModal('about'); matched = true; }
+            else if (check(kb.up)) { e.preventDefault(); handleNav('up'); matched = true; }
+            else if (check(kb.down)) { e.preventDefault(); handleNav('down'); matched = true; }
+            else if (check(kb.left)) { e.preventDefault(); handleNav('left'); matched = true; }
+            else if (check(kb.right)) { e.preventDefault(); handleNav('right'); matched = true; }
+            if (check(kb.nextMatch)) { 
+                console.log('Next match keybind triggered');
+                e.preventDefault(); 
+                window.cycleSearchMatches(1); 
+                matched = true; 
+            } else if (check(kb.prevMatch)) {
+                e.preventDefault();
+                window.cycleSearchMatches(-1);
+                matched = true;
+            }
+            
+            // Global overrides (Hardcoded checks removed, relying on config)
+            if (combo === (kb.clearSearch || 'Escape')) {
+                document.getElementById('sidebar-body').innerHTML = `<div class="sidebar-content" id="sidebar-body">
+            <div style="padding: 60px 20px; text-align: center; color: var(--dim-label);">
+                <div style="margin-bottom: 16px; opacity: 0.1">
+                    <svg width="80" height="80" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg>
+                </div>
+                <div style="font-weight: 700; margin-bottom: 8px;">ZenPkgs Explorer</div>
+                <div style="font-size: 0.9rem;">Select an option to view details.</div>
+                <div style="font-size: 0.75rem; margin-top: 24px; color: var(--secondary-label)"><code>/</code> to search<br><code>hjkl</code> to navigate</div>
+            </div>
+        </div>
+`;
+        const isSearchVisible = document.getElementById('search-bar').classList.contains('visible');
+        const isInputFocused = document.activeElement.id === 'search-input';
+
+        if (isSearchVisible || isInputFocused) {
+            e.preventDefault();
+            window.closeSearch();
+            return;
+        }
+    }
+
+    // 2. Existing Global Modal Closing (keep this for Settings/About)
+    if (combo === 'Escape') {
+        if(document.querySelector('.overlay-backdrop.visible')) {
+            document.querySelectorAll('.overlay-backdrop.visible').forEach(el => el.classList.remove('visible'));
+            return;
+        }
+    }
+
+            if (matched) {
+                // If we matched a command, clear sequence buffer
+                clearTimeout(keyTimer);
+                keyBuffer = [];
+                return;
+            }
+
+            if (combo === kb.bottom) {
+                    const rows = Array.from(document.querySelectorAll('.tree-row'));
+                    for(let i = rows.length -1; i >= 0; i--) {
+                        if (isRowVisible(rows[i])) {
+                            selectNode(rows[i], rows[i].dataset.path, null, rows[i].dataset.type, rows[i].parentNode, rows[i].dataset.hasSub === 'true');
+                            break;
+                        }
+                    }
+                    keyBuffer = [];
+            }
+            // 2. Sequence Handling (Only if no modifiers like Ctrl/Alt)
+            if (!e.ctrlKey && !e.altKey && !e.metaKey) {
+                keyBuffer.push(key);
+                const seq = keyBuffer.join(' ');
+                
+                // Check sequences
+                if (seq === kb.top) {
+                    const rows = Array.from(document.querySelectorAll('.tree-row'));
+                    const first = rows.find(r => isRowVisible(r));
+                    if(first) selectNode(first, first.dataset.path, null, first.dataset.type, first.parentNode, first.dataset.hasSub === 'true');
+                    keyBuffer = [];
+                } 
+
+                clearTimeout(keyTimer);
+                keyTimer = setTimeout(() => { keyBuffer = []; }, state.comboTimeout);
+            }
+        });
+
+        function isRowVisible(row) {
+            let parent = row.closest('.tree-children-wrapper');
+            while (parent) {
+                if (!parent.classList.contains('open')) return false;
+                parent = parent.parentElement.closest('.tree-children-wrapper');
+            }
+            return true; 
+        }
+
+        function handleNav(action) {
+            const allRows = Array.from(document.querySelectorAll('.tree-row'));
+            const visibleRows = allRows.filter(r => isRowVisible(r));
+            
+            if (!state.focusedRow && visibleRows.length > 0) {
+                const next = visibleRows[0];
+                selectNode(next, next.dataset.path, null, next.dataset.type, next.parentNode, next.dataset.hasSub === 'true');
+                return;
+            }
+
+            const idx = visibleRows.indexOf(state.focusedRow.el);
+            if (idx === -1) return;
+
+            if (action === 'down') {
+                if (idx < visibleRows.length - 1) {
+                    const next = visibleRows[idx + 1];
+                    selectNode(next, next.dataset.path, null, next.dataset.type, next.parentNode, next.dataset.hasSub === 'true');
+                }
+            } else if (action === 'up') {
+                if (idx > 0) {
+                    const prev = visibleRows[idx - 1];
+                    selectNode(prev, prev.dataset.path, null, prev.dataset.type, prev.parentNode, prev.dataset.hasSub === 'true');
+                }
+            } else if (action === 'right') { 
+                if (state.focusedRow.hasSub) {
+                    const children = state.focusedRow.wrapper.querySelector('.tree-children-wrapper');
+                    if (!children.classList.contains('open')) {
+                        children.classList.add('open');
+                        state.focusedRow.el.querySelector('.row-icon').classList.add('expanded');
+                    }
+                }
+            } else if (action === 'left') { 
+                if (state.focusedRow.hasSub) {
+                    const children = state.focusedRow.wrapper.querySelector('.tree-children-wrapper');
+                    if (children.classList.contains('open')) {
+                        children.classList.remove('open');
+                        state.focusedRow.el.querySelector('.row-icon').classList.remove('expanded');
+                        return;
+                    }
+                }
+                const parentWrapper = state.focusedRow.wrapper.parentElement.closest('.tree-node-wrapper');
+                if (parentWrapper) {
+                    const parentRow = parentWrapper.querySelector('.tree-row');
+                    if(parentRow) selectNode(parentRow, parentRow.dataset.path, null, parentRow.dataset.type, parentWrapper, parentRow.dataset.hasSub === 'true');
+                }
+            }
+        }
+
+        // --- Init Listeners ---
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest('#menu-popover') && !e.target.closest('#menu-btn')) document.getElementById('menu-popover').classList.remove('visible');
+            if (!e.target.closest('#maintainer-popup') && !e.target.closest('.maintainer-chip')) document.getElementById('maintainer-popup').classList.remove('visible');
+            if (!e.target.closest('#version-dropdown') && !e.target.closest('#version-btn')) document.getElementById('version-dropdown').classList.remove('visible');
+            if (e.target.classList.contains('overlay-backdrop')) e.target.classList.remove('visible');
+        });
+
+        function showToast(msg) {
+            const t = document.getElementById('toast');
+            t.textContent = msg;
+            t.classList.add('visible');
+            setTimeout(() => t.classList.remove('visible'), 2000);
+        }
+
+        document.querySelectorAll('input[name="accent"]').forEach(radio => {
+            radio.addEventListener('change', (e) => {
+                state.accent = e.target.value;
+                updateStyles();
+                saveSettings();
+            });
+        });
 
         init();
     </script>
