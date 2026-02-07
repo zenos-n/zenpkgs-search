@@ -884,17 +884,6 @@
                     </div>
                 </div>
                 
-                <div class="adw-group-title">Productivity</div>
-                 <div class="adw-group">
-                    <div class="adw-row adw-switch-row" onclick="toggleSnippets()" id="snippet-row">
-                        <div style="display: flex; flex-direction: column; gap: 4px;">
-                            <span style="font-weight: 700;">Nix Code Snippets</span>
-                            <span style="font-size: 0.75rem; color: var(--dim-label);">Show copy-paste config in inspector.</span>
-                        </div>
-                        <div class="switch-toggle"></div>
-                    </div>
-                 </div>
-
                 <div class="adw-group-title">Cache</div>
                 <div class="adw-group">
                     <div class="adw-row">
@@ -1084,7 +1073,7 @@
             searchMatchIndex: -1,
             data: null, versions: [], selectedVersion: null,
             theme: 'dark', accent: 'purple', reducedMotion: false,
-            transparency: 0.06, ghToken: '', geminiKey: '', showSnippets: false,
+            transparency: 0.06, ghToken: '', geminiKey: '', 
             customFont: '', customCSS: '',
             focusedRow: null, comboTimeout: 500,
             currentMeta: null,
@@ -1165,12 +1154,6 @@
             saveSettings();
         };
 
-        window.toggleSnippets = () => {
-            state.showSnippets = !state.showSnippets;
-            document.getElementById('snippet-row').classList.toggle('active', state.showSnippets);
-            saveSettings();
-        };
-
         window.updateTransparency = (val) => {
             state.transparency = val;
             updateStyles();
@@ -1193,7 +1176,7 @@
             await settingsStore.setItem('user_prefs', {
                 theme: state.theme, accent: state.accent,
                 reducedMotion: state.reducedMotion, transparency: state.transparency,
-                ghToken: state.ghToken, geminiKey: state.geminiKey, showSnippets: state.showSnippets,
+                ghToken: state.ghToken, geminiKey: state.geminiKey, 
                 keybinds: state.keybinds, comboTimeout: state.comboTimeout,
                 customFont: state.customFont, customCSS: state.customCSS
             });
@@ -1459,7 +1442,6 @@ window.addToScratchpad = (path, type) => {
             { id: 'about', label: 'Open About', shortcut: 'Ctrl+Shift+A', action: () => window.openModal('about') },
             { id: 'theme', label: 'Toggle Theme', action: () => window.toggleTheme() },
             { id: 'motion', label: 'Toggle Reduced Motion', action: () => window.toggleReducedMotion() },
-            { id: 'snippets', label: 'Toggle Nix Snippets', action: () => window.toggleSnippets() },
             { id: 'scratchpad', label: 'Toggle Scratchpad', action: () => window.toggleScratchpad() },
             { id: 'add_scratchpad', label: 'Add to Scratchpad', action: () => { if(state.focusedRow) window.addToScratchpad(state.focusedRow.path, state.focusedRow.type); } },
             { id: 'cache', label: 'Clear Registry Cache', action: () => window.clearDataCache() },
@@ -2084,7 +2066,6 @@ This software is released under the **NAP License** (Non-Aggression Principle Li
                 state.transparency = prefs.transparency !== undefined ? prefs.transparency : 0.06;
                 state.ghToken = prefs.ghToken || '';
                 state.geminiKey = prefs.geminiKey || '';
-                state.showSnippets = !!prefs.showSnippets;
                 state.comboTimeout = prefs.comboTimeout || 500;
                 state.customFont = prefs.customFont || '';
                 state.customCSS = prefs.customCSS || '';
@@ -2104,7 +2085,6 @@ This software is released under the **NAP License** (Non-Aggression Principle Li
                 document.getElementById('sp-textarea').value = state.scratchpadConfig || "";
                 
                 document.getElementById('motion-row').classList.toggle('active', state.reducedMotion);
-                document.getElementById('snippet-row').classList.toggle('active', state.showSnippets);
                 document.body.classList.toggle('reduce-motion', state.reducedMotion);
             }
             if (history) {
@@ -2615,10 +2595,6 @@ This software is released under the **NAP License** (Non-Aggression Principle Li
                 </div>
                 ${typeHtml ? `<div class="adw-group-title" style="margin-left:12px;">Type</div>${typeHtml}` : ''}
             `;
-            if (state.showSnippets) {
-                const snippet = type === 'options' ? `${path} = ...;` : `pkgs.${path}`;
-                html += `<div class="adw-group-title" style="margin-left:12px;">Nix Snippet</div><div class="markdown-body" style="margin: 0 12px 24px 12px;"><pre><code>${snippet}</code></pre></div>`;
-            }
 
             // AI Smart Assistant Section - Only shown if key exists
             if (state.geminiKey) {
