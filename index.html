@@ -13,12 +13,15 @@
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/localforage@1.10.0/dist/localforage.min.js"></script>
 
+    <!-- Custom CSS Injection Point -->
+    <style id="user-custom-css"></style>
+
     <style>
         .row-label b {
-    color: var(--accent-bg);
-    text-decoration: underline;
-    font-weight: 800;
-}
+            color: var(--accent-bg);
+            text-decoration: underline;
+            font-weight: 800;
+        }
         :root {
             /* --- Libadwaita Base Accents --- */
             --accent-blue: #3584e4;
@@ -79,8 +82,6 @@
 
             --font-ui: 'Atkinson Hyperlegible Next', sans-serif;
             --font-mono: 'Atkinson Hyperlegible Mono', monospace;
-
-            interpolate-size: allow-keywords; 
         }
 
         [data-theme="light"] {
@@ -187,6 +188,22 @@
 
         .adw-search { background: transparent; border: none; color: var(--text-color); padding: 0 12px; font-family: inherit; width: 100%; height: 100%; font-size: 0.9rem; outline: none; }
 
+        /* Search History Dropdown */
+        #search-history {
+            position: absolute; top: 40px; left: 0; right: 0;
+            background-color: var(--bg-popover); border-radius: 8px;
+            box-shadow: var(--popover-shadow); z-index: 100;
+            display: none; flex-direction: column; padding: 4px;
+            max-height: 200px; overflow-y: auto; border: 1px solid var(--border-color);
+        }
+        #search-history.visible { display: flex; }
+        .history-item { 
+            padding: 8px 12px; font-size: 0.9rem; cursor: pointer; border-radius: 6px; 
+            display: flex; align-items: center; gap: 8px; color: var(--dim-label);
+        }
+        .history-item.active, .history-item:hover { background-color: var(--dim-label); color: var(--bg-modal); }
+        [data-theme="dark"] .history-item.active, [data-theme="dark"] .history-item:hover { background-color: rgba(255,255,255,0.1); color: white; }
+
         .breadcrumbs-wrapper {
             position: absolute; inset: 0; display: flex; align-items: center; gap: 2px;
             background-color: var(--bg-tree); height: 34px; padding: 0 3px;
@@ -210,6 +227,8 @@
         [data-theme="dark"] .crumb-btn.active { background-color: rgba(255,255,255,0.12); }
         [data-theme="light"] .crumb-btn.active { background-color: rgba(0,0,0,0.08); }
         .crumb-sep { opacity: 0.3; font-size: 0.8em; margin: 0 2px; }
+        .crumb-sep.clickable { cursor: pointer; opacity: 0.6; padding: 0 4px; }
+        .crumb-sep.clickable:hover { color: var(--accent-bg); opacity: 1; }
         .crumb-icon svg { width: 16px; height: 16px; display: block; fill: currentColor; }
 
         /* --- VERSION PICKER --- */
@@ -304,14 +323,37 @@
         [data-theme="light"] .tree-row:hover { background-color: rgba(0,0,0,0.03); }
         .tree-row.selected { background-color: rgba(255,255,255,0.1); }
         [data-theme="light"] .tree-row.selected { background-color: rgba(0,0,0,0.08); }
+        
+        /* Diff Status Styles */
+        .tree-row.status-new .row-label { color: var(--accent-green); }
+        .tree-row.status-deleted .row-label { color: var(--accent-red); text-decoration: line-through; }
+        .tree-row.status-modified .row-label { color: var(--accent-blue); }
+
         .row-icon { width: 24px; display: flex; justify-content: center; margin-right: 12px; font-size: 0.7rem; color: var(--secondary-label); transition: transform 0.2s; }
         .row-icon.expanded { transform: rotate(90deg); color: var(--text-color); }
         .row-label { flex: 1; font-weight: 600; font-size: 0.95rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .meta-badge { font-size: 0.65rem; font-weight: 800; background: rgba(255, 85, 85, 0.15); color: #ff5555; padding: 2px 6px; border-radius: 4px; margin-left: 8px; }
         
-        .tree-children-wrapper { display: grid; grid-template-rows: 0fr; transition: grid-template-rows 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94); }
-        .tree-children-wrapper.open { grid-template-rows: 1fr; }
-        .tree-children { overflow: hidden; }
+        .tree-children-wrapper { 
+            display: grid; 
+            grid-template-rows: 0fr; 
+            transition: grid-template-rows 0.25s ease-out;
+            overflow: hidden;
+        }
+
+        .tree-children-wrapper.open { 
+            grid-template-rows: 1fr; 
+        }
+
+        .tree-children { 
+            min-height: 0;
+            visibility: hidden;
+            transition: visibility 0.25s;
+        }
+
+        .tree-children-wrapper.open > .tree-children {
+            visibility: visible;
+        }
 
         /* --- GROUPS / ROWS --- */
         .adw-group {
@@ -323,6 +365,13 @@
         .adw-row {
             padding: 12px 16px; display: flex; align-items: center; justify-content: space-between;
             min-height: 56px; cursor: default; background-color: var(--card-bg); 
+            /* Truncation support */
+            overflow: hidden;
+        }
+        .adw-row span {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
         }
         .adw-row:first-child { border-top-left-radius: 12px; border-top-right-radius: 12px; }
         .adw-row:last-child { border-bottom-left-radius: 12px; border-bottom-right-radius: 12px; }
@@ -383,13 +432,22 @@
                         height 0.35s cubic-bezier(0.25, 0.46, 0.45, 0.94) !important;
         }
         .overlay-backdrop.visible .adw-window { transform: scale(1) rotateX(0deg) translateY(0); opacity: 1; }
-        .adw-window.wide { width: 950px; } /* From index.html */
+        .adw-window.wide { width: 950px; }
+
+        /* Command Palette Specifics */
+        .command-palette { width: 600px; max-height: 500px; }
+        .command-input-wrapper { border-bottom: 1px solid var(--border-color); padding: 12px; }
+        .command-input { width: 100%; background: transparent; border: none; font-size: 1.1rem; color: var(--text-color); outline: none; font-weight: 500; }
+        .command-list { flex: 1; overflow-y: auto; padding: 6px; }
+        .command-item { padding: 10px 12px; border-radius: 6px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; font-weight: 500; }
+        .command-item.active, .command-item:hover { background-color: var(--accent-bg); color: var(--accent-fg); }
+        .command-shortcut { opacity: 0.6; font-size: 0.8rem; font-family: var(--font-mono); }
 
         .dialog-header { min-height: 48px; display: grid; grid-template-columns: 36px 1fr 36px; align-items: center; padding: 0 0 0 6px; font-weight: 800; background-color: transparent; color: var(--text-color); }
         .dialog-header span { text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .window-body { padding: 24px; overflow-y: auto; flex: 1; }
         
-        .window-content { padding: 0; overflow: hidden; flex: 1; display: flex; flex-direction: column; } /* From index.html */
+        .window-content { padding: 0; overflow: hidden; flex: 1; display: flex; flex-direction: column; }
 
         /* About Pages Stack */
         .about-stack-container { 
@@ -417,16 +475,16 @@
         /* Active State */
         .stack-page.active { 
             opacity: 1; pointer-events: auto; transform: translateX(0);
-            height: auto; /* Fill grid cell naturally, constrained by max-height */
-            padding: 24px; /* Internal padding */
-            overflow-y: auto; /* Self scrolling */
+            height: auto;
+            padding: 24px;
+            overflow-y: auto;
         }
 
         /* Exit States */
         .stack-page.exit-left, .stack-page.exit-right {
             position: absolute; top: 0; left: 0;
             height: auto; padding: 24px; 
-            z-index: 0; /* Behind incoming */
+            z-index: 0;
         }
         
         .stack-page.exit-left { transform: translateX(-30%); opacity: 0; }
@@ -461,7 +519,7 @@
         [data-theme="dark"] .menu-item:hover { background-color: rgba(255,255,255,0.08); }
         [data-theme="light"] .menu-item:hover { background-color: rgba(0,0,0,0.05); }
         
-        /* Maintainer specifics from index.html */
+        /* Maintainer specifics */
         .maintainer-label { font-size: 0.65rem; font-weight: 800; color: var(--secondary-label); text-transform: uppercase; letter-spacing: 0.5px; }
         .maintainer-value { font-family: var(--font-mono); font-size: 0.85rem; color: var(--text-color); }
 
@@ -495,6 +553,8 @@
         .adw-input { width: 100%; background: rgba(0,0,0,0.2); border: 1px solid var(--border-color); border-radius: 8px; padding: 8px 12px; color: var(--text-color); font-family: inherit; font-size: 0.9rem; outline: none; transition: border 0.2s; }
         .adw-input:focus { border-color: var(--accent-bg); }
         [data-theme="light"] .adw-input { background: rgba(0,0,0,0.05); }
+        
+        textarea.adw-input { resize: vertical; min-height: 80px; font-family: var(--font-mono); font-size: 0.8rem; }
 
         /* Keybind specific */
         .keybind-input { width: 80px; text-align: center; font-family: var(--font-mono); text-transform: lowercase; }
@@ -511,6 +571,111 @@
         .kb-key { font-family: var(--font-mono); background: rgba(255,255,255,0.1); padding: 2px 6px; border-radius: 4px; font-size: 0.85rem; }
         [data-theme="light"] .kb-key { background: rgba(0,0,0,0.08); color: #333; }
 
+        /* AI Feature Styles */
+        .ai-gradient-border {
+            background: linear-gradient(var(--bg-tree), var(--bg-tree)) padding-box,
+                        linear-gradient(135deg, #4285f4, #9c27b0) border-box;
+            border: 2px solid transparent;
+            animation: borderPulse 3s infinite alternate;
+        }
+        @keyframes borderPulse {
+            from { border-color: transparent; }
+            to { border-color: rgba(156, 39, 176, 0.5); }
+        }
+        .ai-btn-text {
+            background: linear-gradient(135deg, #4285f4, #d96570);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+            font-weight: 800;
+        }
+        #ai-content-area {
+            background-color: var(--card-bg);
+            margin-top: 1px;
+        }
+        
+        /* Offline Dot */
+        .offline-indicator {
+            width: 8px; height: 8px; border-radius: 50%;
+            background-color: var(--accent-green);
+            margin-right: 0; 
+            transition: background-color 0.3s, box-shadow 0.3s;
+            flex-shrink: 0;
+        }
+        .offline-indicator.offline { background-color: var(--accent-red); }
+        
+        .offline-indicator.downloading {
+            background-color: var(--accent-orange);
+            animation: pulse-orange 1.5s infinite;
+        }
+
+        @keyframes pulse-orange {
+            0% { box-shadow: 0 0 0 0 rgba(237, 91, 0, 0.7); }
+            70% { box-shadow: 0 0 0 6px rgba(237, 91, 0, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(237, 91, 0, 0); }
+        }
+
+        /* Favorites Collapser */
+        .fav-header { cursor: pointer; display: flex; align-items: center; justify-content: space-between; padding-right: 12px; user-select: none; }
+        .fav-header:hover { color: var(--text-color); }
+        .fav-caret { transition: transform 0.2s; font-size: 0.7em; }
+        .fav-header.collapsed .fav-caret { transform: rotate(-90deg); }
+        
+        /* Fav Container Animation */
+        .fav-tree-container {
+            display: grid;
+            grid-template-rows: 1fr;
+            transition: grid-template-rows 0.3s ease-out;
+            overflow: hidden;
+        }
+        .fav-tree-container.collapsed {
+            grid-template-rows: 0fr;
+        }
+        .fav-inner { min-height: 0; }
+
+        /* Scratchpad */
+        #scratchpad-fab {
+            position: fixed; bottom: 24px; right: 24px;
+            width: 56px; height: 56px; border-radius: 50%;
+            background-color: var(--accent-bg); color: var(--accent-fg);
+            border: none; cursor: pointer;
+            box-shadow: var(--popover-shadow);
+            display: flex; align-items: center; justify-content: center;
+            z-index: 90; transition: transform 0.2s;
+        }
+        #scratchpad-fab:hover { transform: scale(1.1); }
+        #scratchpad-fab svg { width: 24px; height: 24px; fill: currentColor; }
+
+        #scratchpad-panel {
+            position: fixed; bottom: 90px; right: 24px;
+            width: 550px; height: 450px;
+            background-color: var(--bg-popover);
+            border: 1px solid var(--border-color);
+            border-radius: 12px; box-shadow: var(--popover-shadow);
+            display: flex; flex-direction: column;
+            z-index: 90;
+            transform: translate(100%, 100%) scale(0.5); opacity: 0; pointer-events: none;
+            transition: transform 0.4s cubic-bezier(0.19, 1, 0.22, 1), opacity 0.3s ease;
+        }
+        #scratchpad-panel.visible { transform: translate(0, 0) scale(1); opacity: 1; pointer-events: auto; }
+        
+        .sp-header { padding: 12px; border-bottom: 1px solid var(--border-color); font-weight: 800; display: flex; justify-content: space-between; align-items: center; }
+        .sp-footer { padding: 8px; border-top: 1px solid var(--border-color); display: flex; gap: 8px; }
+        
+        #sp-textarea {
+            flex: 1;
+            background: transparent;
+            color: var(--text-color);
+            border: none;
+            resize: none;
+            padding: 12px;
+            font-family: var(--font-mono);
+            font-size: 0.85rem;
+            outline: none;
+            white-space: pre;
+            overflow-x: auto;
+        }
+        #sp-textarea::placeholder { color: var(--dim-label); opacity: 0.5; }
     </style>
 </head>
 <body>
@@ -531,14 +696,7 @@
             </button>
         </div>
         <div class="sidebar-content" id="sidebar-body">
-            <div style="padding: 60px 20px; text-align: center; color: var(--dim-label);">
-                <div style="margin-bottom: 16px; opacity: 0.1">
-                    <svg width="80" height="80" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg>
-                </div>
-                <div style="font-weight: 700; margin-bottom: 8px;">ZenPkgs Explorer</div>
-                <div style="font-size: 0.9rem;">Select an option to view details.</div>
-                <div style="font-size: 0.75rem; margin-top: 24px; color: var(--secondary-label)"><code>/</code> to search<br><code>hjkl</code> to navigate</div>
-            </div>
+            <!-- Sidebar content injected dynamically via JS -->
         </div>
     </div>
 
@@ -548,12 +706,22 @@
                 <div class="breadcrumbs-wrapper" id="breadcrumbs"></div>
                 <div class="search-wrapper" id="search-bar">
                     <input type="text" class="adw-search" id="search-input" placeholder="Search registry...">
+                    <div id="search-history"></div>
                 </div>
             </div>
+            
+            <!-- Surprise Me Button -->
+            <button class="adw-button icon-only" onclick="navigateRandom()" title="Surprise Me (Random Package)">
+                <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M16 3h5v5M4 20L21 3M21 16v5h-5M15 15l5 5M4 4l5 5"/></svg>
+            </button>
+
+            <!-- Modified Version Button containing Status Indicator -->
             <button class="version-trigger" id="version-btn" onclick="toggleVersionDropdown()">
+                <div class="offline-indicator" id="net-status" title="Online"></div>
                 <span id="current-version">Latest Commit</span>
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M7 10l5 5 5-5z"/></svg>
             </button>
+            
             <div id="version-dropdown">
                 <div class="popover-inner">
                     <div class="version-list" id="version-list-container"></div>
@@ -577,11 +745,41 @@
         </div>
     </div>
 
+    <!-- Scratchpad FAB & Panel -->
+    <button id="scratchpad-fab" onclick="toggleScratchpad()">
+        <svg viewBox="0 0 24 24"><path d="M14.06 9.02l.92.92L5.92 19H5v-.92l9.06-9.06M17.66 3c-.25 0-.51.1-.7.29l-1.83 1.83 3.75 3.75 1.83-1.83c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.2-.2-.45-.29-.71-.29zm-3.6 3.19L3 17.25V21h3.75L17.81 9.94l-3.75-3.75z"/></svg>
+    </button>
+    <div id="scratchpad-panel">
+        <div class="sp-header">
+            <span>Config Scratchpad</span>
+            <button class="window-close-button" onclick="toggleScratchpad()"><svg width="8" height="8" viewBox="0 0 8 8" fill="none"><path d="M2.5 4L0 1.5V0H1.5L4 2.5L6.5 0H8V1.5L5.5 4L8 6.5V8H6.5L4 5.5L1.5 8H0V6.5L2.5 4Z" fill="currentColor"/></svg></button>
+        </div>
+        <textarea id="sp-textarea" placeholder="# Your generated config will appear here...
+# You can edit this directly."></textarea>
+        <div class="sp-footer">
+            <button class="adw-button" style="flex:1" onclick="copyScratchpadConfig()">Copy Config</button>
+            <button class="adw-button destructive icon-only" onclick="clearScratchpad()"><svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg></button>
+        </div>
+    </div>
+
     <!-- POPOVERS & MODALS -->
     <div id="menu-popover" class="popover-inner common-popover">
         <div class="menu-item" onclick="openModal('settings')">Settings <span style="opacity:0.5; font-size:0.8em; margin-left:8px">Ctrl+.</span></div>
         <div class="menu-item" onclick="openModal('keybinds')">Keybinds <span style="opacity:0.5; font-size:0.8em; margin-left:8px">Ctrl+/</span></div>
-        <div class="menu-item" onclick="openModal('about')">About</div>
+        <div class="menu-item" onclick="toggleCommandPalette()">Command Palette <span style="opacity:0.5; font-size:0.8em; margin-left:8px">Ctrl+K</span></div>
+        <div class="menu-item" onclick="openModal('about')">About <span style="opacity:0.5; font-size:0.8em; margin-left:8px">Ctrl+Shift+A</span></div>
+    </div>
+
+    <!-- COMMAND PALETTE MODAL -->
+    <div class="overlay-backdrop" id="modal-palette">
+        <div class="adw-window command-palette" style="width:600px">
+            <div class="command-input-wrapper">
+                <input type="text" class="command-input" id="cmd-input" placeholder="Type a command...">
+            </div>
+            <div class="command-list" id="cmd-list">
+                <!-- Items populated via JS -->
+            </div>
+        </div>
     </div>
 
     <!-- SETTINGS MODAL -->
@@ -623,6 +821,14 @@
                         <span style="font-weight: 700;">Transparency</span>
                         <input type="range" class="adw-range" min="0" max="1" step="0.05" id="transparency-slider" oninput="updateTransparency(this.value)">
                     </div>
+                    <div class="adw-row" style="flex-direction: column; align-items: flex-start; gap: 8px;">
+                        <span style="font-weight: 700;">Custom Font Family</span>
+                        <input type="text" class="adw-input" id="custom-font-input" placeholder="e.g. Inter, sans-serif" onchange="saveSettings()">
+                    </div>
+                    <div class="adw-row" style="flex-direction: column; align-items: flex-start; gap: 8px;">
+                        <span style="font-weight: 700;">Custom CSS</span>
+                        <textarea class="adw-input" id="custom-css-input" placeholder=".row-label { color: red !important; }" onchange="saveSettings()"></textarea>
+                    </div>
                 </div>
 
                 <div class="adw-group-title">Keybinds</div>
@@ -640,6 +846,7 @@
                         <input type="range" class="adw-range" min="100" max="2000" step="50" id="combo-timeout-slider" oninput="updateComboTimeout(this.value)">
                         <span style="font-size: 0.75rem; color: var(--dim-label)" id="combo-timeout-val">500ms</span>
                     </div>
+                    <!-- Keybind inputs ... -->
                     <div class="adw-row"><span>Search</span><input type="text" class="adw-input keybind-input" data-bind="search" readonly></div>
                     <div class="adw-row"><span>Up</span><input type="text" class="adw-input keybind-input" data-bind="up" readonly></div>
                     <div class="adw-row"><span>Down</span><input type="text" class="adw-input keybind-input" data-bind="down" readonly></div>
@@ -662,6 +869,18 @@
                         <span style="font-weight: 700;">GitHub Token</span>
                         <input type="password" class="adw-input" id="gh-token-input" placeholder="ghp_..." onchange="saveSettings()">
                         <span style="font-size: 0.75rem; color: var(--dim-label);">Used to increase API rate limits.</span>
+                    </div>
+                </div>
+
+                <div class="adw-group-title">Intelligence</div>
+                <div class="adw-group">
+                    <div class="adw-row" style="flex-direction: column; align-items: flex-start; gap: 8px;">
+                        <span style="font-weight: 700;">Gemini API Key</span>
+                        <input type="password" class="adw-input" id="gemini-key-input" placeholder="AIzaSy..." onchange="saveSettings()">
+                        <span style="font-size: 0.75rem; color: var(--dim-label);">
+                            Required for Smart Assistant features. 
+                            <a href="https://aistudio.google.com/app/apikey" target="_blank" style="color:var(--link-color)">Get a key from Google AI Studio</a>
+                        </span>
                     </div>
                 </div>
                 
@@ -706,7 +925,7 @@
         </div>
     </div>
 
-    <!-- ABOUT MODAL (From index.html) -->
+    <!-- ABOUT MODAL -->
     <div class="overlay-backdrop" id="modal-about">
         <div class="adw-window" id="about-window" style="max-width: 400px; text-align: center;">
             <div class="dialog-header">
@@ -729,7 +948,7 @@
                     </div>
                     <div style="font-weight: 800; font-size: 1.5rem; margin-bottom: 8px;">ZenPkgs Browser</div>
                     <div style="margin-bottom: 24px;">
-                        <span class="version-chip">v1.0</span>
+                        <span class="version-chip">v1.5</span>
                     </div>
                     
                     <div class="adw-group">
@@ -801,6 +1020,25 @@
     <div id="toast">Copied to Clipboard</div>
 
     <script>
+        // --- MISSING SEARCH FIX ---
+        window.toggleSearch = () => {
+            const s = document.getElementById('search-bar');
+            const b = document.getElementById('breadcrumbs');
+            const input = document.getElementById('search-input');
+            const history = document.getElementById('search-history');
+            
+            const isVisible = s.classList.toggle('visible');
+            b.classList.toggle('hidden', isVisible);
+            
+            if (isVisible) {
+                input.focus();
+                if(input.value) renderSearchHistory(); 
+            } else {
+                history.classList.remove('visible');
+                input.blur();
+            }
+        };
+
         window.cycleSearchMatches = (direction = 1) => {
             const query = document.getElementById('search-input').value;
             if (!query) return;
@@ -811,7 +1049,6 @@
 
             if (matches.length === 0) return;
 
-            // Calculate new index with wrap-around logic
             if (state.searchMatchIndex === -1 && direction === -1) {
                 state.searchMatchIndex = matches.length - 1;
             } else {
@@ -831,23 +1068,31 @@
             
             showToast(`Match ${state.searchMatchIndex + 1} of ${matches.length}`);
         };
-        // Helper to escape risky HTML symbols
-const escapeHTML = (str) => {
-    if (!str) return "";
-    return str.toString()
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;")
-        .replace(/"/g, "&quot;")
-        .replace(/'/g, "&#039;");
-};
+
+        const escapeHTML = (str) => {
+            if (!str) return "";
+            return str.toString()
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#039;");
+        };
+
         const CONFIG = { OWNER: "zenos-n", REPO: "zenpkgs", BRANCH: "json" };
         const state = { 
             searchMatchIndex: -1,
             data: null, versions: [], selectedVersion: null,
             theme: 'dark', accent: 'purple', reducedMotion: false,
-            transparency: 0.06, ghToken: '', showSnippets: false,
+            transparency: 0.06, ghToken: '', geminiKey: '', showSnippets: false,
+            customFont: '', customCSS: '',
             focusedRow: null, comboTimeout: 500,
+            currentMeta: null,
+            favorites: [],
+            recents: [],
+            searchHistory: [], 
+            scratchpadConfig: "",
+            favsCollapsed: false,
             keybinds: { 
                 search: 'Ctrl+f', up: 'ArrowUp', down: 'ArrowDown', left: 'ArrowLeft', right: 'ArrowRight', 
                 copyId: 'Ctrl+c', copyDesc: 'Ctrl+Shift+c', version: 'Ctrl+,', settings: 'Ctrl+.', 
@@ -857,24 +1102,14 @@ const escapeHTML = (str) => {
 
         const settingsStore = localforage.createInstance({ name: "settings" });
         const dataStore = localforage.createInstance({ name: "registry_cache" });
+        const aiStore = localforage.createInstance({ name: "ai_response_cache" });
 
         // --- GLOBAL EXPORTS ---
-        window.toggleSearch = () => { 
-    const s = document.getElementById('search-bar');
-    const b = document.getElementById('breadcrumbs');
-    const input = document.getElementById('search-input');
-    const v = s.classList.toggle('visible');
-    
-    b.classList.toggle('hidden', v);
-    
-    if(v) {
-        input.focus();
-    } else {
-        input.value = '';
-        input.blur();
-        renderRegistry(state.data);
-    }
-};
+        window.setLoading = (isLoading) => {
+            const ind = document.getElementById('net-status');
+            if(isLoading) ind.classList.add('downloading');
+            else ind.classList.remove('downloading');
+        };
 
         window.toggleMenu = () => {
             const menu = document.getElementById('menu-popover');
@@ -890,6 +1125,11 @@ const escapeHTML = (str) => {
             }
         };
 
+        window.toggleFavGroup = () => {
+            state.favsCollapsed = !state.favsCollapsed;
+            renderRegistry(state.data);
+        };
+
         window.openModal = (id) => {
             document.getElementById('menu-popover').classList.remove('visible');
             document.getElementById(`modal-${id}`).classList.add('visible');
@@ -902,7 +1142,16 @@ const escapeHTML = (str) => {
             if(id === 'about') { setTimeout(() => { document.getElementById('about-window').classList.remove('wide'); }, 300); }
         };
         
-        window.toggleVersionDropdown = () => { document.getElementById('version-dropdown').classList.toggle('visible'); };
+        window.toggleVersionDropdown = () => { 
+            const dd = document.getElementById('version-dropdown');
+            const isVisible = dd.classList.toggle('visible'); 
+            if(isVisible) {
+                setTimeout(() => {
+                    const first = dd.querySelector('.version-item');
+                    if(first) first.focus(); 
+                }, 50);
+            }
+        };
         
         window.toggleTheme = () => {
             state.theme = state.theme === 'dark' ? 'light' : 'dark';
@@ -936,12 +1185,20 @@ const escapeHTML = (str) => {
 
         window.saveSettings = async () => {
             state.ghToken = document.getElementById('gh-token-input').value;
+            state.geminiKey = document.getElementById('gemini-key-input').value;
+            state.customFont = document.getElementById('custom-font-input').value;
+            state.customCSS = document.getElementById('custom-css-input').value;
+            state.scratchpadConfig = document.getElementById('sp-textarea').value;
+            
             await settingsStore.setItem('user_prefs', {
                 theme: state.theme, accent: state.accent,
                 reducedMotion: state.reducedMotion, transparency: state.transparency,
-                ghToken: state.ghToken, showSnippets: state.showSnippets,
-                keybinds: state.keybinds, comboTimeout: state.comboTimeout
+                ghToken: state.ghToken, geminiKey: state.geminiKey, showSnippets: state.showSnippets,
+                keybinds: state.keybinds, comboTimeout: state.comboTimeout,
+                customFont: state.customFont, customCSS: state.customCSS
             });
+            await settingsStore.setItem('user_history', { favorites: state.favorites, recents: state.recents, searchHistory: state.searchHistory, scratchpadConfig: state.scratchpadConfig });
+            updateStyles(); // Applies font/css
         };
 
         window.applyKbPreset = (preset) => {
@@ -952,7 +1209,6 @@ const escapeHTML = (str) => {
             } else if (preset === 'emacs') {
                 state.keybinds = { search: 'Ctrl+s', up: 'Ctrl+p', down: 'Ctrl+n', left: 'Ctrl+b', right: 'Ctrl+f', copyId: 'Alt+w', copyDesc: 'Alt+Shift+w', version: 'Ctrl+,', settings: 'Ctrl+.', about: 'Ctrl+Shift+a', top: 'Alt+<', bottom: 'Alt+>', nextMatch: 'Ctrl+g', prevMatch: 'Ctrl+Shift+g', clearSearch: 'Escape' };
             }
-            // Update UI
             document.querySelectorAll('.keybind-input').forEach(input => {
                 input.value = state.keybinds[input.dataset.bind];
             });
@@ -961,19 +1217,21 @@ const escapeHTML = (str) => {
         };
 
         window.closeSearch = () => {
-    const s = document.getElementById('search-bar');
-    const b = document.getElementById('breadcrumbs');
-    const input = document.getElementById('search-input');
-    
-    s.classList.remove('visible');
-    b.classList.remove('hidden');
-    input.value = '';
-    input.blur();
-    
-    state.searchMatchIndex = -1;
-    renderRegistry(state.data); // Restore full tree
-    showToast("Search cleared");
-};
+            const s = document.getElementById('search-bar');
+            const b = document.getElementById('breadcrumbs');
+            const input = document.getElementById('search-input');
+            const history = document.getElementById('search-history');
+            
+            s.classList.remove('visible');
+            b.classList.remove('hidden');
+            history.classList.remove('visible'); // Close history
+            input.value = '';
+            input.blur();
+            
+            state.searchMatchIndex = -1;
+            renderRegistry(state.data);
+            showToast("Search cleared");
+        };
 
         window.renderKeybindView = () => {
             const container = document.getElementById('kb-view-content');
@@ -981,22 +1239,669 @@ const escapeHTML = (str) => {
             Object.entries(state.keybinds).forEach(([k, v]) => {
                 html += `<div class="adw-row" style="min-height:44px; padding:8px 16px"><span style="text-transform:capitalize">${k}</span><span class="kb-key">${v}</span></div>`;
             });
-            // Add Globals not in map
-            html += `<div class="adw-row" style="min-height:44px; padding:8px 16px"><span>Global: Keybinds</span><span class="kb-key">Ctrl+/</span></div>`;
+            html += `<div class="adw-row" style="min-height:44px; padding:8px 16px"><span>Global: Command Palette</span><span class="kb-key">Ctrl+K</span></div>`;
             html += '</div>';
             container.innerHTML = html;
         };
 
-        // Improved Keybind Recorder (Sequence Support)
+        window.copyToClipboard = (text) => { navigator.clipboard.writeText(text); showToast("Copied to Clipboard"); };
+
+        window.toggleFavorite = async (path, type) => {
+            const key = `${type}:${path}`;
+            if (state.favorites.includes(key)) {
+                state.favorites = state.favorites.filter(k => k !== key);
+                showToast("Removed from Favorites");
+            } else {
+                state.favorites.push(key);
+                showToast("Added to Favorites");
+            }
+            await settingsStore.setItem('user_history', { favorites: state.favorites, recents: state.recents, searchHistory: state.searchHistory, scratchpadConfig: state.scratchpadConfig });
+            
+            renderRegistry(state.data);
+            openInspector(path, state.currentMeta, type);
+        };
+
+        function addToRecents(path, type) {
+            const key = `${type}:${path}`;
+            state.recents = state.recents.filter(k => k !== key); // Remove duplicates
+            state.recents.unshift(key); // Add to top
+            if (state.recents.length > 10) state.recents.pop(); // Keep max 10
+            settingsStore.setItem('user_history', { favorites: state.favorites, recents: state.recents, searchHistory: state.searchHistory, scratchpadConfig: state.scratchpadConfig });
+        }
+
+        // --- SCRATCHPAD LOGIC ---
+        window.toggleScratchpad = () => {
+            const el = document.getElementById('scratchpad-panel');
+            el.classList.toggle('visible');
+            if (el.classList.contains('visible')) {
+                document.getElementById('sp-textarea').focus();
+            }
+        }
+
+        /**
+ * window.addToScratchpad
+ * Integrated with the depth-aware Nix Path Merger algorithm.
+ */
+window.addToScratchpad = (path, type) => {
+    let current = document.getElementById('sp-textarea').value || "";
+    if (!current.trim()) {
+        current = "# Generated Config\n\n";
+    }
+
+    const INDENT_SIZE = 2;
+
+    function findEndOfAssignment(text, startPos) {
+        let depth = 0;
+        for (let i = startPos; i < text.length; i++) {
+            if (text[i] === '{') depth++;
+            else if (text[i] === '}') depth--;
+            if (depth === 0 && text[i] === ';') return i;
+        }
+        return -1;
+    }
+
+    function findKeyInImmediateScope(key, text) {
+        const escapedKey = key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const keyRegex = new RegExp(`(^|[\\s\\{\\n;\\.])(${escapedKey})(\\s*[\\.=;]|\\s|$)`, 'g');
+        let match;
+        while ((match = keyRegex.exec(text)) !== null) {
+            let depth = 0;
+            for (let i = 0; i < match.index; i++) {
+                if (text[i] === '{') depth++;
+                else if (text[i] === '}') depth--;
+            }
+            if (depth === 0) {
+                const k = match[2];
+                return { key: k, index: match.index + match[0].indexOf(k), length: k.length };
+            }
+        }
+        return null;
+    }
+
+    function countImmediateAssignments(text) {
+        let depth = 0, count = 0, inAssign = false;
+        for (let char of text) {
+            if (char === '{') depth++;
+            else if (char === '}') depth--;
+            else if (depth === 0) {
+                if (/[a-zA-Z0-9_<>\.-]/.test(char) && !inAssign) { count++; inAssign = true; }
+                else if (char === ';') inAssign = false;
+            }
+        }
+        return count;
+    }
+
+    function formatNix(text) {
+        let depth = 0;
+        const cleaned = text.replace(/;\s*;/g, ';').replace(/\{\s*;/g, '{').replace(/;\s*\}/g, ';}');
+        return cleaned.replace(/\{/g, '{\n').replace(/\}/g, '\n}').replace(/;/g, ';\n')
+            .split('\n').map(l => l.trim()).filter(l => l.length > 0 && l !== ';')
+            .map(line => {
+                if (line === '}' || line === '};' || line.startsWith('}')) depth--;
+                const out = " ".repeat(Math.max(0, depth * INDENT_SIZE)) + line;
+                if (line.includes('{')) depth++;
+                return out;
+            }).join('\n');
+    }
+
+    function mergePath(pathParts, rest, value = "...") {
+        if (pathParts.length === 0) return rest;
+        const key = pathParts[0], remaining = pathParts.slice(1);
+        const match = findKeyInImmediateScope(key, rest);
+
+        if (!match) return rest + (rest.trim() ? '\n' : '') + pathParts.join('.') + ` = ${value};`;
+
+        const kEnd = match.index + match.length;
+        const remRest = rest.substring(kEnd);
+
+        const dotMatch = remRest.match(/^\s*\.([a-zA-Z0-9_<>-]+)/);
+        if (dotMatch) {
+            const sIdx = findEndOfAssignment(rest, kEnd);
+            const aEnd = sIdx === -1 ? rest.length : sIdx + 1;
+            const dotPos = kEnd + remRest.indexOf('.');
+            if (dotMatch[1] !== remaining[0]) {
+                const existingVal = rest.substring(dotPos + 1, sIdx).trim();
+                return rest.substring(0, match.index) + `${key} = { ${existingVal}; ${remaining.join('.')} = ${value}; };` + rest.substring(aEnd);
+            }
+            return rest.substring(0, dotPos + 1) + mergePath(remaining, rest.substring(dotPos + 1, aEnd).trim(), value) + rest.substring(aEnd);
+        }
+
+        const blockMatch = remRest.match(/^\s*=\s*\{/);
+        if (blockMatch) {
+            const oIdx = kEnd + remRest.indexOf('{');
+            let cIdx = -1, d = 0;
+            for (let i = oIdx; i < rest.length; i++) {
+                if (rest[i] === '{') d++; else if (rest[i] === '}') d--;
+                if (d === 0) { cIdx = i; break; }
+            }
+            if (cIdx !== -1) {
+                const inner = rest.substring(oIdx + 1, cIdx);
+                const updated = mergePath(remaining, inner, value);
+                if (countImmediateAssignments(updated) === 1) {
+                    return rest.substring(0, match.index) + `${key}.${updated.trim()}` + rest.substring(cIdx + 1);
+                }
+                return rest.substring(0, oIdx + 1) + updated + rest.substring(cIdx);
+            }
+        }
+
+        const semiMatch = remRest.match(/^\s*(=[^;]*)?;/);
+        if (semiMatch) {
+            if (remaining.length === 0) return rest;
+            const sIdx = findEndOfAssignment(rest, kEnd);
+            return rest.substring(0, match.index) + `${key}.${remaining.join('.')} = ${value};` + rest.substring(sIdx + 1);
+        }
+        return rest;
+    }
+
+    const targetValue = type === 'pkgs' ? "{}" : "...";
+    const pathParts = (type === 'pkgs' ? `system.packages.${path}` : path).split('.');
+    
+    try {
+        const merged = mergePath(pathParts, current, targetValue);
+        const finalized = formatNix(merged);
+        if (finalized.trim() === current.trim()) {
+            showToast("Already in Config");
+        } else {
+            current = finalized;
+            showToast("Added to Scratchpad");
+        }
+    } catch (e) {
+        console.error(e);
+        showToast("Merge Error");
+    }
+
+    state.scratchpadConfig = current;
+    document.getElementById('sp-textarea').value = current;
+    if (typeof saveSettings === 'function') saveSettings();
+    const panel = document.getElementById('scratchpad-panel');
+    if (panel && !panel.classList.contains('visible')) panel.classList.add('visible');
+};
+
+        window.clearScratchpad = () => {
+            state.scratchpadConfig = "";
+            document.getElementById('sp-textarea').value = "";
+            saveSettings();
+        }
+
+        window.copyScratchpadConfig = () => {
+            window.copyToClipboard(document.getElementById('sp-textarea').value);
+        }
+        
+        // Auto-save on type
+        document.getElementById('sp-textarea').addEventListener('input', (e) => {
+            state.scratchpadConfig = e.target.value;
+            clearTimeout(window.spSaveTimer);
+            window.spSaveTimer = setTimeout(() => saveSettings(), 1000);
+        });
+
+        // --- COMMAND PALETTE LOGIC ---
+        window.collapseTree = () => {
+            document.querySelectorAll('.tree-children-wrapper.open').forEach(el => el.classList.remove('open'));
+            document.querySelectorAll('.row-icon.expanded').forEach(el => el.classList.remove('expanded'));
+            showToast("Tree collapsed");
+        };
+
+        window.expandTree = () => {
+            document.querySelectorAll('.tree-node-wrapper').forEach(wrapper => {
+                const anim = wrapper.querySelector('.tree-children-wrapper');
+                const icon = wrapper.querySelector('.row-icon');
+                if (anim) {
+                    anim.classList.add('open');
+                    if (icon) icon.classList.add('expanded');
+                }
+            });
+            showToast("Tree expanded");
+        }
+
+        const COMMANDS = [
+            { id: 'settings', label: 'Open Settings', shortcut: 'Ctrl+.', action: () => window.openModal('settings') },
+            { id: 'keybinds', label: 'View Keybinds', shortcut: 'Ctrl+/', action: () => window.openModal('keybinds') },
+            { id: 'about', label: 'Open About', shortcut: 'Ctrl+Shift+A', action: () => window.openModal('about') },
+            { id: 'theme', label: 'Toggle Theme', action: () => window.toggleTheme() },
+            { id: 'motion', label: 'Toggle Reduced Motion', action: () => window.toggleReducedMotion() },
+            { id: 'snippets', label: 'Toggle Nix Snippets', action: () => window.toggleSnippets() },
+            { id: 'scratchpad', label: 'Toggle Scratchpad', action: () => window.toggleScratchpad() },
+            { id: 'add_scratchpad', label: 'Add to Scratchpad', action: () => { if(state.focusedRow) window.addToScratchpad(state.focusedRow.path, state.focusedRow.type); } },
+            { id: 'cache', label: 'Clear Registry Cache', action: () => window.clearDataCache() },
+            { id: 'random', label: 'Surprise Me (Random Package)', action: () => window.navigateRandom() },
+            { id: 'github', label: 'Open GitHub Repo', action: () => window.open('https://github.com/' + CONFIG.OWNER + '/' + CONFIG.REPO, '_blank') },
+            // New Commands
+            { id: 'collapse', label: 'Collapse Tree', action: () => window.collapseTree() },
+            { id: 'expand', label: 'Unwrap Tree (Expand All)', action: () => window.expandTree() },
+            { id: 'fav', label: 'Toggle Favorite', action: () => { if(state.focusedRow) window.toggleFavorite(state.focusedRow.path, state.focusedRow.type); } },
+            { id: 'version', label: 'Change Version', shortcut: 'Ctrl+,', action: () => window.toggleVersionDropdown() },
+            { id: 'copy_id', label: 'Copy Identifier', shortcut: 'Ctrl+C', action: () => { if(state.focusedRow) window.copyToClipboard(state.focusedRow.path); } },
+            { id: 'copy_desc', label: 'Copy Description', shortcut: 'Ctrl+Shift+C', action: () => { if(state.currentMeta?.description) window.copyToClipboard(state.currentMeta.description); } },
+            { id: 'copy_doc', label: 'Copy Documentation', action: () => { if(state.currentMeta?.longDescription) window.copyToClipboard(state.currentMeta.longDescription); } },
+            { id: 'cmds', label: 'Command List', shortcut: 'Ctrl+K', action: () => { document.getElementById('cmd-input').value = ''; renderCommandList(COMMANDS); } }
+        ];
+
+        window.toggleCommandPalette = () => {
+            document.getElementById('menu-popover').classList.remove('visible'); // Close hamburger
+            const el = document.getElementById('modal-palette');
+            const visible = el.classList.toggle('visible');
+            if (visible) {
+                document.getElementById('cmd-input').value = '';
+                // Slight timeout to ensure visibility transition has started for focus
+                setTimeout(() => document.getElementById('cmd-input').focus(), 50);
+                renderCommandList(COMMANDS);
+            } else {
+                document.getElementById('cmd-input').blur();
+            }
+        };
+
+        function renderCommandList(items, selectedIndex = 0) {
+            const list = document.getElementById('cmd-list');
+            list.innerHTML = '';
+            items.forEach((cmd, idx) => {
+                const div = document.createElement('div');
+                div.className = `command-item ${idx === selectedIndex ? 'active' : ''}`;
+                div.innerHTML = `<span>${cmd.label}</span>${cmd.shortcut ? `<span class="command-shortcut">${cmd.shortcut}</span>` : ''}`;
+                div.onclick = () => { 
+                    window.toggleCommandPalette(); 
+                    cmd.action(); 
+                };
+                list.appendChild(div);
+            });
+        }
+
+        document.getElementById('cmd-input').addEventListener('input', (e) => {
+            const term = e.target.value.toLowerCase();
+            const filtered = COMMANDS.filter(c => c.label.toLowerCase().includes(term));
+            renderCommandList(filtered);
+        });
+
+        // --- SEARCH HISTORY LOGIC ---
+        function renderSearchHistory() {
+            const container = document.getElementById('search-history');
+            container.innerHTML = '';
+            if (state.searchHistory.length === 0) {
+                container.classList.remove('visible');
+                return;
+            }
+            state.searchHistory.forEach(term => {
+                const item = document.createElement('div');
+                item.className = 'history-item';
+                item.innerHTML = `<svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>${escapeHTML(term)}`;
+                item.onclick = () => {
+                    const input = document.getElementById('search-input');
+                    input.value = term;
+                    input.dispatchEvent(new Event('input'));
+                    container.classList.remove('visible');
+                };
+                container.appendChild(item);
+            });
+            container.classList.add('visible');
+        }
+
+        function addToSearchHistory(term) {
+            if(!term) return;
+            state.searchHistory = state.searchHistory.filter(t => t !== term);
+            state.searchHistory.unshift(term);
+            if(state.searchHistory.length > 5) state.searchHistory.pop();
+            settingsStore.setItem('user_history', { favorites: state.favorites, recents: state.recents, searchHistory: state.searchHistory, scratchpadConfig: state.scratchpadConfig });
+        }
+
+        // --- RANDOM NAVIGATION ---
+        window.navigateRandom = () => {
+            if (!state.data) return;
+            const keys = [];
+            // Flatten options and pkgs
+            ['options', 'pkgs'].forEach(type => {
+                if (state.data[type]) {
+                    // Helper to recurse
+                    const traverse = (node, path) => {
+                        Object.keys(node).forEach(k => {
+                            const currentPath = path ? `${path}.${k}` : k;
+                            if (node[k].sub && Object.keys(node[k].sub).length > 0) {
+                                traverse(node[k].sub, currentPath);
+                            } else {
+                                keys.push({ path: currentPath, type });
+                            }
+                        });
+                    };
+                    traverse(state.data[type], '');
+                }
+            });
+            if (keys.length > 0) {
+                const rand = keys[Math.floor(Math.random() * keys.length)];
+                window.navigateToPath(rand.path, rand.type);
+                showToast(`Random: ${rand.path}`);
+            }
+        };
+
+        // --- BREADCRUMB SIBLINGS (Simplified: Click separator to go to parent) ---
+        window.goToParent = (path, type) => {
+            if (!path.includes('.')) {
+                window.navigateToPath('', type);
+            } else {
+                const parent = path.substring(0, path.lastIndexOf('.'));
+                window.navigateToPath(parent, type);
+            }
+        };
+
+        // --- GEMINI API INTEGRATION ---
+        async function callGeminiAPI(prompt) {
+            let apiKey = state.geminiKey;
+            
+            // --- AUTO TOKEN DETECTION (Optional Environment variable fallback) ---
+            if (!apiKey) {
+                const envKey = ""; 
+                if(envKey) apiKey = envKey;
+            }
+
+            if (!apiKey) throw new Error("API Key missing. Please set it in Settings.");
+
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
+            const payload = { contents: [{ parts: [{ text: prompt }] }] };
+            
+            const delays = [1000, 2000, 4000, 8000, 16000];
+            for (let i = 0; i <= 5; i++) {
+                try {
+                    const response = await fetch(url, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+                    
+                    if (!response.ok) {
+                        if (response.status === 429 && i < 5) {
+                            await new Promise(r => setTimeout(r, delays[i]));
+                            continue;
+                        }
+                        throw new Error(`API Error: ${response.status}`);
+                    }
+                    
+                    const data = await response.json();
+                    return data.candidates?.[0]?.content?.parts?.[0]?.text || "No response generated.";
+                } catch (e) {
+                    if (i === 5) throw e;
+                    await new Promise(r => setTimeout(r, delays[i]));
+                }
+            }
+        }
+
+        async function fetchSourceFile(position) {
+            if (!position || !state.ghToken) return null;
+            const cleanPath = position.split(':')[0]; 
+            try {
+                const url = `https://api.github.com/repos/${CONFIG.OWNER}/${CONFIG.REPO}/contents/${cleanPath}`;
+                const res = await fetch(url, { headers: { 'Authorization': `Bearer ${state.ghToken}`, 'Accept': 'application/vnd.github.v3.raw' }});
+                if (!res.ok) return null;
+                return await res.text();
+            } catch (e) {
+                console.warn("Failed to fetch source:", e);
+                return null;
+            }
+        }
+
+        async function askGemini(path, type) {
+            const area = document.getElementById('ai-content-area');
+            const textEl = document.getElementById('ai-response-text');
+            const container = document.getElementById('ai-container-group');
+            
+            const cacheKey = `ai_${path}_${type}_v2`; // Bumped version for new prompt
+            const cachedResponse = await aiStore.getItem(cacheKey);
+            
+            area.style.display = 'block';
+            
+            if (cachedResponse) {
+                textEl.innerHTML = marked.parse(cachedResponse);
+                textEl.innerHTML += `<div style="margin-top:12px; font-size:0.65rem; color:var(--dim-label); border-top:1px solid var(--border-color); padding-top:4px;">Fetched from local cache</div>`;
+                return;
+            }
+
+            container.classList.add('ai-gradient-border');
+            textEl.innerHTML = '<div style="display:flex; align-items:center; gap:12px; color:var(--dim-label)"><div class="spinner" style="width:20px; height:20px; border-width:2px; margin:0"></div>Analyzing registry & source...</div>';
+            
+            window.setLoading(true);
+
+            const meta = state.currentMeta || {};
+            const context = type === 'options' ? 'NixOS Option' : 'Nix Package';
+            
+            let sourceCode = "";
+            if (meta.position) {
+                textEl.innerHTML = '<div style="display:flex; align-items:center; gap:12px; color:var(--dim-label)"><div class="spinner" style="width:20px; height:20px; border-width:2px; margin:0"></div>Fetching source code from GitHub...</div>';
+                const code = await fetchSourceFile(meta.position);
+                if (code) {
+                    const truncated = code.length > 20000 ? code.substring(0, 20000) + "\n... (truncated)" : code;
+                    sourceCode = `\n\nReference Source Code (${meta.position}):\n\`\`\`nix\n${truncated}\n\`\`\``;
+                }
+            }
+
+            const request = type === 'options' 
+                ? 'Explain what this option controls and provide a usage example in `configuration.nix`.'
+                : 'Explain what this package does in simple terms and provide a usage example (e.g. `environment.systemPackages` or `nix-shell`).';
+
+            const prompt = `You are a helpful ZenOS (which is a distribution based on NixOS) expert assistant.
+            Repository: https://github.com/${CONFIG.OWNER}/${CONFIG.REPO}
+            Item: ${path} (${context})
+            Description: ${meta.description || 'No description provided.'}
+            The documentation if available:
+            ${meta.longDescription || 'No additional documentation.'}
+
+            ${sourceCode}
+
+            Task: ${request}
+            
+            Format: Markdown. Keep it concise. Use code blocks for config examples.`;
+
+            try {
+                const text = await callGeminiAPI(prompt);
+                await aiStore.setItem(cacheKey, text); 
+                textEl.innerHTML = marked.parse(text);
+            } catch (e) {
+                textEl.innerHTML = `<span style="color:var(--accent-red)">Error: ${e.message}. Please try again later.</span>`;
+            } finally {
+                container.classList.remove('ai-gradient-border');
+                window.setLoading(false);
+            }
+        }
+
+        // --- INTERNAL LOGIC ---
+        // NEW: Context-Aware Keydown
+        document.addEventListener('keydown', (e) => {
+            // 1. Command Palette Navigation
+            if (document.getElementById('modal-palette').classList.contains('visible')) {
+                const items = document.querySelectorAll('.command-item');
+                const current = document.querySelector('.command-item.active');
+                let idx = Array.from(items).indexOf(current);
+                
+                if (e.key === 'ArrowDown') {
+                    e.preventDefault();
+                    idx = (idx + 1) % items.length;
+                } else if (e.key === 'ArrowUp') {
+                    e.preventDefault();
+                    idx = (idx - 1 + items.length) % items.length;
+                } else if (e.key === 'Enter') {
+                    e.preventDefault();
+                    if(current) current.click();
+                    return;
+                } else if (e.key === 'Escape') {
+                    window.toggleCommandPalette();
+                    return;
+                }
+                
+                if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+                    items.forEach(i => i.classList.remove('active'));
+                    items[idx].classList.add('active');
+                    items[idx].scrollIntoView({ block: 'nearest' });
+                }
+                return;
+            }
+
+            // 2. Search History Navigation
+            if (document.activeElement.id === 'search-input') {
+                const hist = document.getElementById('search-history');
+                if (hist.classList.contains('visible')) {
+                    const items = hist.querySelectorAll('.history-item');
+                    const current = hist.querySelector('.history-item.active');
+                    let idx = Array.from(items).indexOf(current);
+
+                    if (e.key === 'ArrowDown') {
+                        e.preventDefault();
+                        if (idx === -1) idx = 0; else idx = (idx + 1) % items.length;
+                    } else if (e.key === 'ArrowUp') {
+                        e.preventDefault();
+                        if (idx === -1) idx = items.length - 1; else idx = (idx - 1 + items.length) % items.length;
+                    } else if (e.key === 'Enter') {
+                        e.preventDefault();
+                        if (current) current.click();
+                        else {
+                            // Submit search
+                            addToSearchHistory(e.target.value);
+                            hist.classList.remove('visible');
+                            // Trigger search cycle logic
+                            window.cycleSearchMatches(0); // Custom fix to trigger search logic without moving
+                        }
+                        return;
+                    }
+
+                    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+                        items.forEach(i => i.classList.remove('active'));
+                        items[idx].classList.add('active');
+                    }
+                    return;
+                }
+                // Toggle history on down if empty
+                if (e.key === 'ArrowDown' && !hist.classList.contains('visible')) {
+                    renderSearchHistory();
+                }
+            }
+
+            if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') {
+                if(e.key === 'Escape') { 
+                    e.target.blur();
+                    document.getElementById('search-history').classList.remove('visible');
+                    // Special case: If scratchpad textarea has focus, collapse scratchpad
+                    if (e.target.id === 'sp-textarea') {
+                        document.getElementById('scratchpad-panel').classList.remove('visible');
+                    }
+                    if(e.target.id === 'search-input') window.toggleSearch(); 
+                }
+                // Allow enter to work on inputs
+                if(e.key === 'Enter' && e.target.id === 'search-input') {
+                    addToSearchHistory(e.target.value);
+                    const query = e.target.value.toLowerCase();
+                    if (!query) return;
+                    const allVisibleRows = Array.from(document.querySelectorAll('.tree-root .tree-row'));
+                    const firstHighlighted = allVisibleRows.find(row => row.querySelector('.row-label b'));
+                    if (firstHighlighted) {
+                        state.searchMatchIndex = 0;
+                        const path = firstHighlighted.dataset.path;
+                        const type = firstHighlighted.dataset.type;
+                        const hasSub = firstHighlighted.dataset.hasSub === 'true';
+                        selectNode(firstHighlighted, path, null, type, firstHighlighted.parentElement, hasSub);
+                        e.target.blur();
+                        showToast(`Focused: ${path}`);
+                    }
+                }
+                return;
+            }
+
+            // Global Shortcuts (Ctrl+K, P)
+            if ((e.ctrlKey || e.metaKey) && (e.key === 'k' || e.key === 'p')) {
+                e.preventDefault();
+                window.toggleCommandPalette();
+                return;
+            }
+
+            // Standard Tree Navigation Logic (Existing + Merged)
+            let parts = [];
+            if (e.ctrlKey) parts.push('Ctrl');
+            if (e.shiftKey) parts.push('Shift');
+            if (e.altKey) parts.push('Alt');
+            if (e.metaKey) parts.push('Meta');
+            
+            let key = e.key;
+            if(key === ' ') key = 'Space';
+            if(key.length === 1) key = key.toLowerCase();
+            
+            parts.push(key);
+            const combo = parts.join('+');
+
+            const kb = state.keybinds;
+            const check = (setting) => setting === combo;
+            
+            let matched = false;
+            
+            if (check(kb.search)) { 
+                e.preventDefault(); 
+                const searchBar = document.getElementById('search-bar');
+                const searchInput = document.getElementById('search-input');
+                const isVisible = searchBar.classList.contains('visible');
+                const isFocused = document.activeElement === searchInput;
+
+                if (isVisible && !isFocused) {
+                    searchInput.focus();
+                    searchInput.select(); 
+                    renderSearchHistory(); // Show history on focus
+                } else {
+                    window.toggleSearch(); 
+                }
+                matched = true; 
+            }
+            else if (check(kb.copyId)) { if (state.focusedRow) window.copyToClipboard(state.focusedRow.path); matched = true; }
+            else if (check(kb.copyDesc)) { const desc = document.getElementById('inspector-desc-text'); if (desc) window.copyToClipboard(desc.textContent); matched = true; }
+            else if (check(kb.version)) { window.toggleVersionDropdown(); matched = true; }
+            else if (check(kb.settings)) { window.openModal('settings'); matched = true; }
+            else if (check(kb.about)) { window.openModal('about'); matched = true; }
+            else if (check(kb.up)) { e.preventDefault(); handleNav('up'); matched = true; }
+            else if (check(kb.down)) { e.preventDefault(); handleNav('down'); matched = true; }
+            else if (check(kb.left)) { e.preventDefault(); handleNav('left'); matched = true; }
+            else if (check(kb.right)) { e.preventDefault(); handleNav('right'); matched = true; }
+            else if (check(kb.nextMatch)) { e.preventDefault(); window.cycleSearchMatches(1); matched = true; }
+            else if (check(kb.prevMatch)) { e.preventDefault(); window.cycleSearchMatches(-1); matched = true; }
+            
+            if (combo === (kb.clearSearch || 'Escape')) {
+                const isSearchVisible = document.getElementById('search-bar').classList.contains('visible');
+                if (isSearchVisible) { e.preventDefault(); window.closeSearch(); return; }
+            }
+
+            if (combo === 'Escape') {
+                if(document.querySelector('.overlay-backdrop.visible')) {
+                    document.querySelectorAll('.overlay-backdrop.visible').forEach(el => el.classList.remove('visible'));
+                    return;
+                }
+                const vDrop = document.getElementById('version-dropdown');
+                if (vDrop.classList.contains('visible')) vDrop.classList.remove('visible');
+            }
+
+            // Only run buffer if not matched
+            if (!matched && !e.ctrlKey && !e.altKey && !e.metaKey) {
+                keyBuffer.push(key);
+                const seq = keyBuffer.join(' ');
+                if (seq === kb.top) {
+                    const rows = Array.from(document.querySelectorAll('.tree-row'));
+                    const first = rows.find(r => isRowVisible(r));
+                    if(first) selectNode(first, first.dataset.path, null, first.dataset.type, first.parentNode, first.dataset.hasSub === 'true');
+                    keyBuffer = [];
+                } 
+                if (combo === kb.bottom) {
+                     const rows = Array.from(document.querySelectorAll('.tree-row'));
+                    for(let i = rows.length -1; i >= 0; i--) {
+                        if (isRowVisible(rows[i])) {
+                            selectNode(rows[i], rows[i].dataset.path, null, rows[i].dataset.type, rows[i].parentNode, rows[i].dataset.hasSub === 'true');
+                            break;
+                        }
+                    }
+                    keyBuffer = [];
+                }
+                clearTimeout(keyTimer);
+                keyTimer = setTimeout(() => { keyBuffer = []; }, state.comboTimeout);
+            }
+        });
+        
+        // Keybind Recording Logic
         const keyInputs = document.querySelectorAll('.keybind-input');
         let recordTimeout;
         let recordBuffer = [];
+        let keyBuffer = []; // Global buffer for 'gg' type commands
+        let keyTimer = null;
 
         keyInputs.forEach(input => {
             input.addEventListener('keydown', (e) => {
                 e.preventDefault(); e.stopPropagation();
-                
-                // If just modifier, ignore
                 if (['Control', 'Shift', 'Alt', 'Meta'].includes(e.key)) return;
 
                 let parts = [];
@@ -1012,7 +1917,6 @@ const escapeHTML = (str) => {
                 parts.push(key);
                 const chord = parts.join('+');
 
-                // If modifier present, it's likely an instant bind (Ctrl+C), not a sequence
                 if (parts.length > 1 && (e.ctrlKey || e.altKey || e.metaKey)) {
                     clearTimeout(recordTimeout);
                     recordBuffer = [];
@@ -1024,7 +1928,6 @@ const escapeHTML = (str) => {
                     return;
                 }
 
-                // Sequence Recording
                 recordBuffer.push(chord);
                 input.value = recordBuffer.join(' ') + ' ...';
                 
@@ -1040,8 +1943,6 @@ const escapeHTML = (str) => {
                 }, state.comboTimeout);
             });
         });
-
-        window.saveKeybinds = async () => { /* Auto-saves */ };
 
         window.clearDataCache = async () => {
             await dataStore.clear();
@@ -1061,7 +1962,6 @@ This software is released under the **NAP License** (Non-Aggression Principle Li
 *Note: This is a local fallback. The original source could not be reached.*
         `;
 
-        // --- ABOUT LOGIC FROM INDEX.HTML ---
         window.aboutNav = async (target) => {
             const main = document.getElementById('about-main');
             const legal = document.getElementById('about-legal');
@@ -1173,19 +2073,22 @@ This software is released under the **NAP License** (Non-Aggression Principle Li
             popup.classList.add('visible');
         }
 
-        window.copyToClipboard = (text) => { navigator.clipboard.writeText(text); showToast("Copied to Clipboard"); };
-
-        // --- INTERNAL LOGIC ---
         async function loadSettings() {
             const prefs = await settingsStore.getItem('user_prefs');
+            const history = await settingsStore.getItem('user_history');
+            
             if (prefs) {
                 state.theme = prefs.theme || 'dark';
                 state.accent = prefs.accent || 'purple';
                 state.reducedMotion = !!prefs.reducedMotion;
                 state.transparency = prefs.transparency !== undefined ? prefs.transparency : 0.06;
                 state.ghToken = prefs.ghToken || '';
+                state.geminiKey = prefs.geminiKey || '';
                 state.showSnippets = !!prefs.showSnippets;
                 state.comboTimeout = prefs.comboTimeout || 500;
+                state.customFont = prefs.customFont || '';
+                state.customCSS = prefs.customCSS || '';
+                
                 if(prefs.keybinds) state.keybinds = { ...state.keybinds, ...prefs.keybinds };
 
                 const radio = document.querySelector(`input[name="accent"][value="${state.accent}"]`);
@@ -1195,16 +2098,25 @@ This software is released under the **NAP License** (Non-Aggression Principle Li
                 document.getElementById('combo-timeout-slider').value = state.comboTimeout;
                 document.getElementById('combo-timeout-val').textContent = state.comboTimeout + 'ms';
                 document.getElementById('gh-token-input').value = state.ghToken;
+                document.getElementById('gemini-key-input').value = state.geminiKey;
+                document.getElementById('custom-font-input').value = state.customFont;
+                document.getElementById('custom-css-input').value = state.customCSS;
+                document.getElementById('sp-textarea').value = state.scratchpadConfig || "";
                 
                 document.getElementById('motion-row').classList.toggle('active', state.reducedMotion);
                 document.getElementById('snippet-row').classList.toggle('active', state.showSnippets);
                 document.body.classList.toggle('reduce-motion', state.reducedMotion);
             }
-            // Populate Keybinds inputs
+            if (history) {
+                state.favorites = history.favorites || [];
+                state.recents = history.recents || [];
+                state.searchHistory = history.searchHistory || [];
+                state.scratchpadConfig = history.scratchpadConfig || "";
+                document.getElementById('sp-textarea').value = state.scratchpadConfig;
+            }
             document.querySelectorAll('.keybind-input').forEach(input => {
                 input.value = state.keybinds[input.dataset.bind];
             });
-            // Ensure Theme Applied correctly
             applyTheme();
             updateStyles();
             updateCacheStats();
@@ -1212,7 +2124,6 @@ This software is released under the **NAP License** (Non-Aggression Principle Li
 
         function applyTheme() {
             document.documentElement.setAttribute('data-theme', state.theme);
-            // Fix: explicit check ensuring switch matches state
             document.getElementById('theme-row').classList.toggle('active', state.theme === 'dark');
         }
 
@@ -1222,6 +2133,15 @@ This software is released under the **NAP License** (Non-Aggression Principle Li
             const mode = state.theme === 'light' ? 'light' : 'dark';
             document.documentElement.style.setProperty('--link-color', `var(--accent-link-${state.accent}-${mode})`);
             document.documentElement.style.setProperty('--card-opacity', state.transparency);
+            
+            // Custom Font
+            if(state.customFont) {
+                document.documentElement.style.setProperty('--font-ui', state.customFont);
+                document.documentElement.style.setProperty('--font-mono', state.customFont); 
+            }
+            
+            // Custom CSS
+            document.getElementById('user-custom-css').textContent = state.customCSS || '';
         }
 
         async function init() {
@@ -1229,49 +2149,93 @@ This software is released under the **NAP License** (Non-Aggression Principle Li
             loader.style.display = 'flex';
             await loadSettings(); 
 
+            // Handle Offline
+            window.addEventListener('online',  updateOnlineStatus);
+            window.addEventListener('offline', updateOnlineStatus);
+            updateOnlineStatus();
+
             try {
                 const cachedReleases = await dataStore.getItem('releases_list');
                 if (cachedReleases) state.versions = cachedReleases;
 
                 fetchReleases().then(v => { state.versions = v; updateVersionUI(); });
 
-                // Fetch latest
-                const metaRes = await fetchWithAuth(`https://raw.githubusercontent.com/${CONFIG.OWNER}/${CONFIG.REPO}/${CONFIG.BRANCH}/latestCommit.json`);
-                const meta = await metaRes.json();
-
-                if (meta.options || meta.pkgs) {
-                    state.data = meta;
-                    state.selectedVersion = "Latest Commit"; 
-                    renderRegistry(meta);
+                // Deep Linking Check
+                let initialMeta = null;
+                window.setLoading(true); // Start Pulse
+                if (window.location.hash.length > 1) {
+                    const [type, path] = window.location.hash.substring(1).split(':');
+                    const metaRes = await fetchWithAuth(`https://raw.githubusercontent.com/${CONFIG.OWNER}/${CONFIG.REPO}/${CONFIG.BRANCH}/latestCommit.json`);
+                    initialMeta = await metaRes.json();
+                    
+                    if (initialMeta.options || initialMeta.pkgs) {
+                        state.data = initialMeta;
+                        state.selectedVersion = "Latest Commit"; 
+                        renderRegistry(initialMeta);
+                        setTimeout(() => navigateToPath(path, type), 100);
+                    }
                 } else {
-                    await loadVersion(meta.latest);
+                    const metaRes = await fetchWithAuth(`https://raw.githubusercontent.com/${CONFIG.OWNER}/${CONFIG.REPO}/${CONFIG.BRANCH}/latestCommit.json`);
+                    initialMeta = await metaRes.json();
+                    if (initialMeta.options || initialMeta.pkgs) {
+                        state.data = initialMeta;
+                        state.selectedVersion = "Latest Commit"; 
+                        renderRegistry(initialMeta);
+                    } else {
+                        await loadVersion(initialMeta.latest);
+                    }
+                    updateVersionUI();
+                    updateBreadcrumbs('', '');
+                    navigateToPath(null, null); 
                 }
-                
-                updateVersionUI();
-                updateBreadcrumbs('');
+                window.setLoading(false); // Stop Pulse
                 
                 setInterval(() => fetchReleases().then(v => { state.versions = v; updateVersionUI(); }), 300000);
 
-            } catch (e) { loader.innerHTML = `<div style="color:var(--accent-red)">Failed to initialize: ${e.message}</div>`; }
+            } catch (e) { 
+                loader.innerHTML = `<div style="color:var(--accent-red)">Failed to initialize: ${e.message}</div>`; 
+                window.setLoading(false);
+            }
             loader.style.display = 'none';
+        }
+
+        function updateOnlineStatus() {
+            const ind = document.getElementById('net-status');
+            if (navigator.onLine) {
+                ind.classList.remove('offline');
+                ind.title = "Online";
+            } else {
+                ind.classList.add('offline');
+                ind.title = "Offline";
+            }
         }
 
         async function fetchWithAuth(url) {
             const headers = {};
             if (state.ghToken) headers['Authorization'] = `Bearer ${state.ghToken}`;
-            const res = await fetch(url, { headers });
-            if (!res.ok) throw new Error(`HTTP ${res.status}`);
-            return res;
+            try {
+                const res = await fetch(url, { headers });
+                if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                return res;
+            } catch (e) {
+                // Offline fallback if possible? For now just throw
+                throw e;
+            }
         }
 
         async function fetchReleases() {
+            window.setLoading(true);
             try {
                 const atomRes = await fetchWithAuth(`https://github.com/${CONFIG.OWNER}/${CONFIG.REPO}/releases.atom`);
                 const xml = new DOMParser().parseFromString(await atomRes.text(), "text/xml");
                 const versions = Array.from(xml.querySelectorAll("entry > title")).map(t => t.textContent.trim());
                 await dataStore.setItem('releases_list', versions);
+                window.setLoading(false);
                 return versions;
-            } catch(e) { return state.versions; }
+            } catch(e) { 
+                window.setLoading(false);
+                return state.versions; 
+            }
         }
 
         async function loadVersion(v) {
@@ -1279,6 +2243,7 @@ This software is released under the **NAP License** (Non-Aggression Principle Li
             const root = document.getElementById('registry-root');
             root.style.display = 'none';
             loader.style.display = 'flex';
+            window.setLoading(true);
             
             try {
                 let data = await dataStore.getItem(`version_${v}`);
@@ -1291,9 +2256,12 @@ This software is released under the **NAP License** (Non-Aggression Principle Li
                 state.selectedVersion = v;
                 renderRegistry(data);
                 updateVersionUI();
-                updateBreadcrumbs('');
+                updateBreadcrumbs('', '');
+                navigateToPath(null, null); 
                 updateCacheStats();
             } catch(e) { loader.innerHTML = `<div>Error loading ${v}</div>`; }
+            
+            window.setLoading(false);
             loader.style.display = 'none';
             root.style.display = 'block';
         }
@@ -1328,6 +2296,37 @@ This software is released under the **NAP License** (Non-Aggression Principle Li
         function renderRegistry(data) {
             const root = document.getElementById('registry-root');
             root.innerHTML = '';
+
+            // --- FAVORITES SECTION ---
+            if (state.favorites.length > 0) {
+                const title = document.createElement('div');
+                title.className = `adw-group-title fav-header ${state.favsCollapsed ? 'collapsed' : ''}`;
+                title.onclick = window.toggleFavGroup;
+                title.innerHTML = `Favorites <span class="fav-caret">▼</span>`;
+                root.appendChild(title);
+
+                if (!state.favsCollapsed) {
+                    const container = document.createElement('div');
+                    container.className = 'tree-root';
+                    
+                    state.favorites.forEach(favKey => {
+                        const [type, path] = favKey.split(':');
+                        const row = document.createElement('div');
+                        row.className = 'tree-row';
+                        row.innerHTML = `<div class="row-icon leaf" style="color:var(--accent-yellow)">★</div><div class="row-label">${escapeHTML(path)} <span style="font-size:0.7em; opacity:0.5; font-weight:400; margin-left:6px">${type}</span></div>`;
+                        row.onclick = () => navigateToPath(path, type);
+                        
+                        const wrapper = document.createElement('div');
+                        wrapper.className = 'tree-node-wrapper';
+                        wrapper.style.marginLeft = '0'; // Flat list
+                        wrapper.style.border = 'none';
+                        wrapper.appendChild(row);
+                        container.appendChild(wrapper);
+                    });
+                    root.appendChild(container);
+                }
+            }
+
             const categories = [{ k: 'options', l: 'Nix Options' }, { k: 'pkgs', l: 'Packages' }, { k: 'maintainers', l: 'Maintainers' }];
 
             categories.forEach(cat => {
@@ -1365,17 +2364,20 @@ This software is released under the **NAP License** (Non-Aggression Principle Li
                 wrapper.className = 'tree-node-wrapper';
                 const row = document.createElement('div');
                 row.className = 'tree-row';
-                // Store data for keybinds
                 row.dataset.path = currentPath;
                 row.dataset.hasSub = hasSub;
                 row.dataset.type = type;
+                
+                // Add title attribute for hover description (Leaf nodes usually have meta)
+                if (node.meta && node.meta.description) {
+                    row.title = escapeHTML(node.meta.description);
+                }
 
-row.innerHTML = `<div class="row-icon ${hasSub ? '' : 'leaf'}">${hasSub ? '▶' : '●'}</div><div class="row-label">${escapeHTML(key)}</div>`;
+                row.innerHTML = `<div class="row-icon ${hasSub ? '' : 'leaf'}">${hasSub ? '▶' : '●'}</div><div class="row-label">${escapeHTML(key)}</div>`;
                 if (!node.meta && !hasSub) row.innerHTML += `<div class="meta-badge">NO META</div>`;
 
                 row.onclick = (e) => {
                     e.stopPropagation();
-                    // Click always acts as "Action" -> Select AND Toggle if folder
                     selectNode(row, currentPath, node, type, wrapper, hasSub);
                     if (hasSub) {
                          const children = wrapper.querySelector('.tree-children-wrapper');
@@ -1403,75 +2405,237 @@ row.innerHTML = `<div class="row-icon ${hasSub ? '' : 'leaf'}">${hasSub ? '▶' 
                 container.appendChild(wrapper);
             });
         }
+        
+        // Helper to render filtered tree for search
+        function renderFilteredTree(nodes, container, path, type, query) {
+             Object.keys(nodes).sort().forEach(key => {
+                const node = nodes[key];
+                const currentPath = path ? `${path}.${key}` : key;
+                // Check match
+                const isMatch = currentPath.toLowerCase().includes(query);
+                const hasSub = node.sub && Object.keys(node.sub).length > 0;
+                
+                // If it's a match, render it. If it's a parent, render only if it has matching children or is a match itself.
+                // Simplified: Render if match OR children match
+                let childrenMatch = false;
+                if (hasSub) {
+                    // Start checking children
+                    childrenMatch = checkDeepMatch(node.sub, query);
+                }
 
-        // Pure Selection Logic (Focus)
+                if (isMatch || childrenMatch) {
+                     const wrapper = document.createElement('div');
+                     wrapper.className = 'tree-node-wrapper';
+                     const row = document.createElement('div');
+                     row.className = 'tree-row';
+                     row.dataset.path = currentPath;
+                     row.dataset.hasSub = hasSub;
+                     row.dataset.type = type;
+                     
+                     // Highlight match
+                     let label = escapeHTML(key);
+                     if (key.toLowerCase().includes(query)) {
+                         const idx = key.toLowerCase().indexOf(query);
+                         label = key.substring(0, idx) + `<b>${key.substring(idx, idx + query.length)}</b>` + key.substring(idx + query.length);
+                     } else if (isMatch) {
+                         // Path match but key doesn't? Rare here since we filter by key, but for robustness
+                         label = `<b>${escapeHTML(key)}</b>`;
+                     }
+
+                     row.innerHTML = `<div class="row-icon ${hasSub ? '' : 'leaf'}">${hasSub ? '▶' : '●'}</div><div class="row-label">${label}</div>`;
+                     
+                     row.onclick = (e) => {
+                        e.stopPropagation();
+                        selectNode(row, currentPath, node, type, wrapper, hasSub);
+                        if (hasSub) {
+                             const children = wrapper.querySelector('.tree-children-wrapper');
+                             children.classList.toggle('open');
+                             row.querySelector('.row-icon').classList.toggle('expanded');
+                        }
+                    };
+                    wrapper.appendChild(row);
+
+                    if (hasSub && childrenMatch) {
+                        const anim = document.createElement('div');
+                        anim.className = 'tree-children-wrapper open'; // Auto expand on search
+                        const children = document.createElement('div');
+                        children.className = 'tree-children';
+                        renderFilteredTree(node.sub, children, currentPath, type, query);
+                        anim.appendChild(children);
+                        wrapper.appendChild(anim);
+                        // Auto expand icon
+                        row.querySelector('.row-icon').classList.add('expanded');
+                    }
+                    container.appendChild(wrapper);
+                }
+             });
+        }
+        
+        function checkDeepMatch(sub, query) {
+            if (!sub) return false;
+            return Object.keys(sub).some(k => k.toLowerCase().includes(query) || checkDeepMatch(sub[k].sub, query));
+        }
+
         function selectNode(rowEl, path, node, type, wrapper, hasSub) {
             document.querySelectorAll('.tree-row.selected').forEach(r => r.classList.remove('selected'));
             rowEl.classList.add('selected');
             state.focusedRow = { el: rowEl, path, node, type, wrapper, hasSub };
             
+            // Deep Linking Update
+            try {
+                window.location.hash = `#${type}:${path}`;
+            } catch(e) { console.warn("Cannot set hash in sandbox"); }
+            
+            addToRecents(path, type);
             openInspector(path, node ? node.meta : null, type);
             updateBreadcrumbs(path, type);
             rowEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
         }
 
         window.navigateToPath = (path, type) => {
-    if (!path && !type) {
-        // Reset to home view
-        document.querySelectorAll('.tree-row.selected').forEach(r => r.classList.remove('selected'));
-        state.focusedRow = null;
-        document.getElementById('sidebar-body').innerHTML = `<div class="sidebar-content" id="sidebar-body">
-            <div style="padding: 60px 20px; text-align: center; color: var(--dim-label);">
-                <div style="margin-bottom: 16px; opacity: 0.1">
-                    <svg width="80" height="80" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg>
-                </div>
-                <div style="font-weight: 700; margin-bottom: 8px;">ZenPkgs Explorer</div>
-                <div style="font-size: 0.9rem;">Select an option to view details.</div>
-                <div style="font-size: 0.75rem; margin-top: 24px; color: var(--secondary-label)"><code>/</code> to search<br><code>hjkl</code> to navigate</div>
-            </div>
-        </div>
-`;
-        updateBreadcrumbs('', '');
-        renderRegistry(state.data);
-        return;
-    }
+            if (!path && !type) {
+                // Clear Hash
+                try { history.replaceState(null, null, ' '); } catch(e) {}
+                
+                document.querySelectorAll('.tree-row.selected').forEach(r => r.classList.remove('selected'));
+                state.focusedRow = null;
+                
+                // Build Recents HTML only
+                let recentHtml = '';
+                if (state.recents.length > 0) {
+                    recentHtml = `<div class="adw-group-title" style="margin-left:0; text-align:left;">Recent</div><div class="adw-group">`;
+                    state.recents.forEach(r => {
+                        const [t, p] = r.split(':');
+                        recentHtml += `<div class="adw-row" style="cursor:pointer" onclick="navigateToPath('${p}', '${t}')"><span style="font-weight:600; font-size:0.9em">${escapeHTML(p)}</span></div>`;
+                    });
+                    recentHtml += `</div>`;
+                }
 
-    // Find the target row in the DOM
-    const targetRow = document.querySelector(`.tree-row[data-path="${path}"][data-type="${type}"]`);
-    
-    if (targetRow) {
-        // 1. Expand all parent containers so the row is visible
-        let parent = targetRow.parentElement.closest('.tree-node-wrapper');
-        while (parent) {
-            const parentRow = parent.querySelector(':scope > .tree-row');
-            const childrenWrapper = parent.querySelector(':scope > .tree-children-wrapper');
-            if (childrenWrapper) {
-                childrenWrapper.classList.add('open');
-                if (parentRow) parentRow.querySelector('.row-icon').classList.add('expanded');
+                document.getElementById('sidebar-body').innerHTML = `
+                    <div style="padding: 40px 20px; text-align: center; color: var(--dim-label);">
+                        <div style="margin-bottom: 16px; opacity: 0.1">
+                            <svg width="80" height="80" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg>
+                        </div>
+                        <div style="font-weight: 700; margin-bottom: 8px;">ZenPkgs Explorer</div>
+                        <div style="font-size: 0.9rem;">Select an option to view details.</div>
+                        <div style="font-size: 0.75rem; margin-top: 24px; color: var(--secondary-label)"><code>${state.keybinds.search}</code> to search<br><code>${state.keybinds.up}/${state.keybinds.down}</code> to navigate</div>
+                        <div style="text-align:left; margin-top:32px;">
+                            ${recentHtml}
+                        </div>
+                    </div>
+                `;
+                updateBreadcrumbs('', '');
+                const searchInput = document.getElementById('search-input');
+                if(searchInput.value) {
+                    searchInput.value = '';
+                    renderRegistry(state.data);
+                }
+                return;
             }
-            parent = parent.parentElement.closest('.tree-node-wrapper');
+
+            const targetRow = document.querySelector(`.tree-row[data-path="${path}"][data-type="${type}"]`);
+            
+            if (targetRow) {
+                let parent = targetRow.parentElement.closest('.tree-node-wrapper');
+                while (parent) {
+                    const parentRow = parent.querySelector(':scope > .tree-row');
+                    const childrenWrapper = parent.querySelector(':scope > .tree-children-wrapper');
+                    if (childrenWrapper) {
+                        childrenWrapper.classList.add('open');
+                        if (parentRow) parentRow.querySelector('.row-icon').classList.add('expanded');
+                    }
+                    parent = parent.parentElement.closest('.tree-node-wrapper');
+                }
+                const hasSub = targetRow.dataset.hasSub === 'true';
+                selectNode(targetRow, path, null, type, targetRow.parentElement, hasSub);
+            }
+        };
+
+        function getIconForType(type) {
+            type = (type || 'unknown').toString().toLowerCase();
+            const icons = {
+                boolean: `<svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5"><path d="M20 6L9 17l-5-5"/></svg>`,
+                string: `<svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5"><path d="M4 7V4h16v3M9 20h6M12 4v16"/></svg>`,
+                array: `<svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5"><path d="M4 6h16M4 12h16M4 18h16"/></svg>`, // List icon
+                set: `<svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5"><path d="M3 12h1m8-9v1m8 8h1M5.6 5.6l.7.7m12.1-.7l-.7.7m0 11.4l.7.7m-12.1-.7l-.7.7"/></svg>`, // Curly-ish
+                number: `<svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5"><path d="M7 20l4-16m2 16l4-16M6 9h14M4 15h14"/></svg>`,
+                enum: `<svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>`,
+                null: `<svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><path d="M4.93 4.93l14.14 14.14"/></svg>`,
+                function: `<svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5"><path d="M9 18l6-6-6-6"/></svg>`, // Lambda-ish
+                unknown: `<svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5"><path d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>`
+            };
+            // Fallback for list of types or complex types
+            if (type.includes('list')) return icons.array;
+            if (type.includes('attrs')) return icons.set;
+            if (type.includes('int') || type.includes('float')) return icons.number;
+            return icons[type] || icons.unknown;
         }
 
-        // 2. Trigger the existing selection logic
-        const hasSub = targetRow.dataset.hasSub === 'true';
-        selectNode(targetRow, path, null, type, targetRow.parentElement, hasSub);
-    }
-};
-
         function openInspector(path, meta, type) {
+            state.currentMeta = meta; 
+            const isFav = state.favorites.includes(`${type}:${path}`);
+            
             const body = document.getElementById('sidebar-body');
+            
+            // Build Type Row HTML if type exists
+            let typeHtml = '';
+            if (meta && meta.type) {
+                typeHtml = `
+                    <div class="adw-group" style="margin: 0 12px 24px 12px;">
+                        <div class="adw-row" style="padding: 10px 16px; min-height: 44px;">
+                            <div style="display:flex; align-items:center; gap:8px; font-weight:600; font-size:0.9rem">
+                                ${getIconForType(meta.type)}
+                                <span style="text-transform:capitalize">${escapeHTML(meta.type)}</span>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+
             let html = `
-                <div class="adw-group-title" style="margin-top:12px; margin-left:12px;">Identifier</div>
+                <div class="adw-group-title" style="margin-top:12px; margin-left:12px; display:flex; justify-content:space-between; align-items:center; padding-right:12px">
+                    <span>Identifier</span>
+                    <button class="adw-button icon-only" onclick="toggleFavorite('${path}', '${type}')" title="${isFav ? 'Unpin' : 'Pin'}">
+                        <svg width="16" height="16" fill="${isFav ? 'var(--accent-yellow)' : 'none'}" stroke="${isFav ? 'var(--accent-yellow)' : 'currentColor'}" stroke-width="2" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+                    </button>
+                </div>
                 <div class="adw-group" style="margin: 0 12px 24px 12px;">
-                    <div class="adw-row">
-                        <div style="font-family:var(--font-mono); font-size:0.8rem; overflow:hidden; text-overflow:ellipsis;" id="inspector-id-text">${path}</div>
-                        <div class="copy-btn" onclick="copyToClipboard('${path}')">COPY</div>
+                    <div class="adw-row" style="flex-direction: column; align-items: flex-start; gap: 12px; border-bottom:none;">
+                        <div style="font-family:var(--font-mono); font-size:0.85rem; word-break:break-all;" id="inspector-id-text">${path}</div>
+                        
+                        <div style="display:flex; gap:8px; width:100%; justify-content:center;">
+                             <div class="maintainer-chip" style="background:var(--accent-bg); color:var(--accent-fg); flex:0 0 auto; min-width:140px; justify-content:center; text-align:center" onclick="addToScratchpad('${path}', '${type}')">
+                                + Add to Scratchpad
+                             </div>
+                             <div class="maintainer-chip" style="background:var(--accent-bg); color:var(--accent-fg); flex:0 0 auto; min-width:100px; justify-content:center; text-align:center" onclick="copyToClipboard('${path}')">
+                                Copy ID
+                             </div>
+                        </div>
                     </div>
                 </div>
+                ${typeHtml ? `<div class="adw-group-title" style="margin-left:12px;">Type</div>${typeHtml}` : ''}
             `;
             if (state.showSnippets) {
                 const snippet = type === 'options' ? `${path} = ...;` : `pkgs.${path}`;
                 html += `<div class="adw-group-title" style="margin-left:12px;">Nix Snippet</div><div class="markdown-body" style="margin: 0 12px 24px 12px;"><pre><code>${snippet}</code></pre></div>`;
+            }
+
+            // AI Smart Assistant Section - Only shown if key exists
+            if (state.geminiKey) {
+                html += `
+                    <div class="adw-group-title" style="margin-left:12px; display:flex; align-items:center; gap:8px;">
+                        <span>Smart Assistant</span>
+                        <span style="font-size:0.6em; opacity:0.7; background:rgba(255,255,255,0.1); padding:2px 6px; border-radius:4px">✨ GEMINI</span>
+                    </div>
+                    <div class="adw-group" id="ai-container-group" style="margin: 0 12px 24px 12px; transition: border-color 0.3s;">
+                        <div class="adw-row" style="cursor: pointer; justify-content: center; font-weight: 800;" onclick="askGemini('${path}', '${type}')">
+                            <span class="ai-btn-text">✨ Explain & Generate Config</span>
+                        </div>
+                        <div id="ai-content-area" style="display:none; padding: 16px;">
+                            <div class="markdown-body" id="ai-response-text" style="font-size:0.9em; background:transparent; padding:0!important; border:none;"></div>
+                        </div>
+                    </div>
+                `;
             }
 
             if (meta) {
@@ -1489,65 +2653,33 @@ row.innerHTML = `<div class="row-icon ${hasSub ? '' : 'leaf'}">${hasSub ? '▶' 
         }
 
         function updateBreadcrumbs(path, type) {
-    const container = document.getElementById('breadcrumbs');
-    const iconSvg = `<svg width="16" height="16" viewBox="0 0 16 16" fill="var(--dim-label)" xmlns="http://www.w3.org/2000/svg">
-                    <g clip-path="url(#clip0_272_121)"><path fill-rule="evenodd" clip-rule="evenodd" d="M12.5 7C10.567 7 9 5.433 9 3.5C9 1.567 10.567 0 12.5 0C14.433 0 16 1.567 16 3.5C16 5.433 14.433 7 12.5 7ZM12.5 1.5C13.6046 1.5 14.5 2.39543 14.5 3.5C14.5 4.60457 13.6046 5.5 12.5 5.5C11.3954 5.5 10.5 4.60457 10.5 3.5C10.5 2.39543 11.3954 1.5 12.5 1.5Z"></path><path fill-rule="evenodd" clip-rule="evenodd" d="M12.5 16C10.567 16 9 14.433 9 12.5C9 10.567 10.567 9 12.5 9C14.433 9 16 10.567 16 12.5C16 14.433 14.433 16 12.5 16ZM12.5 10.5C13.6046 10.5 14.5 11.3954 14.5 12.5C14.5 13.6046 13.6046 14.5 12.5 14.5C11.3954 14.5 10.5 13.6046 10.5 12.5C10.5 11.3954 11.3954 10.5 12.5 10.5Z"></path><path fill-rule="evenodd" clip-rule="evenodd" d="M3.5 11.5C1.567 11.5 0 9.933 0 8C0 6.067 1.567 4.5 3.5 4.5C5.433 4.5 7 6.067 7 8C7 9.933 5.433 11.5 3.5 11.5ZM3.5 6C4.60457 6 5.5 6.89543 5.5 8C5.5 9.10457 4.60457 10 3.5 10C2.39543 10 1.5 9.10457 1.5 8C1.5 6.89543 2.39543 6 3.5 6Z" fill="currentColor"></path></g><defs><clipPath id="clip0_272_121"><rect width="16" height="16" fill="currentColor"></rect></clipPath></defs>
-                </svg>`; // Keep your SVG here
-    
-    // Root link: now clears search and selection
-    container.innerHTML = `<div class="crumb-btn" onclick="navigateToPath('', '')">${iconSvg}<span>zenpkgs</span></div>`;
-    if (!path) return;
-
-    // Type link (options/pkgs)
-    container.innerHTML += `<span class="crumb-sep">›</span><div class="crumb-btn" onclick="navigateToPath('', '${type}')">${escapeHTML(type)}</div>`;
-    
-    let currentAcc = [];
-    path.split('.').forEach((part, i, arr) => {
-        currentAcc.push(part);
-        const fullPath = currentAcc.join('.');
-        const activeClass = i === arr.length - 1 ? 'active' : '';
-        
-        // Added onclick to trigger navigation to this specific segment
-        container.innerHTML += `
-            <span class="crumb-sep">›</span>
-            <div class="crumb-btn ${activeClass}" onclick="navigateToPath('${fullPath}', '${type}')">
-                ${escapeHTML(part)}
-            </div>`;
-    });
-    container.scrollLeft = container.scrollWidth;
-}
-
-        // --- SEARCH RE-IMPLEMENTATION ---
-        document.getElementById('search-input').addEventListener('keydown', (e) => {
-            state.searchMatchIndex = 0
+            const container = document.getElementById('breadcrumbs');
+            const iconSvg = `<svg width="16" height="16" viewBox="0 0 16 16" fill="var(--dim-label)" xmlns="http://www.w3.org/2000/svg">
+                            <g clip-path="url(#clip0_272_121)"><path fill-rule="evenodd" clip-rule="evenodd" d="M12.5 7C10.567 7 9 5.433 9 3.5C9 1.567 10.567 0 12.5 0C14.433 0 16 1.567 16 3.5C16 5.433 14.433 7 12.5 7ZM12.5 1.5C13.6046 1.5 14.5 2.39543 14.5 3.5C14.5 4.60457 13.6046 5.5 12.5 5.5C11.3954 5.5 10.5 4.60457 10.5 3.5C10.5 2.39543 11.3954 1.5 12.5 1.5Z"></path><path fill-rule="evenodd" clip-rule="evenodd" d="M12.5 16C10.567 16 9 14.433 9 12.5C9 10.567 10.567 9 12.5 9C14.433 9 16 10.567 16 12.5C16 14.433 14.433 16 12.5 16ZM12.5 10.5C13.6046 10.5 14.5 11.3954 14.5 12.5C14.5 13.6046 13.6046 14.5 12.5 14.5C11.3954 14.5 10.5 13.6046 10.5 12.5C10.5 11.3954 11.3954 10.5 12.5 10.5Z"></path><path fill-rule="evenodd" clip-rule="evenodd" d="M3.5 11.5C1.567 11.5 0 9.933 0 8C0 6.067 1.567 4.5 3.5 4.5C5.433 4.5 7 6.067 7 8C7 9.933 5.433 11.5 3.5 11.5ZM3.5 6C4.60457 6 5.5 6.89543 5.5 8C5.5 9.10457 4.60457 10 3.5 10C2.39543 10 1.5 9.10457 1.5 8C1.5 6.89543 2.39543 6 3.5 6Z" fill="currentColor"></path></g><defs><clipPath id="clip0_272_121"><rect width="16" height="16" fill="currentColor"></rect></clipPath></defs>
+                        </svg>`;
             
-    if (e.key === 'Enter') {
-        const query = e.target.value.toLowerCase();
-        if (!query) return;
+            container.innerHTML = `<div class="crumb-btn" onclick="navigateToPath('', '')">${iconSvg}<span>zenpkgs</span></div>`;
+            if (!path) return;
 
-        // Target the first tree row that contains a highlight (the <b> tag)
-        const allVisibleRows = Array.from(document.querySelectorAll('.tree-root .tree-row'));
-        const firstHighlighted = allVisibleRows.find(row => row.querySelector('.row-label b'));
-
-        if (firstHighlighted) {
-            const path = firstHighlighted.dataset.path;
-            const type = firstHighlighted.dataset.type;
-            const hasSub = firstHighlighted.dataset.hasSub === 'true';
+            container.innerHTML += `<span class="crumb-sep">›</span><div class="crumb-btn" onclick="navigateToPath('', '${type}')">${escapeHTML(type)}</div>`;
             
-            // Execute the selection
-            selectNode(firstHighlighted, path, null, type, firstHighlighted.parentElement, hasSub);
-            
-            // Clean up UI
-            e.target.blur();
-            showToast(`Focused: ${path}`);
+            let currentAcc = [];
+            path.split('.').forEach((part, i, arr) => {
+                currentAcc.push(part);
+                const fullPath = currentAcc.join('.');
+                const activeClass = i === arr.length - 1 ? 'active' : '';
+                
+                container.innerHTML += `
+                    <span class="crumb-sep clickable" onclick="goToParent('${fullPath}', '${type}')">›</span>
+                    <div class="crumb-btn ${activeClass}" onclick="navigateToPath('${fullPath}', '${type}')">
+                        ${escapeHTML(part)}
+                    </div>`;
+            });
+            container.scrollLeft = container.scrollWidth;
         }
-    }
-});
 
-// Keep your existing 'input' listener for the live-filtering, 
-// but ensure it calls the updated renderFilteredTree below.
+        // Search Input Listeners
         document.getElementById('search-input').addEventListener('input', (e) => {
-            
             const query = e.target.value.toLowerCase();
             const root = document.getElementById('registry-root');
             root.innerHTML = '';
@@ -1561,7 +2693,6 @@ row.innerHTML = `<div class="row-icon ${hasSub ? '' : 'leaf'}">${hasSub ? '▶' 
                 catTitle.textContent = catKey;
                 root.appendChild(catTitle);
                 
-                
                 if (catKey === 'maintainers') {
                     const filtered = {};
                     Object.keys(state.data[catKey]).forEach(k => { 
@@ -1569,7 +2700,6 @@ row.innerHTML = `<div class="row-icon ${hasSub ? '' : 'leaf'}">${hasSub ? '▶' 
                     });
                     const container = document.createElement('div');
                     container.className = 'chip-grid';
-                    // Re-use logic
                     Object.keys(filtered).sort().forEach(key => {
                         const chip = document.createElement('div');
                         chip.className = 'maintainer-chip';
@@ -1586,218 +2716,6 @@ row.innerHTML = `<div class="row-icon ${hasSub ? '' : 'leaf'}">${hasSub ? '▶' 
                 }
             });
         });
-
-        function renderFilteredTree(nodes, container, path, type, query) {
-    Object.keys(nodes).sort().forEach(key => {
-        const node = nodes[key];
-        const currentPath = path ? `${path}.${key}` : key;
-        const hasSub = node.sub && Object.keys(node.sub).length > 0;
-        
-        const selfMatch = currentPath.toLowerCase().includes(query);
-        const childMatch = hasSub && checkDeepMatch(node.sub, query);
-
-        if (!selfMatch && !childMatch) return;
-
-        const wrapper = document.createElement('div');
-        wrapper.className = 'tree-node-wrapper';
-        const row = document.createElement('div');
-        row.className = 'tree-row';
-        row.dataset.path = currentPath;
-        row.dataset.hasSub = hasSub;
-        row.dataset.type = type;
-
-        // Apply highlighting to the label
-        let displayLabel = escapeHTML(key);
-        if (query) {
-            const regex = new RegExp(`(${query})`, 'gi');
-            displayLabel = displayLabel.replace(regex, '<b>$1</b>');
-        }
-
-        row.innerHTML = `<div class="row-icon ${hasSub ? 'expanded' : 'leaf'}">${hasSub ? '▶' : '●'}</div><div class="row-label">${displayLabel}</div>`;
-        
-        if (!node.meta && !hasSub) row.innerHTML += `<div class="meta-badge">NO META</div>`;
-
-        let expanded = !!query; 
-        row.onclick = (e) => {
-            e.stopPropagation();
-            selectNode(row, currentPath, node, type, wrapper, hasSub);
-            if (hasSub) {
-                const children = wrapper.querySelector('.tree-children-wrapper');
-                children.classList.toggle('open');
-                row.querySelector('.row-icon').classList.toggle('expanded');
-            }
-        };
-        wrapper.appendChild(row);
-
-        if (hasSub) {
-            const anim = document.createElement('div');
-            anim.className = 'tree-children-wrapper';
-            if (expanded) anim.classList.add('open'); 
-
-            const children = document.createElement('div');
-            children.className = 'tree-children';
-            renderFilteredTree(node.sub, children, currentPath, type, query);
-            anim.appendChild(children);
-            wrapper.appendChild(anim);
-        }
-        container.appendChild(wrapper);
-    });
-}
-
-        function checkDeepMatch(sub, query) {
-            if (!sub) return false;
-            return Object.keys(sub).some(k => k.toLowerCase().includes(query) || checkDeepMatch(sub[k].sub, query));
-        }
-
-        // --- Keybinds & Motions ---
-        let keyBuffer = [];
-        let keyTimer = null;
-
-        document.addEventListener('keydown', (e) => {
-            
-            if (e.target.tagName === 'INPUT') {
-                if(e.key === 'Escape') { 
-                    e.target.blur();
-                    if(e.target.id === 'search-input') window.toggleSearch(); 
-                }
-                return;
-            }
-
-            // Modifier construction
-            let parts = [];
-            if (e.ctrlKey) parts.push('Ctrl');
-            if (e.shiftKey) parts.push('Shift');
-            if (e.altKey) parts.push('Alt');
-            if (e.metaKey) parts.push('Meta');
-            
-            let key = e.key;
-            if(key === ' ') key = 'Space';
-            if(key.length === 1) key = key.toLowerCase();
-            
-            parts.push(key);
-            const combo = parts.join('+');
-
-            // 1. Check Global/Immediate binds first
-            const kb = state.keybinds;
-            const check = (setting) => setting === combo;
-            // Inside document.addEventListener('keydown', (e) => { ... })
-            let matched = false;
-            if (check(kb.search)) { 
-    e.preventDefault(); 
-    
-    const searchBar = document.getElementById('search-bar');
-    const searchInput = document.getElementById('search-input');
-    const isVisible = searchBar.classList.contains('visible');
-    const isFocused = document.activeElement === searchInput;
-
-    if (isVisible && !isFocused) {
-        // Case: Bar is open but user is navigating the tree. Focus the input.
-        searchInput.focus();
-        // Optional: Select the text so the user can immediately overwrite the old query
-        searchInput.select(); 
-    } else if (isVisible && isFocused) {
-        // Case: Already focused. You can choose to close it or do nothing.
-        // Most power-users prefer it to stay focused.
-    } else {
-        // Case: Bar is closed. Open it.
-        window.toggleSearch(); 
-    }
-    matched = true; 
-}
-            else if (check(kb.copyId)) { if (state.focusedRow) window.copyToClipboard(state.focusedRow.path); matched = true; }
-            else if (check(kb.copyDesc)) { const desc = document.getElementById('inspector-desc-text'); if (desc) window.copyToClipboard(desc.textContent); matched = true; }
-            else if (check(kb.version)) { window.toggleVersionDropdown(); matched = true; }
-            else if (check(kb.settings)) { window.openModal('settings'); matched = true; }
-            else if (check(kb.about)) { window.openModal('about'); matched = true; }
-            else if (check(kb.up)) { e.preventDefault(); handleNav('up'); matched = true; }
-            else if (check(kb.down)) { e.preventDefault(); handleNav('down'); matched = true; }
-            else if (check(kb.left)) { e.preventDefault(); handleNav('left'); matched = true; }
-            else if (check(kb.right)) { e.preventDefault(); handleNav('right'); matched = true; }
-            if (check(kb.nextMatch)) { 
-                console.log('Next match keybind triggered');
-                e.preventDefault(); 
-                window.cycleSearchMatches(1); 
-                matched = true; 
-            } else if (check(kb.prevMatch)) {
-                e.preventDefault();
-                window.cycleSearchMatches(-1);
-                matched = true;
-            }
-            
-            // Global overrides (Hardcoded checks removed, relying on config)
-            if (combo === (kb.clearSearch || 'Escape')) {
-                document.getElementById('sidebar-body').innerHTML = `<div class="sidebar-content" id="sidebar-body">
-            <div style="padding: 60px 20px; text-align: center; color: var(--dim-label);">
-                <div style="margin-bottom: 16px; opacity: 0.1">
-                    <svg width="80" height="80" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg>
-                </div>
-                <div style="font-weight: 700; margin-bottom: 8px;">ZenPkgs Explorer</div>
-                <div style="font-size: 0.9rem;">Select an option to view details.</div>
-                <div style="font-size: 0.75rem; margin-top: 24px; color: var(--secondary-label)"><code>/</code> to search<br><code>hjkl</code> to navigate</div>
-            </div>
-        </div>
-`;
-        const isSearchVisible = document.getElementById('search-bar').classList.contains('visible');
-        const isInputFocused = document.activeElement.id === 'search-input';
-
-        if (isSearchVisible || isInputFocused) {
-            e.preventDefault();
-            window.closeSearch();
-            return;
-        }
-    }
-
-    // 2. Existing Global Modal Closing (keep this for Settings/About)
-    if (combo === 'Escape') {
-        if(document.querySelector('.overlay-backdrop.visible')) {
-            document.querySelectorAll('.overlay-backdrop.visible').forEach(el => el.classList.remove('visible'));
-            return;
-        }
-    }
-
-            if (matched) {
-                // If we matched a command, clear sequence buffer
-                clearTimeout(keyTimer);
-                keyBuffer = [];
-                return;
-            }
-
-            if (combo === kb.bottom) {
-                    const rows = Array.from(document.querySelectorAll('.tree-row'));
-                    for(let i = rows.length -1; i >= 0; i--) {
-                        if (isRowVisible(rows[i])) {
-                            selectNode(rows[i], rows[i].dataset.path, null, rows[i].dataset.type, rows[i].parentNode, rows[i].dataset.hasSub === 'true');
-                            break;
-                        }
-                    }
-                    keyBuffer = [];
-            }
-            // 2. Sequence Handling (Only if no modifiers like Ctrl/Alt)
-            if (!e.ctrlKey && !e.altKey && !e.metaKey) {
-                keyBuffer.push(key);
-                const seq = keyBuffer.join(' ');
-                
-                // Check sequences
-                if (seq === kb.top) {
-                    const rows = Array.from(document.querySelectorAll('.tree-row'));
-                    const first = rows.find(r => isRowVisible(r));
-                    if(first) selectNode(first, first.dataset.path, null, first.dataset.type, first.parentNode, first.dataset.hasSub === 'true');
-                    keyBuffer = [];
-                } 
-
-                clearTimeout(keyTimer);
-                keyTimer = setTimeout(() => { keyBuffer = []; }, state.comboTimeout);
-            }
-        });
-
-        function isRowVisible(row) {
-            let parent = row.closest('.tree-children-wrapper');
-            while (parent) {
-                if (!parent.classList.contains('open')) return false;
-                parent = parent.parentElement.closest('.tree-children-wrapper');
-            }
-            return true; 
-        }
 
         function handleNav(action) {
             const allRows = Array.from(document.querySelectorAll('.tree-row'));
@@ -1847,11 +2765,23 @@ row.innerHTML = `<div class="row-icon ${hasSub ? '' : 'leaf'}">${hasSub ? '▶' 
             }
         }
 
-        // --- Init Listeners ---
+        function isRowVisible(row) {
+            let parent = row.closest('.tree-children-wrapper');
+            while (parent) {
+                if (!parent.classList.contains('open')) return false;
+                parent = parent.parentElement.closest('.tree-children-wrapper');
+            }
+            return true; 
+        }
+
         document.addEventListener('click', (e) => {
             if (!e.target.closest('#menu-popover') && !e.target.closest('#menu-btn')) document.getElementById('menu-popover').classList.remove('visible');
             if (!e.target.closest('#maintainer-popup') && !e.target.closest('.maintainer-chip')) document.getElementById('maintainer-popup').classList.remove('visible');
             if (!e.target.closest('#version-dropdown') && !e.target.closest('#version-btn')) document.getElementById('version-dropdown').classList.remove('visible');
+            // Check for search history click outside
+            if (!e.target.closest('#search-bar')) document.getElementById('search-history').classList.remove('visible');
+            // Check for scratchpad click outside - REMOVED per user request (only close via button)
+            // if (!e.target.closest('#scratchpad-panel') && !e.target.closest('#scratchpad-fab')) document.getElementById('scratchpad-panel').classList.remove('visible');
             if (e.target.classList.contains('overlay-backdrop')) e.target.classList.remove('visible');
         });
 
