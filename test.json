@@ -1,0 +1,82 @@
+{
+  "options": {
+    "tests.badges.boolean": {
+      "meta": {
+        "type": "boolean",
+        "description": "Tests the Boolean Switch badge. Clicking it should toggle between True/False."
+      }
+    },
+    "tests.badges.string": {
+      "meta": {
+        "type": "string",
+        "description": "Tests the String badge. Clicking it should open a text input popover."
+      }
+    },
+    "tests.badges.integer": {
+      "meta": {
+        "type": "int",
+        "description": "Tests the Number badge (Integer). Should show stepper buttons (-/+)."
+      }
+    },
+    "tests.badges.float": {
+      "meta": {
+        "type": "float",
+        "description": "Tests the Number badge (Float). Should function same as int."
+      }
+    },
+    "tests.badges.enum": {
+      "meta": {
+        "type": {
+          "type": "enum",
+          "enum": ["option_a", "option_b", "option_c"]
+        },
+        "description": "Tests the Enum badge. Clicking it should open a list of options to select."
+      }
+    },
+    "tests.badges.simpleEnum": {
+      "meta": {
+        "type": {
+          "enum": ["red", "green", "blue"]
+        },
+        "description": "Tests implicit enum type inference."
+      }
+    },
+    "tests.badges.list": {
+      "meta": {
+        "type": "list of strings",
+        "description": "Tests the List/Array builder. Should show [ ] brackets and allow adding items."
+      }
+    },
+    "tests.badges.null": {
+      "meta": {
+        "type": "null",
+        "description": "Tests the Null badge. It should be static/informational."
+      }
+    },
+    "tests.badges.function": {
+      "meta": {
+        "type": "function",
+        "description": "Tests the Function (Lambda) badge."
+      }
+    },
+    "tests.badges.set": {
+      "meta": {
+        "type": "attrs",
+        "description": "Tests Sets/Attrs. Should verify it adds `{ };` as plain text (no badge)."
+      }
+    },
+    "tests.badges.path": {
+      "meta": {
+        "type": "path",
+        "description": "Tests Path type. Should behave like a string badge."
+      }
+    }
+  },
+  "pkgs": {
+    "test-package": {
+      "meta": {
+        "description": "Packages always map to 'true' in scratchpad logic."
+      }
+    }
+  }
+}
