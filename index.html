@@ -18,6 +18,35 @@
     <style id="user-custom-css"></style>
 
     <style>
+        .adw-action-btn {
+            display: flex; align-items: center; justify-content: center; gap: 8px;
+            width: 100%; height: 50px; border-radius: 25px; /* Pill shape */
+            font-weight: 800; font-size: 1rem; cursor: pointer;
+            border: none; transition: transform 0.2s, opacity 0.2s;
+            text-decoration: none; user-select: none;         }
+        .adw-action-btn:active { transform: scale(0.96); }
+        .adw-action-btn:hover { opacity: 0.9; text-decoration: none; }
+
+        /* Suggested (Purple) */
+        .adw-action-btn.suggested {
+            background-color: var(--accent-bg); 
+            color: var(--accent-fg);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+        }
+
+        /* Secondary (Gray/Glassy) */
+        .adw-action-btn.secondary {
+            background-color: rgba(255,255,255,0.1); 
+            color: var(--text-color);
+        }
+        [data-theme="light"] .adw-action-btn.secondary {
+            background-color: rgba(0,0,0,0.08); 
+            color: var(--text-color);
+        }
+
+        /* Archive Rows */
+        .news-archive-row { cursor: pointer; transition: background 0.2s; }
+        .news-archive-date { font-family: var(--font-mono); font-size: 0.8rem; color: var(--dim-label); }
         .row-label b {
             color: var(--accent-bg);
             text-decoration: underline;
@@ -707,7 +736,7 @@
         #sp-editor-container {
             flex: 1; position: relative; overflow: hidden;
             background-color: #1d1d1d;
-            border-radius: 8px; margin: 0 12px;
+            border-radius: 8px; margin: 0 6px;
             display: flex; flex-direction: column;
         }
 
@@ -725,6 +754,63 @@
         .sp-token-eq { color: var(--accent-yellow); font-weight: 700; margin: 0 4px; }
         .sp-token-semi { color: #77767B; opacity: 1; }
         .sp-line { min-height: 1.6em; display: flex; align-items: center; flex-wrap: wrap; }
+        .sp-tab-bar {
+            display: flex; align-items: center; gap: 4px;
+            padding: 8px 12px 0 12px;
+            border-bottom: 1px solid var(--border-color);
+            background: var(--bg-popover);
+            overflow-x: auto; scrollbar-width: none;
+        }
+        
+        .sp-tab {
+            display: flex; align-items: center; gap: 8px;
+            padding: 6px 10px;
+            background: rgba(0,0,0,0.2);
+            border-radius: 8px 8px 0 0;
+            border: 1px solid transparent;
+            border-bottom: none;
+            color: var(--dim-label);
+            font-size: 0.8rem; font-weight: 600;
+            cursor: pointer; user-select: none;
+            min-width: 100px; max-width: 160px;
+            position: relative;
+            transition: background 0.1s, color 0.1s;
+        }
+        
+        /* Active Tab looks connected to the editor */
+        .sp-tab.active {
+            background: #1d1d1d; /* Matches editor bg */
+            color: var(--text-color);
+            font-weight: 700;
+        }
+        .sp-tab.active::after {
+            content: ''; position: absolute; bottom: -1px; left: 0; right: 0;
+            height: 1px; background: #1d1d1d; z-index: 2;
+        }
+
+        .sp-tab:hover:not(.active) { background: rgba(255,255,255,0.05); }
+
+        .sp-tab-close {
+            width: 16px; height: 16px; border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            opacity: 0; transition: opacity 0.2s, background 0.2s;
+        }
+        .sp-tab:hover .sp-tab-close { opacity: 0.6; }
+        .sp-tab-close:hover { opacity: 1; background: rgba(255,255,255,0.2); color: var(--accent-red); }
+
+        .sp-add-btn {
+            width: 28px; height: 28px;
+            display: flex; align-items: center; justify-content: center;
+            border-radius: 6px; cursor: pointer; color: var(--dim-label);
+            transition: color 0.2s;
+        }
+        .sp-add-btn:hover { color: var(--text-color); background: rgba(255,255,255,0.05); }
+
+        /* Adjust editor container to remove top rounding when tabs exist */
+        #sp-editor-container.has-tabs {
+            border-top-left-radius: 0;
+            border-top-right-radius: 0;
+        }
 
         /* --- BADGES --- */
         /* Base Badge */
@@ -858,6 +944,61 @@
 
         .enum-option { padding: 6px 8px; border-radius: 8px; cursor: pointer; font-size: 0.85rem; font-weight: 500; }
         .enum-option:hover { background-color: var(--accent-bg); color: var(--accent-fg); }
+
+        /* --- NEWS SYSTEM STYLES --- */
+        .news-card {
+            background-color: var(--card-bg); 
+            border: 1px solid transparent;
+            border-radius: 12px; 
+            padding: 16px; 
+            margin: 0 20px 24px 20px;
+            cursor: pointer; 
+            transition: background 0.2s, transform 0.2s;
+            text-align: left;
+        }
+        [data-theme="light"] .news-card { border-color: var(--border-color); }
+        .news-card:hover { 
+            background-color: var(--bg-popover); 
+        }
+        
+        .news-label-new {
+            background-color: var(--accent-red); 
+            color: white;
+            font-size: 0.65rem; 
+            padding: 2px 6px; 
+            border-radius: 4px;
+            font-weight: 800; 
+            display: inline-block; 
+            margin-bottom: 6px;
+        }
+
+        .news-full-header { 
+            margin-bottom: 16px; 
+            border-bottom: 1px solid var(--border-color); 
+            padding-bottom: 16px; 
+        }
+        
+        
+        .news-meta-row { 
+            display: flex; 
+            gap: 8px; 
+            margin-top: 8px; 
+            align-items: center; 
+            flex-wrap: wrap;
+        }
+        
+        .author-pill { 
+            background: rgba(255,255,255,0.05); 
+            padding: 2px 8px; 
+            border-radius: 99px; 
+            font-size: 0.75rem; 
+            display: flex; 
+            align-items: center; 
+            gap: 4px; 
+            color: var(--secondary-label);
+            font-weight: 600;
+        }
+        [data-theme="light"] .author-pill { background: rgba(0,0,0,0.05); }
     </style>
 </head>
 <body>
@@ -873,8 +1014,10 @@
                 </svg>
                 <span>ZenPkgs</span>
             </div>
-            <button class="adw-button icon-only" id="menu-btn" onclick="toggleMenu()">
+            <button class="adw-button icon-only" id="menu-btn" onclick="toggleMenu()" style="position: relative;">
                 <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+                <!-- Notification Dot -->
+                <div id="btn-news-badge" style="position:absolute; top:8px; right:8px; width:6px; height:6px; background:var(--accent-red); border-radius:50%; display:none;"></div>
             </button>
         </div>
         <div class="sidebar-content" id="sidebar-body">
@@ -986,6 +1129,8 @@
     <div id="menu-popover" class="popover-inner common-popover">
         <div class="menu-item" onclick="openModal('settings')">Settings <span style="opacity:0.5; font-size:0.8em; margin-left:8px">Ctrl+.</span></div>
         <div class="menu-item" onclick="openModal('keybinds')">Keybinds <span style="opacity:0.5; font-size:0.8em; margin-left:8px">Ctrl+/</span></div>
+        <!-- NEW ITEM -->
+        <div class="menu-item" onclick="openModal('news'); fetchNews(false)">Developer News <span id="menu-news-badge" style="display:none; color:var(--accent-red); margin-left:4px;">●</span></div>
         <div class="menu-item" onclick="toggleCommandPalette()">Command Palette <span style="opacity:0.5; font-size:0.8em; margin-left:8px">Ctrl+K</span></div>
         <div class="menu-item" onclick="openModal('about')">About <span style="opacity:0.5; font-size:0.8em; margin-left:8px">Ctrl+Shift+A</span></div>
     </div>
@@ -998,6 +1143,21 @@
             </div>
             <div class="command-list" id="cmd-list">
                 <!-- Items populated via JS -->
+            </div>
+        </div>
+    </div>
+
+    <div class="overlay-backdrop" id="modal-news">
+        <div class="adw-window" style="width: 600px">
+            <div class="dialog-header">
+                <div style="width:24px"></div>
+                <span>Developer News</span>
+                <button class="window-close-button" onclick="closeModal('news')">
+                    <svg width="8" height="8" viewBox="0 0 8 8" fill="none"><path d="M2.5 4L0 1.5V0H1.5L4 2.5L6.5 0H8V1.5L5.5 4L8 6.5V8H6.5L4 5.5L1.5 8H0V6.5L2.5 4Z" fill="currentColor"/></svg>
+                </button>
+            </div>
+            <div class="window-body" id="news-content-body">
+                <!-- Content injected via JS -->
             </div>
         </div>
     </div>
@@ -1233,6 +1393,248 @@
     <div id="toast">Copied to Clipboard</div>
 
     <script>
+        // 1. CORS FIX: Use GitHub API instead of Atom feed
+        async function fetchReleases() {
+            window.setLoading(true);
+            try {
+                // Use GitHub API (JSON) - Fixes "Cross-Origin Request Blocked"
+                const url = `https://api.github.com/repos/${CONFIG.OWNER}/${CONFIG.REPO}/releases`;
+                const headers = {};
+                // If token exists, use it to avoid rate limits
+                if (state.ghToken) headers['Authorization'] = `Bearer ${state.ghToken}`;
+                
+                const res = await fetch(url, { headers });
+                if (!res.ok) throw new Error("API Error");
+                
+                const releases = await res.json();
+                // Map API response to simple array of tag names
+                const versions = releases.map(r => r.tag_name);
+                
+                await dataStore.setItem('releases_list', versions);
+                window.setLoading(false);
+                return versions;
+            } catch(e) { 
+                console.warn("Releases fetch error (using cache):", e);
+                window.setLoading(false);
+                return state.versions; 
+            }
+        }
+
+       // The Adwaita Back Arrow SVG (Shared)
+        const ADWAITA_BACK_ICON = `<svg xmlns="http://www.w3.org/2000/svg" height="16px" viewBox="0 0 16 16" width="16px"><path d="m 9.292969 13.707031 l -5 -5 c -0.390625 -0.390625 -0.390625 -1.023437 0 -1.414062 l 5 -5 c 0.390625 -0.390625 1.023437 -0.390625 1.414062 0 s 0.390625 1.023437 0 1.414062 l -4.292969 4.292969 l 4.292969 4.292969 c 0.390625 0.390625 0.390625 1.023437 0 1.414062 s -1.023437 0.390625 -1.414062 0 z m 0 0" fill="currentColor" fill-rule="evenodd"/></svg>`;
+
+        async function fetchNews(previewMode = false, specificFile = null) {
+            try {
+                // 1. Determine URL
+                const baseUrl = `https://raw.githubusercontent.com/${CONFIG.OWNER}/${CONFIG.REPO}/news`;
+                const url = specificFile ? `${baseUrl}/${specificFile}` : `${baseUrl}/latest.json?nocache=${Date.now()}`;
+                
+                const res = await fetch(url);
+                if(!res.ok) return; 
+                
+                const news = await res.json();
+                
+                // 2. Handle Read Status & Badges (Latest Only)
+                if (!specificFile) {
+                    const lastRead = localStorage.getItem('zenpkgs_news_id');
+                    const isNew = lastRead !== news.id;
+                    const disp = isNew ? 'block' : 'none';
+                    if(document.getElementById('btn-news-badge')) document.getElementById('btn-news-badge').style.display = disp;
+                    if(document.getElementById('menu-news-badge')) document.getElementById('menu-news-badge').style.display = isNew ? 'inline' : 'none';
+                }
+
+                // 3. PREVIEW MODE
+                const previewContainer = document.getElementById('start-news-preview');
+                if (previewMode && previewContainer) {
+                    const lastRead = localStorage.getItem('zenpkgs_news_id');
+                    const isNew = lastRead !== news.id;
+                    previewContainer.innerHTML = `
+                        <div class="news-card" onclick="openModal('news'); fetchNews(false)">
+                            ${isNew ? '<div class="news-label-new">NEW</div>' : ''}
+                            <div style="font-weight:700; color:var(--text-color); font-size:1rem; margin-bottom:4px;">${escapeHTML(news.title)}</div>
+                            <div style="font-size:0.8rem; color:var(--dim-label); margin-bottom:12px;">${escapeHTML(news.date)}</div>
+                            <div style="font-size:0.85rem; color:var(--link-color); font-weight:700; display:flex; align-items:center; gap:4px;">
+                                Read Article 
+                                <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+                            </div>
+                        </div>
+                    `;
+                    return;
+                }
+
+                // 4. FULL MODAL RENDER
+                if (!previewMode) {
+                    state.currentNewsContent = news.content; // Save for AI
+
+                    // Header Setup
+                    const headerLeft = document.querySelector('#modal-news .dialog-header > :first-child');
+                    const headerTitle = document.querySelector('#modal-news .dialog-header > span');
+                    if (headerTitle) headerTitle.textContent = "Developer News";
+                    if (headerLeft) {
+                        headerLeft.innerHTML = specificFile 
+                            ? `<button class="adw-button icon-only" onclick="renderNewsArchiveView()">${ADWAITA_BACK_ICON}</button>`
+                            : ''; 
+                    }
+
+                    // Authors Chips
+                    let authorsHtml = '';
+                    if (news.authors && Array.isArray(news.authors)) {
+                        authorsHtml = news.authors.map(authorName => {
+                            const maintainerData = state.data && state.data.maintainers ? state.data.maintainers[authorName] : null;
+                            const onclick = maintainerData 
+                                ? `onclick="showMaintainerPopup('${escapeHTML(authorName)}', state.data.maintainers['${escapeHTML(authorName)}'], this)"`
+                                : `style="cursor:default; opacity:0.8"`; 
+                            
+                            const avatar = `<svg width="12" height="12" fill="currentColor" viewBox="0 0 24 24"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>`;
+                            return `<div class="maintainer-chip" ${onclick} style="display:inline-flex; align-items:center; gap:6px; padding:4px 10px; font-size:0.75rem; height:26px;">${avatar}${escapeHTML(authorName)}</div>`;
+                        }).join('');
+                    }
+
+                    // AI Button Logic
+                    let aiButtonHtml = '';
+                    if (state.geminiKey) {
+                        aiButtonHtml = `
+                            <button class="adw-action-btn" onclick="summarizeNews(this)" style="background: linear-gradient(135deg, #4285f4, #d96570); border:none; color:white; padding: 0 24px; width: 240px;">
+                                <svg width="16" height="16" fill="currentColor" viewBox="0 0 24 24"><path d="M19 9l1.25-2.75L23 5l-2.75-1.25L19 1l-1.25 2.75L15 5l2.75 1.25L19 9zm-7.5.5L9 6 6.5 9.5 3 12l3.5 2.5L9 18l2.5-3.5L15 12l-3.5-2.5zM19 15l-1.25 2.75L15 19l2.75 1.25L19 23l1.25-2.75L23 19l-2.75-1.25L19 15z"/></svg>
+                                Summarize with AI
+                            </button>
+                            <div id="news-summary-box" style="display:none; margin-top:12px;"></div>
+                        `;
+                    }
+
+                    const body = document.getElementById('news-content-body');
+                    body.innerHTML = `
+                        <div class="news-full-header">
+                            <div style="font-weight:800; font-size:1.4rem; line-height:1.2; margin-bottom:8px;">${escapeHTML(news.title)}</div>
+                            <div class="news-meta-row" style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+                                <span style="font-family:var(--font-mono); font-size:0.8rem; color:var(--dim-label)">${escapeHTML(news.date)}</span>
+                                <span style="opacity:0.3">•</span>
+                                ${authorsHtml}
+                            </div>
+                        </div>
+                        <div class="markdown-body" style="background:transparent; border:none; padding:0; margin-bottom:24px;">
+                            ${marked.parse(news.content)}
+                        </div>
+                        
+                        <div id="news-footer-actions" style="display:flex; flex-direction:column; align-items:center; gap:24px; ">
+                            ${aiButtonHtml}
+                        </div>
+                    `;
+
+                    // Archive Check (Lazy Load)
+                    if (!specificFile) {
+                        localStorage.setItem('zenpkgs_news_id', news.id); 
+                        
+                        const renderArchiveButton = () => {
+                            if(state.newsArchive.length > 0) {
+                                const footer = document.getElementById('news-footer-actions');
+                                // Append button if not exists
+                                if(footer && !footer.querySelector('.secondary')) {
+                                    const btn = document.createElement('button');
+                                    btn.className = 'adw-action-btn secondary';
+                                    btn.onclick = renderNewsArchiveView;
+                                    btn.innerHTML = `View Archive (${state.newsArchive.length})`;
+                                    btn.style = "padding: 0 24px; width: 240px;";
+                                    footer.appendChild(btn);
+                                }
+                            }
+                        };
+
+                        if (state.newsArchive.length === 0) {
+                             const listUrl = `https://api.github.com/repos/${CONFIG.OWNER}/${CONFIG.REPO}/contents?ref=news`;
+                             const headers = state.ghToken ? { 'Authorization': `Bearer ${state.ghToken}` } : {};
+                             
+                             fetch(listUrl, { headers })
+                                .then(r => r.json())
+                                .then(files => {
+                                    if(Array.isArray(files)) {
+                                        state.newsArchive = files.filter(f => f.name.endsWith('.json') && f.name !== 'latest.json')
+                                                                 .sort((a,b) => b.name.localeCompare(a.name)); 
+                                        renderArchiveButton();
+                                    }
+                                }).catch(e => console.warn("Archive check failed", e));
+                        } else {
+                            renderArchiveButton();
+                        }
+                    }
+                    
+                    if(!specificFile) {
+                         if(document.getElementById('btn-news-badge')) document.getElementById('btn-news-badge').style.display = 'none';
+                         const prev = document.getElementById('start-news-preview');
+                         if(prev) fetchNews(true);
+                    }
+                }
+            } catch(e) { console.error("News error:", e); }
+        }
+
+        async function summarizeNews(btn) {
+            if (!state.currentNewsContent) return;
+            
+            const originalText = btn.innerHTML;
+            btn.innerHTML = `<div class="spinner" style="width:20px; height:20px; border-width:2px; margin:0"></div>Summarizing...`;
+            btn.style.pointerEvents = 'none';
+            btn.style.opacity = '0.7';
+
+            const prompt = `Summarize this software release/news for a developer in 3-4 bullet points. Keep it concise.
+            
+            Content:
+            ${state.currentNewsContent}`;
+
+            try {
+                const summary = await callGeminiAPI(prompt);
+                
+                // Hide button, show summary
+                btn.style.display = 'none';
+                const box = document.getElementById('news-summary-box');
+                box.innerHTML = `
+                    <div style="background:var(--bg-tree); border-radius:12px; padding:16px; border:1px solid var(--accent-bg);">
+                        <div style="display:flex; gap:8px; align-items:center; margin-bottom:8px; color:var(--accent-bg); font-weight:800; font-size:0.8rem; text-transform:uppercase; letter-spacing:0.5px;">
+                            <svg width="14" height="14" fill="currentColor" viewBox="0 0 24 24"><path d="M19 9l1.25-2.75L23 5l-2.75-1.25L19 1l-1.25 2.75L15 5l2.75 1.25L19 9zm-7.5.5L9 6 6.5 9.5 3 12l3.5 2.5L9 18l2.5-3.5L15 12l-3.5-2.5z"/></svg>
+                            AI Summary
+                        </div>
+                        <div class="markdown-body" style="padding:0; background:transparent; border:none; font-size:0.9rem;">
+                            ${marked.parse(summary)}
+                        </div>
+                    </div>
+                `;
+                box.style.display = 'block';
+
+            } catch (e) {
+                btn.innerHTML = originalText;
+                btn.style.pointerEvents = 'auto';
+                btn.style.opacity = '1';
+                showToast("Summary failed: " + e.message, true);
+            }
+        }
+
+        function renderNewsArchiveView() {
+            const headerLeft = document.querySelector('#modal-news .dialog-header > :first-child');
+            const headerTitle = document.querySelector('#modal-news .dialog-header > span');
+            
+            if(headerTitle) headerTitle.textContent = "News Archive";
+            if(headerLeft) {
+                headerLeft.innerHTML = `<button class="adw-button icon-only" onclick="fetchNews(false)">${ADWAITA_BACK_ICON}</button>`;
+            }
+
+            const body = document.getElementById('news-content-body');
+            let rowsHtml = '';
+            
+            state.newsArchive.forEach(file => {
+                const label = file.name.replace('.json', '');
+                rowsHtml += `
+                    <div class="adw-row news-archive-row" onclick="fetchNews(false, '${file.name}')">
+                        <div style="font-weight:600">${escapeHTML(label)}</div>
+                        <svg width="16" height="16" style="opacity:0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 18l6-6-6-6"/></svg>
+                    </div>
+                `;
+            });
+
+            body.innerHTML = `
+                <div class="adw-group" style="margin-top:12px">
+                    ${rowsHtml}
+                </div>
+            `;
+        }
         window.toggleAdvancedScratchpad = () => {
     state.advancedScratchpad = !state.advancedScratchpad;
     
@@ -1256,6 +1658,8 @@
 
         const CONFIG = { OWNER: "zenos-n", REPO: "zenpkgs", BRANCH: "json" };
         const state = { 
+            currentNewsContent: "",
+            newsArchive: [],
             advancedScratchpad: true,
             searchMatchIndex: -1,
             data: null, versions: [], selectedVersion: null,
@@ -2822,21 +3226,6 @@ window.renderScratchpad = () => {
             }
         }
 
-        async function fetchReleases() {
-            window.setLoading(true);
-            try {
-                const atomRes = await fetchWithAuth(`https://github.com/${CONFIG.OWNER}/${CONFIG.REPO}/releases.atom`);
-                const xml = new DOMParser().parseFromString(await atomRes.text(), "text/xml");
-                const versions = Array.from(xml.querySelectorAll("entry > title")).map(t => t.textContent.trim());
-                await dataStore.setItem('releases_list', versions);
-                window.setLoading(false);
-                return versions;
-            } catch(e) { 
-                window.setLoading(false);
-                return state.versions; 
-            }
-        }
-
         async function loadVersion(v) {
             const loader = document.getElementById('loader');
             const root = document.getElementById('registry-root');
@@ -3165,21 +3554,29 @@ document.getElementById('search-input').addEventListener('input', (e) => {
                 }
 
                 document.getElementById('sidebar-body').innerHTML = `
-                    <div style="padding: 40px 20px; text-align: center; color: var(--dim-label);">
-                        <div style="margin-bottom: 16px; opacity: 0.1">
-                            <svg width="80" height="80" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg>
-                        </div>
-                        <div style="font-weight: 700; margin-bottom: 8px;">ZenPkgs Explorer</div>
-                        <div style="font-size: 0.9rem;">Select an option to view details.</div>
-                        <div style="font-size: 0.75rem; margin-top: 24px; color: var(--secondary-label)">
-                            <code>${window.formatKeybind(state.keybinds.search)}</code> to search<br>
-                            <code>${window.formatKeybind(state.keybinds.up)}/${window.formatKeybind(state.keybinds.down)}</code> to navigate
-                        </div>
-                        <div style="text-align:left; margin-top:32px;">
-                            ${recentHtml}
-                        </div>
-                    </div>
-                `;
+            <div style="padding: 40px 0; text-align: center; color: var(--dim-label);">
+                <div style="margin-bottom: 16px; opacity: 0.1">
+                    <svg width="80" height="80" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg>
+                </div>
+                <div style="font-weight: 700; margin-bottom: 8px;">ZenPkgs Explorer</div>
+                <div style="font-size: 0.9rem; margin-bottom: 32px;">Select an option to view details.</div>
+                
+                <!-- NEWS PREVIEW INJECTION POINT -->
+                <div id="start-news-preview"></div>
+
+                <div style="font-size: 0.75rem; margin-top: 24px; color: var(--secondary-label); padding: 0 20px;">
+                    <code>${window.formatKeybind(state.keybinds.search)}</code> to search<br>
+                    <code>${window.formatKeybind(state.keybinds.up)}/${window.formatKeybind(state.keybinds.down)}</code> to navigate
+                </div>
+                <div style="text-align:left; margin-top:32px; padding: 0 20px;">
+                    ${recentHtml}
+                </div>
+            </div>
+        `;
+        
+        // Trigger fetch in preview mode (true) after render
+        // This will populate the #start-news-preview div we just added
+        setTimeout(() => fetchNews(true), 10);
                 return;
             }
 
