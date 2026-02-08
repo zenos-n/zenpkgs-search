@@ -251,10 +251,17 @@
             transform-origin: top right;
             opacity: 0;
             transform: scale(0.7) rotateX(-70deg) translateY(-10px);
-            transition: transform 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94), opacity 0.2s ease;
+            /* Added visibility delay for exit animation */
+            transition: transform 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94), opacity 0.2s ease, visibility 0s linear 0.2s;
             visibility: hidden;
         }
-        #version-dropdown.visible { visibility: visible; opacity: 1; transform: scale(1) rotateX(0deg) translateY(0); }
+        #version-dropdown.visible { 
+            visibility: visible; 
+            opacity: 1; 
+            transform: scale(1) rotateX(0deg) translateY(0); 
+            /* Remove delay when entering */
+            transition-delay: 0s;
+        }
 
         #version-dropdown::before {
             content: ''; position: absolute; top: -10px; right: 24px; 
@@ -289,7 +296,7 @@
             position: absolute; top: -10px; background-color: var(--bg-popover);
             padding: 0 8px; color: var(--dim-label); font-size: 0.7rem; font-weight: 800; text-transform: uppercase;
         }
-        .version-footer { padding: 8px; border-top: 1px solid var(--border-color); }
+        .version-footer { display: flex; flex-direction: row; gap: 6px; padding: 6px; border-top: 1px solid var(--border-color); }
         
         .refresh-btn {
             width: 100%; border-radius: 8px; height: 34px;
@@ -536,7 +543,25 @@
         @keyframes spin { to { transform: rotate(360deg); } }
 
         .copy-btn { background-color: rgba(255,255,255,0.1); padding: 4px 10px; border-radius: 6px; font-size: 0.7rem; font-weight: 700; cursor: pointer; color: var(--text-color); }
-        #toast { position: fixed; bottom: 40px; left: 50%; transform: translateX(-50%) translateY(20px); background-color: #36363a; color: white; padding: 10px 24px; border-radius: 24px; font-weight: 700; opacity: 0; transition: all 0.3s; pointer-events: none; z-index: 1000; }
+        /* Updated Toast CSS */
+        #toast { 
+            position: fixed; bottom: 40px; left: 50%; 
+            transform: translateX(-50%) translateY(20px); 
+            background-color: #36363a; color: white; 
+            padding: 10px 24px; border-radius: 24px; 
+            font-weight: 700; opacity: 0; 
+            transition: all 0.3s; pointer-events: none; z-index: 1000; 
+            border: 1px solid transparent; /* Prepare for border */
+        }
+        
+        /* Subtle Red Accent for Errors */
+        #toast.error {
+            background-color: color-mix(in srgb, var(--accent-red) 15%, #36363a);
+            color: #ffdadc; /* Soft pink-white for readability */
+            border-color: rgba(230, 45, 66, 0.3);
+        }
+        
+        #toast.visible { transform: translateX(-50%) translateY(0); opacity: 1; }
         #toast.visible { transform: translateX(-50%) translateY(0); opacity: 1; }
 
         .switch-toggle { width: 44px; height: 24px; background-color: rgba(120,120,120,0.3); border-radius: 24px; position: relative; transition: background 0.2s; }
@@ -557,7 +582,7 @@
         textarea.adw-input { resize: vertical; min-height: 80px; font-family: var(--font-mono); font-size: 0.8rem; }
 
         /* Keybind specific */
-        .keybind-input { width: 80px; text-align: center; font-family: var(--font-mono); text-transform: lowercase; }
+        .keybind-input { width: 80px; text-align: center; font-family: var(--font-mono); text-transform: capitalize; }
         
         /* Dropdown */
         .adw-select { 
@@ -603,6 +628,11 @@
             flex-shrink: 0;
         }
         .offline-indicator.offline { background-color: var(--accent-red); }
+
+        .offline-indicator.local {
+            background-color: #ffffff;
+            box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.2);
+        }
         
         .offline-indicator.downloading {
             background-color: var(--accent-orange);
@@ -647,17 +677,27 @@
         #scratchpad-fab svg { width: 24px; height: 24px; fill: currentColor; }
 
         #scratchpad-panel {
-            position: fixed; bottom: 90px; right: 24px;
+            position: fixed; bottom: 100px; right: 24px;
             width: 550px; height: 450px;
             background-color: var(--bg-popover);
-            border: 1px solid var(--border-color);
             border-radius: 12px; box-shadow: var(--popover-shadow);
             display: flex; flex-direction: column;
             z-index: 90;
-            transform: translate(100%, 100%) scale(0.5); opacity: 0; pointer-events: none;
-            transition: transform 0.4s cubic-bezier(0.19, 1, 0.22, 1), opacity 0.3s ease;
+            /* New Popover Animation (+10px offset when hidden) */
+            transform: translate(30px, 50px) scale(0.9); opacity: 0; pointer-events: none;
+            transition: transform 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94), opacity 0.2s ease;
         }
         #scratchpad-panel.visible { transform: translate(0, 0) scale(1); opacity: 1; pointer-events: auto; }
+        
+        /* New Scratchpad Arrow */
+        #scratchpad-panel::before {
+            content: '';
+            position: absolute; bottom: -10px; right: 18px; /* FAB is 56px wide. Center is 28px. 28px - 10px border = 18px */
+            width: 0; height: 0;
+            border-left: 10px solid transparent;
+            border-right: 10px solid transparent;
+            border-top: 10px solid var(--bg-popover);
+        }
         
         .sp-header { padding: 12px; border-bottom: 1px solid var(--border-color); font-weight: 800; display: flex; justify-content: space-between; align-items: center; }
         .sp-footer { padding: 8px; border-top: 1px solid var(--border-color); display: flex; gap: 8px; }
@@ -726,9 +766,14 @@
                 <div class="popover-inner">
                     <div class="version-list" id="version-list-container"></div>
                     <div class="version-footer">
+                        <input type="file" id="local-json-upload" style="display: none;" accept=".json" onchange="handleLocalUpload(this)">
+                        <button class="refresh-btn" onclick="document.getElementById('local-json-upload').click()">
+                            <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                            Upload
+                        </button>
                         <button class="refresh-btn" id="refresh-releases-btn">
                             <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10"/><path d="M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
-                            Refresh Releases
+                            Refresh
                         </button>
                     </div>
                 </div>
@@ -937,7 +982,7 @@
                     </div>
                     <div style="font-weight: 800; font-size: 1.5rem; margin-bottom: 8px;">ZenPkgs Browser</div>
                     <div style="margin-bottom: 24px;">
-                        <span class="version-chip">v1.5</span>
+                        <span class="version-chip">v1.0</span>
                     </div>
                     
                     <div class="adw-group">
@@ -1080,6 +1125,7 @@
             favorites: [],
             recents: [],
             searchHistory: [], 
+            commandHistory: [], // New: Store used command IDs
             scratchpadConfig: "",
             favsCollapsed: false,
             keybinds: { 
@@ -1178,17 +1224,31 @@
                 reducedMotion: state.reducedMotion, transparency: state.transparency,
                 ghToken: state.ghToken, geminiKey: state.geminiKey, 
                 keybinds: state.keybinds, comboTimeout: state.comboTimeout,
-                customFont: state.customFont, customCSS: state.customCSS
+                customFont: state.customFont, customCSS: state.customCSS,
             });
-            await settingsStore.setItem('user_history', { favorites: state.favorites, recents: state.recents, searchHistory: state.searchHistory, scratchpadConfig: state.scratchpadConfig });
+            await settingsStore.setItem('user_history', { 
+                commandHistory: state.commandHistory,
+                favorites: state.favorites, recents: state.recents, searchHistory: state.searchHistory, scratchpadConfig: state.scratchpadConfig });
             updateStyles(); // Applies font/css
+        };
+
+        window.formatKeybind = (str) => {
+            if (!str) return "";
+            return str.split(' ').map(chord => {
+                return chord.split('+').map(part => {
+                    // Single letters (f, g, y) -> Uppercase (F, G, Y)
+                    if (part.length === 1) return part.toUpperCase();
+                    // Modifiers/Special (ctrl, shift, arrowup) -> Title Case (Ctrl, Shift, ArrowUp)
+                    return part.charAt(0).toUpperCase() + part.slice(1);
+                }).join('+');
+            }).join(' ');
         };
 
         window.applyKbPreset = (preset) => {
             if (preset === 'standard') {
                 state.keybinds = { search: 'Ctrl+f', up: 'ArrowUp', down: 'ArrowDown', left: 'ArrowLeft', right: 'ArrowRight', copyId: 'Ctrl+c', copyDesc: 'Ctrl+Shift+c', version: 'Ctrl+,', settings: 'Ctrl+.', about: 'Ctrl+Shift+a', top: 'Home', bottom: 'End', nextMatch: 'F3', prevMatch: 'Shift+F3', clearSearch: 'Escape' };
             } else if (preset === 'vim') {
-                state.keybinds = { search: '/', up: 'k', down: 'j', left: 'h', right: 'l', copyId: 'y', copyDesc: 'Y', version: 'Ctrl+,', settings: 'Ctrl+.', about: 'Ctrl+Shift+a', top: 'g g', bottom: 'Shift+g', nextMatch: 'n', prevMatch: 'Shift+n', clearSearch: 'Escape' };
+                state.keybinds = { search: '/', up: 'k', down: 'j', left: 'h', right: 'l', copyId: 'y', copyDesc: 'Shift+y', version: 'Ctrl+,', settings: 'Ctrl+.', about: 'Ctrl+Shift+a', top: 'g g', bottom: 'Shift+g', nextMatch: 'n', prevMatch: 'Shift+n', clearSearch: 'Escape' };
             } else if (preset === 'emacs') {
                 state.keybinds = { search: 'Ctrl+s', up: 'Ctrl+p', down: 'Ctrl+n', left: 'Ctrl+b', right: 'Ctrl+f', copyId: 'Alt+w', copyDesc: 'Alt+Shift+w', version: 'Ctrl+,', settings: 'Ctrl+.', about: 'Ctrl+Shift+a', top: 'Alt+<', bottom: 'Alt+>', nextMatch: 'Ctrl+g', prevMatch: 'Ctrl+Shift+g', clearSearch: 'Escape' };
             }
@@ -1220,7 +1280,7 @@
             const container = document.getElementById('kb-view-content');
             let html = '<div class="adw-group" style="margin-top:0">';
             Object.entries(state.keybinds).forEach(([k, v]) => {
-                html += `<div class="adw-row" style="min-height:44px; padding:8px 16px"><span style="text-transform:capitalize">${k}</span><span class="kb-key">${v}</span></div>`;
+                html += `<div class="adw-row" style="min-height:44px; padding:8px 16px"><span style="text-transform:capitalize">${k.replace(/([A-Z])/g, ' $1').trim()}</span><span class="kb-key">${window.formatKeybind(v)}</span></div>`;
             });
             html += `<div class="adw-row" style="min-height:44px; padding:8px 16px"><span>Global: Command Palette</span><span class="kb-key">Ctrl+K</span></div>`;
             html += '</div>';
@@ -1376,7 +1436,9 @@ window.addToScratchpad = (path, type) => {
         return rest;
     }
 
-    const targetValue = type === 'pkgs' ? "{}" : "...";
+    const targetValue = type === 'pkgs' ? "true" : "...";
+    
+    // UPDATED: Map to the 'system.packages' alias we created in the framework
     const pathParts = (type === 'pkgs' ? `system.packages.${path}` : path).split('.');
     
     try {
@@ -1437,9 +1499,9 @@ window.addToScratchpad = (path, type) => {
         }
 
         const COMMANDS = [
-            { id: 'settings', label: 'Open Settings', shortcut: 'Ctrl+.', action: () => window.openModal('settings') },
+            { id: 'settings', bindKey: 'settings', label: 'Open Settings', shortcut: 'Ctrl+.', action: () => window.openModal('settings') },
             { id: 'keybinds', label: 'View Keybinds', shortcut: 'Ctrl+/', action: () => window.openModal('keybinds') },
-            { id: 'about', label: 'Open About', shortcut: 'Ctrl+Shift+A', action: () => window.openModal('about') },
+            { id: 'about', bindKey: 'about', label: 'Open About', shortcut: 'Ctrl+Shift+A', action: () => window.openModal('about') },
             { id: 'theme', label: 'Toggle Theme', action: () => window.toggleTheme() },
             { id: 'motion', label: 'Toggle Reduced Motion', action: () => window.toggleReducedMotion() },
             { id: 'scratchpad', label: 'Toggle Scratchpad', action: () => window.toggleScratchpad() },
@@ -1447,13 +1509,12 @@ window.addToScratchpad = (path, type) => {
             { id: 'cache', label: 'Clear Registry Cache', action: () => window.clearDataCache() },
             { id: 'random', label: 'Surprise Me (Random Package)', action: () => window.navigateRandom() },
             { id: 'github', label: 'Open GitHub Repo', action: () => window.open('https://github.com/' + CONFIG.OWNER + '/' + CONFIG.REPO, '_blank') },
-            // New Commands
             { id: 'collapse', label: 'Collapse Tree', action: () => window.collapseTree() },
             { id: 'expand', label: 'Unwrap Tree (Expand All)', action: () => window.expandTree() },
             { id: 'fav', label: 'Toggle Favorite', action: () => { if(state.focusedRow) window.toggleFavorite(state.focusedRow.path, state.focusedRow.type); } },
-            { id: 'version', label: 'Change Version', shortcut: 'Ctrl+,', action: () => window.toggleVersionDropdown() },
-            { id: 'copy_id', label: 'Copy Identifier', shortcut: 'Ctrl+C', action: () => { if(state.focusedRow) window.copyToClipboard(state.focusedRow.path); } },
-            { id: 'copy_desc', label: 'Copy Description', shortcut: 'Ctrl+Shift+C', action: () => { if(state.currentMeta?.description) window.copyToClipboard(state.currentMeta.description); } },
+            { id: 'version', bindKey: 'version', label: 'Change Version', shortcut: 'Ctrl+,', action: () => window.toggleVersionDropdown() },
+            { id: 'copy_id', bindKey: 'copyId', label: 'Copy Identifier', shortcut: 'Ctrl+C', action: () => { if(state.focusedRow) window.copyToClipboard(state.focusedRow.path); } },
+            { id: 'copy_desc', bindKey: 'copyDesc', label: 'Copy Description', shortcut: 'Ctrl+Shift+C', action: () => { if(state.currentMeta?.description) window.copyToClipboard(state.currentMeta.description); } },
             { id: 'copy_doc', label: 'Copy Documentation', action: () => { if(state.currentMeta?.longDescription) window.copyToClipboard(state.currentMeta.longDescription); } },
             { id: 'cmds', label: 'Command List', shortcut: 'Ctrl+K', action: () => { document.getElementById('cmd-input').value = ''; renderCommandList(COMMANDS); } }
         ];
@@ -1475,11 +1536,65 @@ window.addToScratchpad = (path, type) => {
         function renderCommandList(items, selectedIndex = 0) {
             const list = document.getElementById('cmd-list');
             list.innerHTML = '';
-            items.forEach((cmd, idx) => {
+            
+            // 1. Filter by Query first
+            const query = document.getElementById('cmd-input').value.toLowerCase();
+            const filteredItems = items.filter(c => c.label.toLowerCase().includes(query));
+
+            // 2. Handle Empty State
+            if (filteredItems.length === 0) {
+                list.innerHTML = `<div style="padding:24px; text-align:center; color:var(--dim-label); font-weight:500;">No command found.</div>`;
+                return;
+            }
+
+            // 3. Sort: History Top 5 -> Separator -> Alphabetical
+            let finalDisplay = [];
+            
+            // Identify items that are in history
+            const historyItems = filteredItems.filter(i => state.commandHistory.includes(i.id))
+                .sort((a, b) => state.commandHistory.indexOf(a.id) - state.commandHistory.indexOf(b.id))
+                .slice(0, 5); // Max 5 recents
+
+            // Identify remaining items
+            const otherItems = filteredItems.filter(i => !historyItems.includes(i))
+                .sort((a, b) => a.label.localeCompare(b.label));
+
+            // Combine
+            if (historyItems.length > 0 && otherItems.length > 0 && !query) {
+                // Show separator only if not searching (cleaner look)
+                finalDisplay = [...historyItems, { separator: true, label: 'All Commands' }, ...otherItems];
+            } else {
+                // Just merge if searching or strictly one group
+                finalDisplay = [...historyItems, ...otherItems];
+            }
+
+            // 4. Render
+            finalDisplay.forEach((cmd, idx) => {
+                if (cmd.separator) {
+                    const sep = document.createElement('div');
+                    sep.style.cssText = "font-size:0.75rem; font-weight:800; color:var(--dim-label); margin:12px 12px 4px; text-transform:uppercase; letter-spacing:0.5px; border-bottom:1px solid var(--border-color); padding-bottom:4px;";
+                    sep.textContent = cmd.label;
+                    list.appendChild(sep);
+                    return; 
+                }
+
+                // Adjust index for selection (skip separators)
+                const isSelected = idx === selectedIndex || (finalDisplay[selectedIndex]?.separator && idx === selectedIndex + 1);
+
+                // Dynamic Key Resolution with Formatting
+                let rawKey = cmd.bindKey && state.keybinds[cmd.bindKey] ? state.keybinds[cmd.bindKey] : cmd.shortcut;
+                const displayKey = window.formatKeybind(rawKey);
+
                 const div = document.createElement('div');
-                div.className = `command-item ${idx === selectedIndex ? 'active' : ''}`;
-                div.innerHTML = `<span>${cmd.label}</span>${cmd.shortcut ? `<span class="command-shortcut">${cmd.shortcut}</span>` : ''}`;
+                div.className = `command-item ${isSelected ? 'active' : ''}`;
+                div.innerHTML = `<span>${cmd.label}</span>${displayKey ? `<span class="command-shortcut">${displayKey}</span>` : ''}`;
+                
                 div.onclick = () => { 
+                    // Update History (Move to top)
+                    // Update History (Move to top)
+                    state.commandHistory = [cmd.id, ...state.commandHistory.filter(id => id !== cmd.id)];
+                    saveSettings(); 
+                    
                     window.toggleCommandPalette(); 
                     cmd.action(); 
                 };
@@ -1655,18 +1770,17 @@ window.addToScratchpad = (path, type) => {
                 ? 'Explain what this option controls and provide a usage example in `configuration.nix`.'
                 : 'Explain what this package does in simple terms and provide a usage example (e.g. `environment.systemPackages` or `nix-shell`).';
 
-            const prompt = `You are a helpful ZenOS (which is a distribution based on NixOS) expert assistant.
+            const prompt = `You are a helpful ZenOS (a specialized NixOS distribution) expert assistant.
             Repository: https://github.com/${CONFIG.OWNER}/${CONFIG.REPO}
             Item: ${path} (${context})
-            Description: ${meta.description || 'No description provided.'}
-            The documentation if available:
-            ${meta.longDescription || 'No additional documentation.'}
-
+            Summary: ${meta.summary || 'N/A'}
+            Details: ${meta.description || 'N/A'}
+            
             ${sourceCode}
 
             Task: ${request}
             
-            Format: Markdown. Keep it concise. Use code blocks for config examples.`;
+            Format: Markdown. Keep it concise. Use set-based syntax for packages (e.g. system.packages = { category = { pkg; }; }).`;
 
             try {
                 const text = await callGeminiAPI(prompt);
@@ -1926,6 +2040,31 @@ window.addToScratchpad = (path, type) => {
             });
         });
 
+        window.handleLocalUpload = (input) => {
+            const file = input.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    const data = JSON.parse(e.target.result);
+                    state.data = data;
+                    state.selectedVersion = "Local File";
+                    renderRegistry(data);
+                    updateVersionUI();
+                    updateBreadcrumbs('', '');
+                    navigateToPath(null, null);
+                    updateOnlineStatus();
+                    showToast("Local Configuration Loaded");
+                    document.getElementById('version-dropdown').classList.remove('visible');
+                } catch (err) {
+                    showToast("Error: Invalid JSON File");
+                    console.error(err);
+                }
+            };
+            reader.readAsText(file);
+            input.value = ''; // Reset so same file can be selected again
+        };
+
         window.clearDataCache = async () => {
             await dataStore.clear();
             showToast("Cache cleared. Refreshing...");
@@ -1933,15 +2072,14 @@ window.addToScratchpad = (path, type) => {
         };
 
         const LICENSE_FALLBACK = `
-# NAP License 1.0
-
-This software is released under the **NAP License** (Non-Aggression Principle License).
+# NAPALM License 2.0
+(Non Aggression Principle Anti-License Mandate)
 
 1.  **Freedom**: You are free to use, modify, and distribute this software for any purpose.
 2.  **Non-Aggression**: You may not use this software to initiate force, violence, or coercion against other individuals or their property.
 3.  **Liability**: The author is not liable for any damages arising from the use of this software.
 
-*Note: This is a local fallback. The original source could not be reached.*
+*Note: This is a local fallback.*
         `;
 
         window.aboutNav = async (target) => {
@@ -2091,6 +2229,7 @@ This software is released under the **NAP License** (Non-Aggression Principle Li
                 state.favorites = history.favorites || [];
                 state.recents = history.recents || [];
                 state.searchHistory = history.searchHistory || [];
+                state.commandHistory = history.commandHistory || []; // Load history
                 state.scratchpadConfig = history.scratchpadConfig || "";
                 document.getElementById('sp-textarea').value = state.scratchpadConfig;
             }
@@ -2141,34 +2280,70 @@ This software is released under the **NAP License** (Non-Aggression Principle Li
                 fetchReleases().then(v => { state.versions = v; updateVersionUI(); });
 
                 // Deep Linking Check
-                let initialMeta = null;
-                window.setLoading(true); // Start Pulse
-                if (window.location.hash.length > 1) {
-                    const [type, path] = window.location.hash.substring(1).split(':');
-                    const metaRes = await fetchWithAuth(`https://raw.githubusercontent.com/${CONFIG.OWNER}/${CONFIG.REPO}/${CONFIG.BRANCH}/latestCommit.json`);
-                    initialMeta = await metaRes.json();
+            let initialMeta = null;
+            window.setLoading(true); // Start Pulse
+
+            // Fetch Data First
+            const metaRes = await fetchWithAuth(`https://raw.githubusercontent.com/${CONFIG.OWNER}/${CONFIG.REPO}/${CONFIG.BRANCH}/latestCommit.json`);
+            initialMeta = await metaRes.json();
+            
+            // Decide what to load
+            if (initialMeta.options || initialMeta.pkgs) {
+                state.data = initialMeta;
+                state.selectedVersion = "Latest Commit"; 
+                renderRegistry(initialMeta);
+            } else {
+                await loadVersion(initialMeta.latest);
+            }
+            updateVersionUI();
+
+            // Handle Hash
+            if (window.location.hash.length > 1) {
+                try {
+                    const hash = window.location.hash.substring(1); 
+                    // FIX: Decode URI components to handle < > characters
+                    const [rawType, rawPath] = hash.split(':'); 
+                    const type = decodeURIComponent(rawType);
+                    const path = decodeURIComponent(rawPath);
                     
-                    if (initialMeta.options || initialMeta.pkgs) {
-                        state.data = initialMeta;
-                        state.selectedVersion = "Latest Commit"; 
-                        renderRegistry(initialMeta);
-                        setTimeout(() => navigateToPath(path, type), 100);
-                    }
-                } else {
-                    const metaRes = await fetchWithAuth(`https://raw.githubusercontent.com/${CONFIG.OWNER}/${CONFIG.REPO}/${CONFIG.BRANCH}/latestCommit.json`);
-                    initialMeta = await metaRes.json();
-                    if (initialMeta.options || initialMeta.pkgs) {
-                        state.data = initialMeta;
-                        state.selectedVersion = "Latest Commit"; 
-                        renderRegistry(initialMeta);
+                    if (type && path && state.data[type]) {
+                        // Validate path existence
+                        const pathParts = path.split('.');
+                        let current = state.data[type];
+                        let isValid = true;
+                        
+                        for (const part of pathParts) {
+                            if (current[part]) {
+                                current = current[part].sub || current[part];
+                            } else {
+                                isValid = false;
+                                break;
+                            }
+                        }
+
+                        if (isValid) {
+                            setTimeout(() => {
+                                window.navigateToPath(path, type);
+                                if(state.focusedRow) state.focusedRow.el.scrollIntoView({block: 'center'});
+                            }, 100);
+                        } else {
+                            throw new Error(`Path "${path}" not found`);
+                        }
                     } else {
-                        await loadVersion(initialMeta.latest);
+                        throw new Error(`Invalid type or path format`);
                     }
-                    updateVersionUI();
+                } catch (e) {
+                    window.location.hash = ''; 
                     updateBreadcrumbs('', '');
-                    navigateToPath(null, null); 
+                    navigateToPath(null, null);
+                    showToast(`Error: ${e.message}`, true);
                 }
-                window.setLoading(false); // Stop Pulse
+            } else {
+                updateBreadcrumbs('', '');
+                navigateToPath(null, null); 
+            }
+            
+            window.setLoading(false); // Stop Pulse
                 
                 setInterval(() => fetchReleases().then(v => { state.versions = v; updateVersionUI(); }), 300000);
 
@@ -2180,7 +2355,15 @@ This software is released under the **NAP License** (Non-Aggression Principle Li
         }
 
         function updateOnlineStatus() {
-            const ind = document.getElementById('net-status');
+            const ind = document.getElementById('net-status')
+            if (state.selectedVersion === "Local File") {
+                ind.className = 'offline-indicator local';
+                ind.title = "Local File";
+                return;
+            } else {
+                // Ensure local styling is removed for online versions
+                ind.classList.remove('local');
+            }
             if (navigator.onLine) {
                 ind.classList.remove('offline');
                 ind.title = "Online";
@@ -2239,6 +2422,7 @@ This software is released under the **NAP License** (Non-Aggression Principle Li
                 updateBreadcrumbs('', '');
                 navigateToPath(null, null); 
                 updateCacheStats();
+                updateOnlineStatus(); // Reset status icon color
             } catch(e) { loader.innerHTML = `<div>Error loading ${v}</div>`; }
             
             window.setLoading(false);
@@ -2349,9 +2533,9 @@ This software is released under the **NAP License** (Non-Aggression Principle Li
                 row.dataset.type = type;
                 
                 // Add title attribute for hover description (Leaf nodes usually have meta)
-                if (node.meta && node.meta.description) {
-                    row.title = escapeHTML(node.meta.description);
-                }
+                if (node.meta) {
+    row.title = escapeHTML(node.meta.summary || node.meta.description || "");
+}
 
                 row.innerHTML = `<div class="row-icon ${hasSub ? '' : 'leaf'}">${hasSub ? '▶' : '●'}</div><div class="row-label">${escapeHTML(key)}</div>`;
                 if (!node.meta && !hasSub) row.innerHTML += `<div class="meta-badge">NO META</div>`;
@@ -2359,16 +2543,33 @@ This software is released under the **NAP License** (Non-Aggression Principle Li
                 row.onclick = (e) => {
                     e.stopPropagation();
                     selectNode(row, currentPath, node, type, wrapper, hasSub);
+
                     if (hasSub) {
-                         const children = wrapper.querySelector('.tree-children-wrapper');
-                         const isClosed = !children.classList.contains('open');
-                         if(isClosed) {
-                             children.classList.add('open');
-                             row.querySelector('.row-icon').classList.add('expanded');
-                         } else {
-                             children.classList.remove('open');
-                             row.querySelector('.row-icon').classList.remove('expanded');
-                         }
+                        const childrenWrapper = wrapper.querySelector('.tree-children-wrapper');
+                        const childrenContainer = wrapper.querySelector('.tree-children');
+
+                        if (childrenWrapper.classList.contains('open')) {
+                            // Collapse: Remove class first to trigger animation
+                            childrenWrapper.classList.remove('open');
+                            row.querySelector('.row-icon').classList.remove('expanded');
+                            
+                            // Unload: Wait for transition (250ms) then clear DOM
+                            setTimeout(() => {
+                                if (!childrenWrapper.classList.contains('open')) {
+                                    childrenContainer.innerHTML = '';
+                                }
+                            }, 250);
+                        } else {
+                            // Expand: Render content if missing
+                            if (!childrenContainer.hasChildNodes()) {
+                                renderRecursiveTree(node.sub, childrenContainer, currentPath, type);
+                            }
+                            // Force reflow to ensure transition plays
+                            requestAnimationFrame(() => {
+                                childrenWrapper.classList.add('open');
+                                row.querySelector('.row-icon').classList.add('expanded');
+                            });
+                        }
                     }
                 };
                 wrapper.appendChild(row);
@@ -2378,7 +2579,7 @@ This software is released under the **NAP License** (Non-Aggression Principle Li
                     anim.className = 'tree-children-wrapper';
                     const children = document.createElement('div');
                     children.className = 'tree-children';
-                    renderRecursiveTree(node.sub, children, currentPath, type);
+                    // Recursion removed for lazy loading: children will be rendered on click
                     anim.appendChild(children);
                     wrapper.appendChild(anim);
                 }
@@ -2472,17 +2673,17 @@ This software is released under the **NAP License** (Non-Aggression Principle Li
             rowEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
         }
 
-        window.navigateToPath = (path, type) => {
+        window.navigateToPath = async (path, type) => {
+            // 1. Root / Welcome Screen Logic
             if (!path && !type) {
-                // Clear Hash
                 try { history.replaceState(null, null, ' '); } catch(e) {}
-                
                 document.querySelectorAll('.tree-row.selected').forEach(r => r.classList.remove('selected'));
                 state.focusedRow = null;
+                updateBreadcrumbs('', '');
                 
-                // Build Recents HTML only
+                // RESTORED: Sidebar Welcome Screen
                 let recentHtml = '';
-                if (state.recents.length > 0) {
+                if (state.recents && state.recents.length > 0) {
                     recentHtml = `<div class="adw-group-title" style="margin-left:0; text-align:left;">Recent</div><div class="adw-group">`;
                     state.recents.forEach(r => {
                         const [t, p] = r.split(':');
@@ -2498,39 +2699,53 @@ This software is released under the **NAP License** (Non-Aggression Principle Li
                         </div>
                         <div style="font-weight: 700; margin-bottom: 8px;">ZenPkgs Explorer</div>
                         <div style="font-size: 0.9rem;">Select an option to view details.</div>
-                        <div style="font-size: 0.75rem; margin-top: 24px; color: var(--secondary-label)"><code>${state.keybinds.search}</code> to search<br><code>${state.keybinds.up}/${state.keybinds.down}</code> to navigate</div>
+                        <div style="font-size: 0.75rem; margin-top: 24px; color: var(--secondary-label)">
+                            <code>${window.formatKeybind(state.keybinds.search)}</code> to search<br>
+                            <code>${window.formatKeybind(state.keybinds.up)}/${window.formatKeybind(state.keybinds.down)}</code> to navigate
+                        </div>
                         <div style="text-align:left; margin-top:32px;">
                             ${recentHtml}
                         </div>
                     </div>
                 `;
-                updateBreadcrumbs('', '');
-                const searchInput = document.getElementById('search-input');
-                if(searchInput.value) {
-                    searchInput.value = '';
-                    renderRegistry(state.data);
-                }
                 return;
             }
 
-            const targetRow = document.querySelector(`.tree-row[data-path="${path}"][data-type="${type}"]`);
-            
-            if (targetRow) {
-                let parent = targetRow.parentElement.closest('.tree-node-wrapper');
-                while (parent) {
-                    const parentRow = parent.querySelector(':scope > .tree-row');
-                    const childrenWrapper = parent.querySelector(':scope > .tree-children-wrapper');
-                    if (childrenWrapper) {
-                        childrenWrapper.classList.add('open');
-                        if (parentRow) parentRow.querySelector('.row-icon').classList.add('expanded');
-                    }
-                    parent = parent.parentElement.closest('.tree-node-wrapper');
+            // 2. Sequential Expansion (Deep Linking)
+            const parts = path.split('.');
+            let currentPath = '';
+
+            for (let i = 0; i < parts.length; i++) {
+                const part = parts[i];
+                currentPath = i === 0 ? part : `${currentPath}.${part}`;
+                
+                // CSS.escape handles the DOM selector for things like <name>
+                const safePath = CSS.escape(currentPath);
+                
+                const row = document.querySelector(`.tree-row[data-path="${safePath}"][data-type="${type}"]`);
+
+                if (!row) {
+                    console.warn(`Path segment not found: ${currentPath}`);
+                    return; 
                 }
-                const hasSub = targetRow.dataset.hasSub === 'true';
-                selectNode(targetRow, path, null, type, targetRow.parentElement, hasSub);
+
+                if (i === parts.length - 1) {
+                    const hasSub = row.dataset.hasSub === 'true';
+                    row.scrollIntoView({ behavior: 'auto', block: 'center' });
+                    selectNode(row, currentPath, null, type, row.closest('.tree-node-wrapper'), hasSub);
+                } else {
+                    const wrapper = row.closest('.tree-node-wrapper');
+                    const childrenWrapper = wrapper.querySelector('.tree-children-wrapper');
+                    const childrenContainer = wrapper.querySelector('.tree-children');
+
+                    // If closed or empty, click to trigger Lazy Load
+                    if (!childrenWrapper || !childrenWrapper.classList.contains('open') || !childrenContainer.hasChildNodes()) {
+                        row.click();
+                        await new Promise(r => requestAnimationFrame(r));
+                    }
+                }
             }
         };
-
         function getIconForType(type) {
             type = (type || 'unknown').toString().toLowerCase();
             const icons = {
@@ -2615,15 +2830,23 @@ This software is released under the **NAP License** (Non-Aggression Principle Li
             }
 
             if (meta) {
-                if (meta.description) html += `<div class="adw-group-title" style="margin-left:12px;">Description</div><div class="adw-group" style="margin: 0 12px 24px 12px;"><div class="adw-row" style="cursor:default; padding:16px; color:var(--text-color)" id="inspector-desc-text">${escapeHTML(meta.description)}</div></div>`;
+                // UPDATED: 'summary' is the short text, 'description' is now the markdown body
+                // We keep fallbacks for old JSONs just in case
+                const shortDesc = meta.summary || meta.description;
+                const longDesc = meta.summary ? meta.description : meta.longDescription;
+
+                if (shortDesc) html += `<div class="adw-group-title" style="margin-left:12px;">Description</div><div class="adw-group" style="margin: 0 12px 24px 12px;"><div class="adw-row" style="cursor:default; padding:16px; color:var(--text-color)" id="inspector-desc-text">${escapeHTML(shortDesc)}</div></div>`;
+                
                 if (meta.maintainers && meta.maintainers.length) {
                     html += `<div class="adw-group-title" style="margin-left:12px;">Maintainers</div><div class="chip-grid" style="padding: 0 12px; margin-bottom:24px;">`;
                     meta.maintainers.forEach(m => {
-                         html += `<div class="maintainer-chip" onclick="showMaintainerPopup('${m}', {name:'${escapeHTML(m)}'}, this)">${escapeHTML(m)}</div>`;
+                            html += `<div class="maintainer-chip" onclick="showMaintainerPopup('${m}', {name:'${escapeHTML(m)}'}, this)">${escapeHTML(m)}</div>`;
                     });
                     html += `</div>`;
                 }
-                if (meta.longDescription) html += `<div class="adw-group-title" style="margin-left:12px;">Documentation</div><div class="markdown-body" style="margin: 0 12px 24px 12px;">${marked.parse(meta.longDescription)}</div>`;
+
+                // Render the Markdown body (Documentation)
+                if (longDesc) html += `<div class="adw-group-title" style="margin-left:12px;">Documentation</div><div class="markdown-body" style="margin: 0 12px 24px 12px;">${marked.parse(longDesc)}</div>`;
             }
             body.innerHTML = html;
         }
@@ -2761,11 +2984,15 @@ This software is released under the **NAP License** (Non-Aggression Principle Li
             if (e.target.classList.contains('overlay-backdrop')) e.target.classList.remove('visible');
         });
 
-        function showToast(msg) {
+        function showToast(msg, isError = false) {
             const t = document.getElementById('toast');
             t.textContent = msg;
+            
+            if (isError) t.classList.add('error');
+            else t.classList.remove('error');
+            
             t.classList.add('visible');
-            setTimeout(() => t.classList.remove('visible'), 2000);
+            setTimeout(() => t.classList.remove('visible'), 3000);
         }
 
         document.querySelectorAll('input[name="accent"]').forEach(radio => {
