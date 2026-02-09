@@ -730,7 +730,7 @@
         }
         
         .sp-header { padding: 12px; font-weight: 800; display: flex; justify-content: space-between; align-items: center; }
-        .sp-footer { padding: 8px; display: flex; gap: 8px; }
+        .sp-footer { padding: 6px; display: flex; gap: 6px; }
         
         /* --- SCRATCHPAD SYNTAX & BADGES --- */
         #sp-editor-container {
@@ -1121,7 +1121,7 @@
     </div>
     <div class="sp-footer">
         <button class="adw-button" style="flex:1" onclick="copyScratchpadConfig()">Copy Config</button>
-        <button class="adw-button destructive icon-only" onclick="clearScratchpad()"><svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg></button>
+        <button class="adw-button destructive" style="flex:1" onclick="clearScratchpad()"><svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg> Clear scratchpad</button>
     </div>
     </div>
 
@@ -3715,7 +3715,7 @@ document.getElementById('search-input').addEventListener('input', (e) => {
 
             Task: ${request}
             
-            Format: Markdown. Keep it concise. Use set-based syntax for packages (e.g. system.packages = { category = { pkg; }; }).`;
+            Format: Markdown. Keep it concise. Use set-based syntax for packages (e.g. system.packages = { category = { pkg; }; }). Instead of nix-shell, use zenos-shell, a wrapper for nix-shell.`;
 
             try {
                 const text = await callGeminiAPI(prompt);
