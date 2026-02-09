@@ -540,7 +540,7 @@
         }
         .common-popover.visible { visibility: visible; opacity: 1; transform: scale(1) translate(0, 0); }
         #maintainer-popup { z-index: 200; width: 240px; }
-        #menu-popover { width: 220px; padding: 6px; --pop-start: translateY(-10px) scale(0.9); }
+        #menu-popover { width: 220px; padding: 6px; --pop-start: translateY(-20px) scale(0.9); }
 
         #menu-popover::before {
             content: ''; position: absolute; top: -10px; left: 100px;
@@ -2324,7 +2324,7 @@ window.renderScratchpad = () => {
             let content = state.scratchpadConfig;
             content = content
                 .replace(/__BOOL:(true|false)__/g, "$1")
-                .replace(/__NUM:(\d+)__/g, "$1")
+                .replace(/__NUM:(\d+(?:\.\d+)?)\|(float|int)__/g, "$1")
                 .replace(/__ENUM:(.*?)\|.*?__/g, "\"$1\"") 
                 .replace(/__SB:(.*?)__/g, (m, val) => `"${val.replace(/\\n/g, '\n')}"`) // Unescape
                 .replace(/__FUNC:(.*?)__/g, (m, val) => val.replace(/\\n/g, '\n'))     // Unescape
