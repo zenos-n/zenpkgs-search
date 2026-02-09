@@ -1,0 +1,25 @@
+#!/usr/bin/env bash
+
+echo "Generating 10,000 random options..."
+
+python3 -c '
+import json, random
+
+data = {"options": {}}
+types = ["bool", "string", "int", "list of strings", "package", "attrs"]
+
+for i in range(10000):
+    key = f"stress.test.virtual.scroll.{i}"
+    data["options"][key] = {
+        "meta": {
+            "description": f"This is auto-generated option #{i} to test DOM performance.",
+            "type": random.choice(types),
+            "default": "null",
+            "position": f"nixos/modules/stress/test.nix:{random.randint(1,5000)}"
+        }
+    }
+
+print(json.dumps(data))
+' > stress_test_10k.json
+
+echo "Done. File saved as stress_test_10k.json"

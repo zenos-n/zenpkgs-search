@@ -18,6 +18,8 @@
     <style id="user-custom-css"></style>
 
     <style>
+        /* DEFAULT (Desktop): Hide mobile nav elements */
+
         .diff-control-panel {
             padding: 8px 12px;
             background: var(--bg-popover);
@@ -172,6 +174,17 @@
             overflow: hidden;
             transition: background 0.3s, color 0.3s;
             perspective: 1000px; 
+            margin: 0;
+    /* OLD: height: 100vh; */
+    
+    /* NEW: Use dynamic viewport height */
+    height: 100vh; /* Fallback */
+    height: 100dvh; 
+    
+    /* Ensure no scrolling on the body itself */
+    overflow: hidden; 
+    position: fixed; /* Locks the body in place on iOS to prevent rubber-banding */
+    width: 100%;
         }
 
         body.reduce-motion * {
@@ -231,6 +244,7 @@
         .header-bar-center-stack { flex: 1; position: relative; height: 34px; display: flex; align-items: center; }
 
         .search-wrapper {
+            
             position: absolute; inset: 0; display: flex; align-items: center;
             background-color: var(--bg-tree); border-radius: 8px; height: 34px;
             opacity: 0; visibility: hidden;
@@ -451,6 +465,8 @@
         /* --- CHIPS --- */
         .chip-grid { display: flex; flex-wrap: wrap; gap: 8px; padding: 0; } 
         .chip, .maintainer-chip {
+            height: 32px;
+            width: fit-content; max-width: 100%; word-wrap: none; white-space: nowrap;
             background-color: var(--card-bg); border: 1px solid transparent;
             border-radius: 99px; padding: 6px 14px;
             font-size: 0.85rem; font-weight: 700; color: var(--text-color);
@@ -1032,10 +1048,233 @@
             font-weight: 600;
         }
         [data-theme="light"] .author-pill { background: rgba(0,0,0,0.05); }
-    </style>
+        /* --- MOBILE LAYOUT & SHEET --- */
+   @media (max-width: 768px) {
+    /* 1. Turn Sidebar into Bottom Sheet */
+    .pane-left {
+        position: absolute;
+        left: 0; right: 0; bottom: 0;
+        width: 100% !important; height: 75vh !important;
+        border-right: none;
+        border-radius: 24px 24px 0 0;
+        background-color: var(--bg-left);
+        box-shadow: 0 -10px 40px rgba(0,0,0,0.5);
+        z-index: 100;
+        display: flex; flex-direction: column;
+
+        /* HIDDEN STATE */
+        /* Move down 120% to ensure shadow is also off-screen */
+        transform: translateY(120%); 
+        visibility: hidden; 
+        
+        /* CLOSING ANIMATION: 
+           1. Slide down (0.3s)
+           2. Wait 0.3s, THEN hide visibility so it doesn't vanish mid-animation 
+        */
+        transition: transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1), visibility 0s linear 0.3s;
+    }
+
+    /* VISIBLE STATE */
+    .pane-left.visible { 
+        
+        transform: translateY(0);
+        visibility: visible;
+        
+        /* OPENING ANIMATION:
+           1. Show visibility IMMEDIATELY (0s delay)
+           2. Slide up (0.3s)
+        */
+        transition: transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1), visibility 0s linear 0s;
+    }
+
+    /* 2. Add Handle to Sheet */
+    .pane-left::before {
+        content: ''; position: absolute; top: 12px; left: 50%; transform: translateX(-50%);
+        width: 40px; height: 5px; background: var(--border-color); border-radius: 10px;
+        pointer-events: none;
+    }
+
+    /* 3. Main Content takes full width */
+    .pane-right { width: 100%; flex: 1; }
+
+    /* 4. Hide desktop-specifics */
+    .pane-left .header-bar { display: none; }
+    
+    /* 5. Adjust Padding */
+    .content-container { padding: 16px; }
+}
+
+    /* --- INFO BUTTON (Tree View) --- */
+    .info-btn {
+        width: 32px; height: 32px;
+        display: flex; align-items: center; justify-content: center;
+        border-radius: 50%;
+        color: var(--accent-bg);
+        cursor: pointer;
+        margin-left: 8px;
+        opacity: 0.6;
+        transition: all 0.2s;
+        /* Only show on hover on desktop, always on mobile if preferred */
+    }
+    .info-btn:hover, .tree-row:hover .info-btn { opacity: 1; background-color: rgba(255,255,255,0.1); }
+    .info-btn:active { transform: scale(0.9); background-color: var(--accent-bg); color: white; }
+
+    /* Default: Hide info button on Desktop */
+.info-btn {
+    display: none;
+}
+
+/* Mobile: Show info button */
+@media (max-width: 768px) {
+    .info-btn {
+        display: flex; /* Bring it back on mobile */
+        width: 32px; height: 32px;
+        align-items: center; justify-content: center;
+        border-radius: 50%;
+        color: var(--accent-bg);
+        margin-left: 8px;
+        background-color: rgba(255,255,255,0.00); /* Subtle background for touch target */
+        transition: all 0.2s;
+        flex-shrink: 0;
+    }
+    .info-btn:active {
+        background-color: var(--accent-bg);
+        color: white;
+    }
+    .search-wrapper {
+        opacity: 0;
+        position: absolute;
+        top: 6px; left: 24px; right: calc(8px + 14px + 34px + 8px);
+        height: 34px;
+        z-index: 11;
+        transition: 0.25s;
+    }
+}
+
+    /* --- DASHBOARD WIDGETS --- */
+    .adw-group { margin-bottom: 24px; }
+    .adw-group-title { 
+        font-size: 0.75rem; color: var(--dim-label); 
+        text-transform: uppercase; font-weight: 800; 
+        margin-bottom: 8px; letter-spacing: 0.5px;
+    }
+    
+    /* Backdrop for sheet */
+    .sheet-backdrop {
+        position: absolute; inset: 0; background: rgba(0,0,0,0.5);
+        opacity: 0; pointer-events: none; transition: opacity 0.3s;
+        z-index: 99;
+    }
+    .sheet-backdrop.visible { opacity: 1; pointer-events: auto; }
+
+    #mobile-dash-news > div:nth-child(1) {
+        
+        margin: 0;
+        background-color: var(--bg-tree);
+    }
+    
+
+
+.mobile-header-bar {
+    display: none; /* Hidden by default, shown on mobile */
+    position: absolute; top: 0; left: 0; right: 0;
+    height: 46px; 
+    align-items: center; justify-content: space-between;
+    padding: 0 24px; z-index: 10;
+}
+/* MOBILE OVERRIDES */
+@media (max-width: 768px) {
+    /* 1. Show Mobile Nav Items */
+   .mobile-header-bar{
+    display: flex; 
+   } 
+    
+    /* 2. Hide Breadcrumbs */
+    #breadcrumbs {
+        display: none !important;
+    }
+
+    .header-bar-center-stack{
+    display: none !important;
+    }
+
+    
+
+    #menu-popover:before{
+        left: 21px !important; /* Align arrow with FAB */
+        
+    }
+    #menu-popover{
+        --pop-start: translate(-7px, -20px) scale(0.9);
+    }
+    
+    /* 3. Optional: Hide 'Surprise Me' to save space? */
+    /* .header-bar .adw-button[title="Surprise Me"] { display: none; } */
+}
+@media (max-width: 768px) {
+    /* Turn Scratchpad into a Bottom Sheet */
+    #scratchpad-panel {
+        /* Reset Desktop Positioning */
+        top: auto !important;
+        left: 0 !important;
+        right: 0 !important;
+        bottom: 0 !important;
+        
+        /* Sheet Dimensions & Style */
+        width: 100% !important;
+        height: 85vh !important; /* Taller than nav sheet for editing space */
+        border-radius: 24px 24px 0 0 !important;
+        box-shadow: 0 -10px 40px rgba(0,0,0,0.5) !important;
+        border: none !important;
+        
+        /* Mobile Animation (Slide Up) */
+        transform: translateY(120%) !important; /* Start hidden below screen */
+        opacity: 1 !important; /* Force visible (we use translate to hide) */
+        transition: transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1) !important;
+        
+        z-index: 150 !important; /* Above everything else */
+    }
+
+    /* Active State */
+    #scratchpad-panel.visible {
+        transform: translateY(0) !important;
+    }
+
+    /* Hide the little arrow triangle */
+    #scratchpad-panel::before { display: none !important; }
+    
+    /* Layout Adjustments */
+    #sp-editor-container { margin: 0 16px !important; }
+    .sp-header { padding: 16px 20px !important; }
+}
+        .virtual-viewport {
+            position: relative;
+            overflow: hidden;
+            /* Height is set dynamically via JS */
+        }
+
+        .virtual-row {
+            position: absolute;
+            left: 0; right: 0;
+            height: 44px; /* Must match item height */
+            display: flex; align-items: center; padding: 0 16px;
+            cursor: pointer; transition: background 0.1s;
+        }
+        [data-theme="dark"] .virtual-row:hover { background-color: rgba(255,255,255,0.05); } 
+        [data-theme="light"] .virtual-row:hover { background-color: rgba(0,0,0,0.03); }
+        
+        .virtual-row.selected { background-color: rgba(255,255,255,0.1); }
+        [data-theme="light"] .virtual-row.selected { background-color: rgba(0,0,0,0.08); }
+        
+        /* Reuse existing status colors */
+        .virtual-row.status-new .row-label { color: var(--accent-green); }
+        .virtual-row.status-deleted .row-label { color: var(--accent-red); text-decoration: line-through; }
+        .virtual-row.status-modified .row-label { color: var(--accent-blue); }
+
+     </style>
 </head>
 <body>
-
+<div class="sheet-backdrop" id="sheet-backdrop" onclick="closeAllSheets()"></div>
     <div class="pane-left">
         <div class="header-bar">
             <button class="adw-button icon-only" onclick="toggleSearch()" title="Search">
@@ -1047,7 +1286,7 @@
                 </svg>
                 <span>ZenPkgs</span>
             </div>
-            <button class="adw-button icon-only" id="menu-btn" onclick="toggleMenu()" style="position: relative;">
+            <button class="adw-button icon-only" id="menu-btn" onclick="toggleMenu(this)" style="position: relative;">
                 <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
                 <!-- Notification Dot -->
                 <div id="btn-news-badge" style="position:absolute; top:8px; right:8px; width:6px; height:6px; background:var(--accent-red); border-radius:50%; display:none;"></div>
@@ -1060,13 +1299,35 @@
 
     <div class="pane-right">
         <div class="header-bar">
-            <div class="header-bar-center-stack">
-                <div class="breadcrumbs-wrapper" id="breadcrumbs"></div>
+           <div class="mobile-header-bar">
+            <div class="search-wrapper" id="search-bar-mobile">
+                    <input type="text" class="adw-search" id="search-input-mobile" placeholder="Search registry...">
+                    <div id="search-history"></div>
+                </div>
+
+                <button class="adw-button icon-only mobile-nav-btn" onclick="toggleMenu(this)">
+                    <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+                    <div id="mobile-menu-badge" style="position:absolute; top:8px; right:8px; width:6px; height:6px; background:var(--accent-red); border-radius:50%; display:none;"></div>
+                </button>
+
+                <div class="header-brand mobile-nav-brand">
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><g clip-path="url(#clip0_272_121)"><path fill-rule="evenodd" clip-rule="evenodd" d="M12.5 7C10.567 7 9 5.433 9 3.5C9 1.567 10.567 0 12.5 0C14.433 0 16 1.567 16 3.5C16 5.433 14.433 7 12.5 7ZM12.5 1.5C13.6046 1.5 14.5 2.39543 14.5 3.5C14.5 4.60457 13.6046 5.5 12.5 5.5C11.3954 5.5 10.5 4.60457 10.5 3.5C10.5 2.39543 11.3954 1.5 12.5 1.5Z" fill="currentColor"/><path fill-rule="evenodd" clip-rule="evenodd" d="M12.5 16C10.567 16 9 14.433 9 12.5C9 10.567 10.567 9 12.5 9C14.433 9 16 10.567 16 12.5C16 14.433 14.433 16 12.5 16ZM12.5 10.5C13.6046 10.5 14.5 11.3954 14.5 12.5C14.5 13.6046 13.6046 14.5 12.5 14.5C11.3954 14.5 10.5 13.6046 10.5 12.5C10.5 11.3954 11.3954 10.5 12.5 10.5Z" fill="currentColor"/><path fill-rule="evenodd" clip-rule="evenodd" d="M3.5 11.5C1.567 11.5 0 9.933 0 8C0 6.067 1.567 4.5 3.5 4.5C5.433 4.5 7 6.067 7 8C7 9.933 5.433 11.5 3.5 11.5ZM3.5 6C4.60457 6 5.5 6.89543 5.5 8C5.5 9.10457 4.60457 10 3.5 10C2.39543 10 1.5 9.10457 1.5 8C1.5 6.89543 2.39543 6 3.5 6Z" fill="currentColor"/></g></svg>
+                    <span>ZenPkgs</span>
+                </div>
+
+                <button class="adw-button icon-only mobile-nav-btn" onclick="toggleSearch()">
+                    <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+                </button>
+           </div> 
+        
+           <div class="header-bar-center-stack">
+               <div class="header-bar-center-stack">
+                   <div class="breadcrumbs-wrapper" id="breadcrumbs"></div>
+                </div>
                 <div class="search-wrapper" id="search-bar">
                     <input type="text" class="adw-search" id="search-input" placeholder="Search registry...">
                     <div id="search-history"></div>
                 </div>
-            </div>
             
             <!-- Surprise Me Button -->
             <button class="adw-button icon-only" onclick="navigateRandom()" title="Surprise Me (Random Package)">
@@ -1079,6 +1340,7 @@
                 <span id="current-version">Latest Commit</span>
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M7 10l5 5 5-5z"/></svg>
             </button>
+            
             
             <div id="version-dropdown">
                 <div class="popover-inner">
@@ -1113,6 +1375,7 @@
                 </div>
             </div>
         </div>
+    </div>
         <div class="main-content">
             <div class="content-container">
                 <div class="loader-container" id="loader">
@@ -1370,7 +1633,7 @@
                     </div>
                     <div style="font-weight: 800; font-size: 1.5rem; margin-bottom: 8px;">ZenPkgs Browser</div>
                     <div style="margin-bottom: 24px;">
-                        <span class="version-chip">v1.0</span>
+                        <span class="version-chip">v2.0</span>
                     </div>
                     
                     <div class="adw-group">
@@ -1442,6 +1705,223 @@
     <div id="toast">Copied to Clipboard</div>
 
     <script>
+window.openMobileSheet = () => {
+    if (window.innerWidth <= 768) {
+        // This adds the class that triggers the CSS transition
+        document.querySelector('.pane-left').classList.add('visible');
+        document.getElementById('sheet-backdrop').classList.add('visible');
+    }
+};
+
+        // --- NEW SHEET MANAGEMENT LOGIC ---
+
+window.closeAllSheets = () => {
+    // 1. Close Navigation Sheet
+    document.querySelector('.pane-left').classList.remove('visible');
+    // 2. Close Scratchpad
+    document.getElementById('scratchpad-panel').classList.remove('visible');
+    // 3. Hide Backdrop
+    document.getElementById('sheet-backdrop').classList.remove('visible');
+};
+
+window.toggleScratchpad = () => {
+    const el = document.getElementById('scratchpad-panel');
+    const isVisible = el.classList.toggle('visible');
+    
+    // Initialize editor if empty
+    if (isVisible && !document.getElementById('sp-visual-view').innerText) {
+        renderScratchpad();
+    }
+
+    // --- Mobile Backdrop Logic ---
+    if (window.innerWidth <= 768) {
+        const backdrop = document.getElementById('sheet-backdrop');
+        
+        if (isVisible) {
+            // If opening Scratchpad, ensure Nav Sheet is closed
+            document.querySelector('.pane-left').classList.remove('visible');
+            // Show Backdrop
+            backdrop.classList.add('visible');
+            
+        } else {
+            // If closing Scratchpad, hide backdrop (unless Nav is somehow open)
+            if (!document.querySelector('.pane-left').classList.contains('visible')) {
+                backdrop.classList.remove('visible');
+            }
+        }
+    }
+};
+
+// Update existing openMobileSheet to ensure Scratchpad closes when Nav opens
+const originalOpenMobileSheet = window.openMobileSheet;
+window.openMobileSheet = () => {
+    // Close scratchpad before opening nav
+    document.getElementById('scratchpad-panel').classList.remove('visible');
+    if(originalOpenMobileSheet) originalOpenMobileSheet();
+};
+        // Wrap existing openInspector to trigger sheet on mobile
+        const originalOpenInspector = window.openInspector;
+        window.openInspector = (path, meta, type) => {
+            originalOpenInspector(path, meta, type);
+            // openMobileSheet();
+        };
+
+        window.addEventListener('resize', () => {
+            // If we're resizing to desktop size, ensure the sheet is closed
+            if (window.innerWidth > 768) {
+                closeMobileSheet();
+            }
+            renderDashboardWidgets(document.getElementById('registry-root'));
+        });
+
+        // --- DASHBOARD RENDERER ---
+        function renderDashboardWidgets(root) {
+             const existingNews = document.getElementById('mobile-dash-news');
+                if(existingNews) existingNews.remove();
+                const existingRecents = root.querySelector('.dash-section');
+                if(existingRecents) existingRecents.remove();
+            if(window.innerWidth > 768) {
+               
+                return;
+            };
+            // 1. News Widget Placeholder 
+            // We use a specific ID so fetchNews can target it, just like the sidebar.
+            // We hide it by default so it doesn't take space until loaded.
+            const newsHtml = `<div id="mobile-dash-news" class="dash-section" style="display:none"></div>`;
+            // 3. Recents Widget (Horizontal Scroll)
+            let recentHtml = '';
+            if (state.recents.length > 0) {
+                recentHtml = `<div class="dash-section"><div class="adw-group-title">Recent</div><div style="display:flex; gap:8px; overflow-x:auto; padding-bottom:8px;">`;
+                state.recents.forEach(r => {
+                    const [t, p] = r.split(':');
+                    const name = p.split('.').pop(); // Show short name
+                    recentHtml += `<div class="chip" style="background-color: color-mix(in srgb, var(--accent-bg) 15%, var(--bg-modal)); color: var(--link-color);" onclick="navigateToPath('${p}', '${t}')">${escapeHTML(name)}</div>`;
+                });
+                recentHtml += `</div></div>`;
+            }
+
+            root.innerHTML = newsHtml + recentHtml + root.innerHTML;
+            
+            // TRIGGER FETCH: Populate the news widget we just created
+            setTimeout(() => { if(window.fetchNews) window.fetchNews(true); }, 10);
+        }
+        function getNewsCardHTML(news) {
+    const lastRead = localStorage.getItem('zenpkgs_news_id');
+    const isNew = lastRead !== news.id;
+    
+    return `
+        <div class="news-card" onclick="openModal('news'); fetchNews(false)">
+            ${isNew ? '<div class="news-label-new">NEW</div>' : ''}
+            <div style="font-weight:700; color:var(--text-color); font-size:1rem; margin-bottom:4px;">
+                ${escapeHTML(news.title)}
+            </div>
+            <div style="font-size:0.8rem; color:var(--dim-label); margin-bottom:12px;">
+                ${escapeHTML(news.date)}
+            </div>
+            <div style="font-size:0.85rem; color:var(--link-color); font-weight:700; display:flex; align-items:center; gap:4px;">
+                Read Article 
+                <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                    <path d="M5 12h14M12 5l7 7-7 7"/>
+                </svg>
+            </div>
+        </div>
+    `;
+}
+
+// --- Helper: Update Notification Badges ---
+function updateNewsBadges(latestNewsId) {
+    const lastRead = localStorage.getItem('zenpkgs_news_id');
+    const isNew = lastRead !== latestNewsId;
+    const disp = isNew ? 'block' : 'none';
+    
+    const btnBadge = document.getElementById('btn-news-badge');   // Desktop Sidebar Btn
+    const mobileBadge = document.getElementById('mobile-menu-badge'); // New Mobile Top Btn
+    const menuBadge = document.getElementById('menu-news-badge'); // Inside the Menu
+    
+    if(btnBadge) btnBadge.style.display = disp;
+    if(mobileBadge) mobileBadge.style.display = disp; // Update mobile badge too
+    if(menuBadge) menuBadge.style.display = isNew ? 'inline' : 'none';
+}
+        // --- VIRTUAL SCROLL ENGINE (Fixed Target) ---
+        class VirtualScroller {
+            constructor(container, items, rowHeight, renderRowFn, onItemClick) {
+                this.container = container;
+                this.items = items; // Flattened array of keys/data
+                this.rowHeight = rowHeight;
+                this.renderRowFn = renderRowFn;
+                this.onItemClick = onItemClick;
+                
+                // FIX: Dynamically find the scrollable parent
+                // This ensures it works in both the Main Pane (Registry) and Sidebar (if needed)
+                this.scrollParent = this.container.closest('.main-content, .sidebar-content') || document.body;
+                
+                // Create viewport (simulates total height)
+                this.viewport = document.createElement('div');
+                this.viewport.className = 'virtual-viewport';
+                this.viewport.style.height = `${items.length * rowHeight}px`;
+                this.container.appendChild(this.viewport);
+                
+                this.renderChunk = this.renderChunk.bind(this);
+                this.scrollParent.addEventListener('scroll', this.renderChunk);
+                
+                // Initial Render
+                this.renderChunk(); 
+            }
+
+            renderChunk() {
+                const scrollTop = this.scrollParent.scrollTop;
+                
+                // We need the offset of the container relative to the scroll parent
+                // Since .tree-root might have headers above it, we calculate the offset
+                let containerOffset = 0;
+                let el = this.container;
+                while (el && el !== this.scrollParent) {
+                    containerOffset += el.offsetTop;
+                    el = el.offsetParent;
+                }
+
+                // Calculate visible window relative to the container
+                const relativeScroll = Math.max(0, scrollTop - containerOffset);
+                const viewportHeight = this.scrollParent.clientHeight;
+                
+                // Determine indices with a generous buffer to prevent blank space during fast scrolls
+                const buffer = 20; 
+                let startIndex = Math.floor(relativeScroll / this.rowHeight) - buffer;
+                let endIndex = Math.floor((relativeScroll + viewportHeight) / this.rowHeight) + buffer;
+                
+                startIndex = Math.max(0, startIndex);
+                endIndex = Math.min(this.items.length, endIndex);
+                
+                // Clear and Render
+                this.viewport.innerHTML = '';
+                
+                // Simple DOM Recycling: Just recreate for now (simplest for text updates)
+                for (let i = startIndex; i < endIndex; i++) {
+                    const item = this.items[i];
+                    const row = document.createElement('div');
+                    row.className = 'virtual-row';
+                    row.style.top = `${i * this.rowHeight}px`;
+                    
+                    // Call custom renderer
+                    this.renderRowFn(row, item);
+                    
+                    row.onclick = (e) => this.onItemClick(e, item, row);
+                    this.viewport.appendChild(row);
+                }
+            }
+            
+            // NEW: Allow dynamic updates to the list (for expansion/filtering)
+            setItems(newItems) {
+                this.items = newItems;
+                this.viewport.style.height = `${this.items.length * this.rowHeight}px`;
+                this.renderChunk();
+            }
+
+            destroy() {
+                if(this.scrollParent) this.scrollParent.removeEventListener('scroll', this.renderChunk);
+                if(this.viewport) this.viewport.remove();
+            }
+        }
         window.toggleDiffSelectionMode = () => {
             const btn = document.getElementById('btn-diff-toggle');
 
@@ -1665,21 +2145,35 @@ function activateDiff(baseData, label) {
                 
                 const news = await res.json();
                 
-                // 2. Handle Read Status & Badges (Latest Only)
+                // 2. Update Badges (Global)
                 if (!specificFile) {
-                    const lastRead = localStorage.getItem('zenpkgs_news_id');
-                    const isNew = lastRead !== news.id;
-                    const disp = isNew ? 'block' : 'none';
-                    if(document.getElementById('btn-news-badge')) document.getElementById('btn-news-badge').style.display = disp;
-                    if(document.getElementById('menu-news-badge')) document.getElementById('menu-news-badge').style.display = isNew ? 'inline' : 'none';
+                    updateNewsBadges(news.id);
                 }
 
                 // 3. PREVIEW MODE
-                const previewContainer = document.getElementById('start-news-preview');
-                if (previewMode && previewContainer) {
+                // We look for BOTH the sidebar placeholder AND the mobile dashboard placeholder
+                const previewContainers = [
+                    document.getElementById('start-news-preview'),
+                    document.getElementById('mobile-dash-news')
+                ];
+
+                if (previewMode && previewContainers.some(el => el)) {
+                    const cardHtml = getNewsCardHTML(news);
+                    
+                    previewContainers.forEach(container => {
+                        if (container) {
+                            container.innerHTML = cardHtml;
+                            container.style.display = 'block';
+                        }
+                    });
+                    return;
+                }
+
+                if (previewMode && previewContainers.some(el => el)) {
                     const lastRead = localStorage.getItem('zenpkgs_news_id');
                     const isNew = lastRead !== news.id;
-                    previewContainer.innerHTML = `
+                    
+                    const html = `
                         <div class="news-card" onclick="openModal('news'); fetchNews(false)">
                             ${isNew ? '<div class="news-label-new">NEW</div>' : ''}
                             <div style="font-weight:700; color:var(--text-color); font-size:1rem; margin-bottom:4px;">${escapeHTML(news.title)}</div>
@@ -1690,6 +2184,16 @@ function activateDiff(baseData, label) {
                             </div>
                         </div>
                     `;
+
+                    // Inject into all found containers
+                    previewContainers.forEach(el => {
+                        if(el) {
+                            el.innerHTML = html;
+                            el.style.display = 'block';
+                            // For mobile dash, ensure the parent wrapper is visible if needed, 
+                            // though .dash-section handles margin
+                        }
+                    });
                     return;
                 }
 
@@ -1889,6 +2393,7 @@ function activateDiff(baseData, label) {
 
         const CONFIG = { OWNER: "zenos-n", REPO: "zenpkgs", BRANCH: "json" };
         const state = { 
+            supperessSheet: false,
             diffSelecting: false,
             diffMode: false,
             diffBaseData: null,
@@ -2991,7 +3496,7 @@ window.renderScratchpad = () => {
             }
 
             let html = `
-                <div class="adw-group-title" style="margin-top:12px; margin-left:12px; display:flex; justify-content:space-between; align-items:center; padding-right:12px">
+                <div class="adw-group-title" style="margin-top:12px; margin-left:24px; display:flex; justify-content:space-between; align-items:center; padding-right:12px">
                     <span>Identifier</span>
                     <button class="adw-button icon-only" onclick="toggleFavorite('${path}', '${type}')" title="${isFav ? 'Unpin' : 'Pin'}">
                         <svg width="16" height="16" fill="${isFav ? 'var(--accent-yellow)' : 'none'}" stroke="${isFav ? 'var(--accent-yellow)' : 'currentColor'}" stroke-width="2" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
@@ -3010,12 +3515,12 @@ window.renderScratchpad = () => {
                         </div>
                     </div>
                 </div>
-                ${typeHtml ? `<div class="adw-group-title" style="margin-left:12px;">Type</div>${typeHtml}` : ''}
+                ${typeHtml ? `<div class="adw-group-title" style="margin-left:24px;">Type</div>${typeHtml}` : ''}
             `;
             
             if (state.geminiKey) {
                 html += `
-                    <div class="adw-group-title" style="margin-left:12px; display:flex; align-items:center; gap:8px;">
+                    <div class="adw-group-title" style="margin-left:24px; display:flex; align-items:center; gap:8px;">
                         <span>Smart Assistant</span>
                         <span style="font-size:0.6em; opacity:0.7; background:rgba(255,255,255,0.1); padding:2px 6px; border-radius:4px">✨ GEMINI</span>
                     </div>
@@ -3033,57 +3538,44 @@ window.renderScratchpad = () => {
             if (meta) {
                 const shortDesc = meta.summary || meta.description;
                 const longDesc = meta.summary ? meta.description : meta.longDescription;
-                if (shortDesc) html += `<div class="adw-group-title" style="margin-left:12px;">Description</div><div class="adw-group" style="margin: 0 12px 24px 12px;"><div class="adw-row" style="cursor:default; padding:16px; color:var(--text-color)" id="inspector-desc-text">${escapeHTML(shortDesc)}</div></div>`;
+                if (shortDesc) html += `<div class="adw-group-title" style="margin-left:24px;">Description</div><div class="adw-group" style="margin: 0 12px 24px 12px;"><div class="adw-row" style="cursor:default; padding:16px; color:var(--text-color)" id="inspector-desc-text">${escapeHTML(shortDesc)}</div></div>`;
                 if (meta.maintainers && meta.maintainers.length) {
-                    html += `<div class="adw-group-title" style="margin-left:12px;">Maintainers</div><div class="chip-grid" style="padding: 0 12px; margin-bottom:24px;">`;
+                    html += `<div class="adw-group-title" style="margin-left:24px;">Maintainers</div><div class="chip-grid" style="padding: 0 12px; margin-bottom:24px;">`;
                     meta.maintainers.forEach(m => { html += `<div class="maintainer-chip" onclick="showMaintainerPopup('${m}', {name:'${escapeHTML(m)}'}, this)">${escapeHTML(m)}</div>`; });
                     html += `</div>`;
                 }
-                if (longDesc) html += `<div class="adw-group-title" style="margin-left:12px;">Documentation</div><div class="markdown-body" style="margin: 0 12px 24px 12px;">${marked.parse(longDesc)}</div>`;
+                if (longDesc) html += `<div class="adw-group-title" style="margin-left:24px;">Documentation</div><div class="markdown-body" style="margin: 0 12px 24px 12px;">${marked.parse(longDesc)}</div>`;
             }
             body.innerHTML = html;
         }
 
         // --- GLOBAL EXPORTS ---
         window.setLoading = (isLoading) => {
-            let ind = document.getElementById('loading-indicator');
-            if (!ind) {
-                // Re-create the indicator if it was wiped
-                ind = document.createElement('div');
-                ind.id = 'loading-indicator';
-                ind.className = 'loading-overlay';
-                
-                // INJECT STYLES: Ensure it overlays correctly without needing external CSS
-                ind.style.cssText = "position:absolute; inset:0; background:rgba(0,0,0,0.5); display:none; align-items:center; justify-content:center; z-index:50; backdrop-filter:blur(2px); border-radius:inherit;";
-                
-                ind.innerHTML = '<div class="spinner"></div>';
-                
-                const container = document.querySelector('.pane-left') || document.body;
-                
-                // Ensure parent can hold absolute child
-                if (container !== document.body && window.getComputedStyle(container).position === 'static') {
-                    container.style.position = 'relative';
-                }
-                container.appendChild(ind);
-            }
-            
-            // Toggle Visibility via inline style to guarantee it works
-            ind.style.display = isLoading ? 'flex' : 'none';
-        };
+                    };
 
-        window.toggleMenu = () => {
-            const menu = document.getElementById('menu-popover');
-            const btn = document.getElementById('menu-btn');
-            if (menu.classList.contains('visible')) {
-                menu.classList.remove('visible');
-            } else {
-                const rect = btn.getBoundingClientRect();
-                const menuWidth = 220;
-                menu.style.left = `${rect.left + rect.width/2 - menuWidth/2}px`;
-                menu.style.top = `${rect.bottom + 12}px`;
-                menu.classList.add('visible');
-            }
-        };
+        window.toggleMenu = (triggerEl) => {
+    const menu = document.getElementById('menu-popover');
+    
+    // If we passed 'this' from HTML, use it. Otherwise fallback to the desktop ID.
+    const btn = triggerEl || document.getElementById('menu-btn');
+    
+    if (menu.classList.contains('visible')) {
+        menu.classList.remove('visible');
+    } else {
+        const rect = btn.getBoundingClientRect();
+        const menuWidth = 220;
+        
+        // Smart Positioning
+        let left = rect.left + rect.width/2 - menuWidth/2;
+        
+        // Prevent going off-screen (Mobile edge case)
+        if (left < 10) left = 10;
+        
+        menu.style.left = `${left}px`;
+        menu.style.top = `${rect.bottom + 12}px`;
+        menu.classList.add('visible');
+    }
+};
 
         window.toggleFavGroup = () => {
             state.favsCollapsed = !state.favsCollapsed;
@@ -3183,9 +3675,9 @@ window.renderScratchpad = () => {
         };
 
         window.closeSearch = () => {
-            const s = document.getElementById('search-bar');
+            const s = window.innerWidth < 768 ? document.getElementById('search-bar-mobile') : document.getElementById('search-bar');
             const b = document.getElementById('breadcrumbs');
-            const input = document.getElementById('search-input');
+            const input = window.innerWidth < 768 ? document.getElementById('search-input-mobile') : document.getElementById('search-input');
             const history = document.getElementById('search-history');
             
             s.classList.remove('visible');
@@ -3235,18 +3727,12 @@ window.renderScratchpad = () => {
             settingsStore.setItem('user_history', { favorites: state.favorites, recents: state.recents, searchHistory: state.searchHistory, scratchpadConfig: state.scratchpadConfig });
         }
 
-        window.toggleScratchpad = () => {
-            const el = document.getElementById('scratchpad-panel');
-            el.classList.toggle('visible');
-            if (el.classList.contains('visible')) {
-                 if(!document.getElementById('sp-visual-view').innerText) renderScratchpad();
-            }
-        }
 
         window.toggleSearch = () => {
-            const s = document.getElementById('search-bar');
+
+            const s = window.innerWidth < 768 ? document.getElementById('search-bar-mobile') : document.getElementById('search-bar');
             const b = document.getElementById('breadcrumbs');
-            const input = document.getElementById('search-input');
+            const input = window.innerWidth < 768 ? document.getElementById('search-input-mobile') : document.getElementById('search-input');
             const history = document.getElementById('search-history');
 
             input.value = '';
@@ -3399,6 +3885,7 @@ window.renderScratchpad = () => {
 
             if (window.location.hash.length > 1) {
                 try {
+                    // if(window.outerWidth < 768) return;
                     const hash = window.location.hash.substring(1); 
                     const [rawType, rawPath] = hash.split(':'); 
                     const type = decodeURIComponent(rawType);
@@ -3554,7 +4041,12 @@ window.renderScratchpad = () => {
         function renderRegistry(data) {
             const root = document.getElementById('registry-root');
             root.innerHTML = '';
+            renderDashboardWidgets(root);
+            
+            // Reset active scrollers list
+            state.activeScrollers = [];
 
+            // 1. Favorites (Unchanged)
             if (state.favorites.length > 0) {
                 const title = document.createElement('div');
                 title.className = `adw-group-title fav-header ${state.favsCollapsed ? 'collapsed' : ''}`;
@@ -3565,249 +4057,342 @@ window.renderScratchpad = () => {
                 if (!state.favsCollapsed) {
                     const container = document.createElement('div');
                     container.className = 'tree-root';
-                    
                     state.favorites.forEach(favKey => {
                         const [type, path] = favKey.split(':');
                         const row = document.createElement('div');
                         row.className = 'tree-row';
-                        row.innerHTML = `<div class="row-icon leaf" style="color:var(--accent-yellow)">★</div><div class="row-label">${escapeHTML(path)} <span style="font-size:0.7em; opacity:0.5; font-weight:400; margin-left:6px">${type}</span></div>`;
-                        row.onclick = () => navigateToPath(path, type);
-                        
+                        row.innerHTML = `<div class="row-icon leaf" style="color:var(--accent-yellow)">★</div><div class="row-label">${escapeHTML(path)}</div>`;
+                        row.onclick = () => {navigateToPath(path, type); openMobileSheet()};
                         const wrapper = document.createElement('div');
-                        wrapper.className = 'tree-node-wrapper';
-                        wrapper.style.marginLeft = '0';
-                        wrapper.style.border = 'none';
-                        wrapper.appendChild(row);
-                        container.appendChild(wrapper);
+                        wrapper.className = 'tree-node-wrapper'; wrapper.style.marginLeft = '0'; wrapper.style.border = 'none';
+                        wrapper.appendChild(row); container.appendChild(wrapper);
                     });
                     root.appendChild(container);
                 }
             }
 
-            const categories = [{ k: 'options', l: 'Nix Options' }, { k: 'pkgs', l: 'Packages' }, { k: 'maintainers', l: 'Maintainers' }];
+            const categories = [
+                { k: 'options', l: 'Nix Options' }, 
+                { k: 'pkgs', l: 'Packages' }, 
+                { k: 'maintainers', l: 'Maintainers' }
+            ];
 
             categories.forEach(cat => {
                 if (!data[cat.k]) return;
+                
                 const title = document.createElement('div');
                 title.className = 'adw-group-title';
+                ;
                 title.textContent = cat.l;
                 root.appendChild(title);
 
-                const container = document.createElement('div');
+                const keys = Object.keys(data[cat.k]).sort();
+                const totalItems = keys.length;
+
+                // SPECIAL CASE: Maintainers (Chips)
                 if (cat.k === 'maintainers') {
+                    const container = document.createElement('div');
                     container.className = 'chip-grid';
-                    Object.keys(data[cat.k]).sort().forEach(key => {
+                    keys.forEach(key => {
                         const chip = document.createElement('div');
                         chip.className = 'maintainer-chip';
                         chip.textContent = data[cat.k][key].name || key;
                         chip.onclick = (e) => showMaintainerPopup(key, data[cat.k][key], e.currentTarget);
                         container.appendChild(chip);
                     });
+                    root.appendChild(container);
+                    return;
+                }
+
+                const container = document.createElement('div');
+                container.className = 'tree-root';
+                root.appendChild(container);
+
+                // --- HYBRID SWITCH ---
+                if (totalItems > 1000) { 
+                    // VIRTUAL MODE
+                    // Initial Flattening (Level 0 only)
+                    let flatItems = keys.map(k => ({ 
+                        key: k, data: data[cat.k][k], path: k, type: cat.k,
+                        level: 0, expanded: false,
+                        hasSub: data[cat.k][k].sub && Object.keys(data[cat.k][k].sub).length > 0
+                    }));
+                    
+                    const scroller = new VirtualScroller(container, flatItems, 44, (row, item) => {
+    // Render Row
+    const label = escapeHTML(item.key);
+    if (state.diffMode && state.diffBaseData && !state.diffBaseData[item.type][item.path]) {
+        row.classList.add('status-new');
+    }
+    
+    const iconClass = item.hasSub ? (item.expanded ? 'row-icon expanded' : 'row-icon') : 'row-icon leaf';
+    const symbol = item.hasSub ? '▶' : '●';
+    const padding = 16 + (item.level * 20); 
+    
+    row.style.paddingLeft = `${padding}px`;
+
+    // 1. Label
+    row.innerHTML = `<div class="${iconClass}">${symbol}</div><div class="row-label">${label}</div>`;
+    
+    // 2. Info Button
+    row.innerHTML += `<div class="info-btn" onclick="event.stopPropagation(); selectNode(this.closest('.virtual-row'), '${item.path}', item.data, '${item.type}', null, ${item.hasSub}); openMobileSheet();"><svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg></div>`;
+    
+    if (state.focusedRow && state.focusedRow.path === item.path) row.classList.add('selected');
+
+}, (e, item, row) => {
+    // On Row Click
+    e.stopPropagation();
+    
+    // Select
+    selectNode(row, item.path, item.data, item.type, null, item.hasSub);
+
+    if (item.hasSub) {
+        // Toggle Expand ONLY
+        item.expanded = !item.expanded;
+        const currentList = scroller.items; 
+        
+        if (item.expanded) {
+            // EXPAND
+            const subKeys = Object.keys(item.data.sub).sort();
+            const newItems = subKeys.map(k => ({
+                key: k, data: item.data.sub[k], path: `${item.path}.${k}`, type: item.type,
+                level: item.level + 1, expanded: false,
+                hasSub: item.data.sub[k].sub && Object.keys(item.data.sub[k].sub).length > 0,
+                parentId: item.path
+            }));
+            const idx = currentList.indexOf(item);
+            if (idx !== -1) currentList.splice(idx + 1, 0, ...newItems);
+        } else {
+            // COLLAPSE
+            const idx = currentList.indexOf(item);
+            let count = 0;
+            for (let i = idx + 1; i < currentList.length; i++) {
+                if (currentList[i].level > item.level) count++;
+                else break;
+            }
+            if (count > 0) currentList.splice(idx + 1, count);
+        }
+        scroller.setItems(currentList);
+    } else {
+        // LEAF: Open sheet
+        openMobileSheet();
+    }
+});
+                    
+                    state.activeScrollers.push({ scroller, type: cat.k });
+                    
                 } else {
-                    container.className = 'tree-root';
+                    // STANDARD MODE
                     renderRecursiveTree(data[cat.k], container, '', cat.k);
                 }
-                root.appendChild(container);
-            });
-        }
-
-        function renderRecursiveTree(nodes, container, path, type) {
-            // 1. Get Union of Keys (Current + Old)
-            const currentKeys = nodes ? Object.keys(nodes) : [];
-            let oldKeys = [];
-            let oldParentNode = null;
-
-            if (state.diffMode && state.diffBaseData) {
-                // If at root, the "parent" is the category root (e.g. state.diffBaseData.pkgs)
-                // If deeper, we resolve the path
-                if (path === "") {
-                    oldParentNode = state.diffBaseData[type];
-                } else {
-                    // We need the PARENT of the current level to access .sub
-                    // Actually, resolveNode logic above returns the node AT path.
-                    // If path points to "system", resolveNode returns the "system" object.
-                    // Its children are in "system.sub" (handled inside resolveNode logic typically) 
-                    // or directly if flat.
-                    // Let's rely on resolveNode returning the object that CONTAINS the keys we want.
-                    oldParentNode = resolveNode(state.diffBaseData, type, path);
-                }
-                
-                // If the resolved node has .sub (it's a container), use that. Otherwise use it directly.
-                // Note: The structure is inconsistent sometimes (node.sub vs direct keys). 
-                // We'll try both.
-                if (oldParentNode) {
-                    oldKeys = Object.keys(oldParentNode.sub || oldParentNode || {});
-                }
-            }
-
-            // Combine and Sort unique keys
-            const allKeys = Array.from(new Set([...currentKeys, ...oldKeys])).sort();
-
-            allKeys.forEach(key => {
-                const node = nodes ? nodes[key] : null;     // New/Current
-                
-                // Determine Old Node
-                let oldNode = null;
-                if (oldParentNode) {
-                    oldNode = (oldParentNode.sub && oldParentNode.sub[key]) 
-                              ? oldParentNode.sub[key] 
-                              : oldParentNode[key];
-                }
-
-                // Skip if neither exists (edge case)
-                if (!node && !oldNode) return;
-
-                // Use available node for display info
-                const displayNode = node || oldNode;
-                const currentPath = path ? `${path}.${key}` : key;
-                const hasSub = displayNode.sub && Object.keys(displayNode.sub).length > 0;
-                
-                const wrapper = document.createElement('div');
-                wrapper.className = 'tree-node-wrapper';
-                const row = document.createElement('div');
-                row.className = 'tree-row';
-                row.dataset.path = currentPath;
-                row.dataset.hasSub = hasSub;
-                row.dataset.type = type;
-
-                // --- DIFF STATUS LOGIC ---
-                if (state.diffMode) {
-                    if (!node && oldNode) {
-                        row.classList.add('status-deleted');
-                        row.title = "Deleted in current version";
-                    } else if (node && !oldNode) {
-                        row.classList.add('status-new');
-                        row.title = "New in current version";
-                    } else if (node && oldNode) {
-                        // Compare Meta for Modifications
-                        // We filter out 'position' because it changes often (line numbers) and isn't a functional change
-                        const cleanMeta = (m) => {
-                            if (!m) return {};
-                            const { position, ...rest } = m;
-                            return rest;
-                        };
-                        
-                        const metaDiff = JSON.stringify(cleanMeta(node.meta)) !== JSON.stringify(cleanMeta(oldNode.meta));
-                        
-                        if (metaDiff) {
-                            row.classList.add('status-modified');
-                            row.title = "Modified";
-                        }
-                    }
-                }
-
-                if (!row.title && displayNode.meta) {
-                    row.title = escapeHTML(displayNode.meta.summary || displayNode.meta.description || "");
-                }
-
-                // If deleted, we might want to grey out the label or strike it
-                const label = escapeHTML(key);
-                
-                row.innerHTML = `<div class="row-icon ${hasSub ? '' : 'leaf'}">${hasSub ? '▶' : '●'}</div><div class="row-label">${label}</div>`;
-                if (!displayNode.meta && !hasSub) row.innerHTML += `<div class="meta-badge">NO META</div>`;
-
-                // Click Handler
-                row.onclick = (e) => {
-                    e.stopPropagation();
-                    // If deleted, maybe we shouldn't allow selection? 
-                    // Let's allow it so user can see what WAS there.
-                    selectNode(row, currentPath, displayNode, type, wrapper, hasSub);
-
-                    if (hasSub) {
-                        const childrenWrapper = wrapper.querySelector('.tree-children-wrapper');
-                        const childrenContainer = wrapper.querySelector('.tree-children');
-
-                        if (childrenWrapper.classList.contains('open')) {
-                            childrenWrapper.classList.remove('open');
-                            row.querySelector('.row-icon').classList.remove('expanded');
-                            setTimeout(() => {
-                                if (!childrenWrapper.classList.contains('open')) {
-                                    childrenContainer.innerHTML = '';
-                                }
-                            }, 250);
-                        } else {
-                            if (!childrenContainer.hasChildNodes()) {
-                                // Recursive call!
-                                // For deleted nodes, 'node.sub' is undefined, so we pass null.
-                                // The logic above handles 'nodes' being null by using oldParentNode.
-                                renderRecursiveTree(node ? node.sub : null, childrenContainer, currentPath, type);
-                            }
-                            requestAnimationFrame(() => {
-                                childrenWrapper.classList.add('open');
-                                row.querySelector('.row-icon').classList.add('expanded');
-                            });
-                        }
-                    }
-                };
-                wrapper.appendChild(row);
-
-                if (hasSub) {
-                    const anim = document.createElement('div');
-                    anim.className = 'tree-children-wrapper';
-                    const children = document.createElement('div');
-                    children.className = 'tree-children';
-                    anim.appendChild(children);
-                    wrapper.appendChild(anim);
-                }
-                container.appendChild(wrapper);
+            
             });
         }       
-        function renderFilteredTree(nodes, container, path, type, query) {
-             Object.keys(nodes).sort().forEach(key => {
-                const node = nodes[key];
-                const currentPath = path ? `${path}.${key}` : key;
-                const isMatch = currentPath.toLowerCase().includes(query);
-                const hasSub = node.sub && Object.keys(node.sub).length > 0;
-                
-                let childrenMatch = false;
-                if (hasSub) {
-                    childrenMatch = checkDeepMatch(node.sub, query);
-                }
+        function renderRecursiveTree(nodes, container, path, type, forceExpand = false) {
+    // 1. Get Union of Keys (Current + Old)
+    const currentKeys = nodes ? Object.keys(nodes) : [];
+    let oldKeys = [];
+    let oldParentNode = null;
 
-                if (isMatch || childrenMatch) {
-                      const wrapper = document.createElement('div');
-                      wrapper.className = 'tree-node-wrapper';
-                      const row = document.createElement('div');
-                      row.className = 'tree-row';
-                      row.dataset.path = currentPath;
-                      row.dataset.hasSub = hasSub;
-                      row.dataset.type = type;
-                      
-                      let label = escapeHTML(key);
-                      if (key.toLowerCase().includes(query)) {
-                          const idx = key.toLowerCase().indexOf(query);
-                          label = key.substring(0, idx) + `<b>${key.substring(idx, idx + query.length)}</b>` + key.substring(idx + query.length);
-                      } else if (isMatch) {
-                          label = `<b>${escapeHTML(key)}</b>`;
-                      }
-
-                      row.innerHTML = `<div class="row-icon ${hasSub ? '' : 'leaf'}">${hasSub ? '▶' : '●'}</div><div class="row-label">${label}</div>`;
-                      
-                      row.onclick = (e) => {
-                        e.stopPropagation();
-                        selectNode(row, currentPath, node, type, wrapper, hasSub);
-                        if (hasSub) {
-                             const children = wrapper.querySelector('.tree-children-wrapper');
-                             children.classList.toggle('open');
-                             row.querySelector('.row-icon').classList.toggle('expanded');
-                        }
-                    };
-                    wrapper.appendChild(row);
-
-                    if (hasSub && childrenMatch) {
-                        const anim = document.createElement('div');
-                        anim.className = 'tree-children-wrapper open'; 
-                        const children = document.createElement('div');
-                        children.className = 'tree-children';
-                        renderFilteredTree(node.sub, children, currentPath, type, query);
-                        anim.appendChild(children);
-                        wrapper.appendChild(anim);
-                        row.querySelector('.row-icon').classList.add('expanded');
-                    }
-                    container.appendChild(wrapper);
-                }
-             });
+    if (state.diffMode && state.diffBaseData) {
+        if (path === "") {
+            oldParentNode = state.diffBaseData[type];
+        } else {
+            oldParentNode = resolveNode(state.diffBaseData, type, path);
         }
+        
+        if (oldParentNode) {
+            oldKeys = Object.keys(oldParentNode.sub || oldParentNode || {});
+        }
+    }
+
+    // Combine and Sort unique keys
+    const allKeys = Array.from(new Set([...currentKeys, ...oldKeys])).sort();
+
+    allKeys.forEach(key => {
+        const node = nodes ? nodes[key] : null;     // New/Current
+        
+        // Determine Old Node
+        let oldNode = null;
+        if (oldParentNode) {
+            oldNode = (oldParentNode.sub && oldParentNode.sub[key]) 
+                      ? oldParentNode.sub[key] 
+                      : oldParentNode[key];
+        }
+
+        if (!node && !oldNode) return;
+
+        const displayNode = node || oldNode;
+        const currentPath = path ? `${path}.${key}` : key;
+        const hasSub = displayNode.sub && Object.keys(displayNode.sub).length > 0;
+        
+        const wrapper = document.createElement('div');
+        wrapper.className = 'tree-node-wrapper';
+        const row = document.createElement('div');
+        row.className = 'tree-row';
+        row.dataset.path = currentPath;
+        row.dataset.hasSub = hasSub;
+        row.dataset.type = type;
+
+        // --- DIFF STATUS LOGIC ---
+        if (state.diffMode) {
+            if (!node && oldNode) {
+                row.classList.add('status-deleted');
+                row.title = "Deleted in current version";
+            } else if (node && !oldNode) {
+                row.classList.add('status-new');
+                row.title = "New in current version";
+            } else if (node && oldNode) {
+                const cleanMeta = (m) => {
+                    if (!m) return {};
+                    const { position, ...rest } = m;
+                    return rest;
+                };
+                const metaDiff = JSON.stringify(cleanMeta(node.meta)) !== JSON.stringify(cleanMeta(oldNode.meta));
+                if (metaDiff) {
+                    row.classList.add('status-modified');
+                    row.title = "Modified";
+                }
+            }
+        }
+
+        if (!row.title && displayNode.meta) {
+            row.title = escapeHTML(displayNode.meta.summary || displayNode.meta.description || "");
+        }
+
+        const label = escapeHTML(key);
+        
+        // Build Row HTML
+        row.innerHTML = `<div class="row-icon ${hasSub ? '' : 'leaf'}">${hasSub ? '▶' : '●'}</div><div class="row-label">${label}</div>`;
+        if (!displayNode.meta && !hasSub) row.innerHTML += `<div class="meta-badge">NO META</div>`;
+
+        // --- INFO BUTTON ---
+        const infoBtn = document.createElement('div');
+        infoBtn.className = 'info-btn';
+        infoBtn.innerHTML = `<svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>`;
+        infoBtn.onclick = (e) => {
+            e.stopPropagation();
+            selectNode(row, currentPath, displayNode, type, wrapper, hasSub);
+            openMobileSheet();
+        };
+        row.appendChild(infoBtn);
+
+        // --- ROW CLICK HANDLER ---
+        row.onclick = (e) => {
+            e.stopPropagation();
+            selectNode(row, currentPath, displayNode, type, wrapper, hasSub);
+
+            if (hasSub) {
+                const childrenWrapper = wrapper.querySelector('.tree-children-wrapper');
+                const childrenContainer = wrapper.querySelector('.tree-children');
+
+                if (childrenWrapper.classList.contains('open')) {
+                    childrenWrapper.classList.remove('open');
+                    row.querySelector('.row-icon').classList.remove('expanded');
+                    setTimeout(() => {
+                        if (!childrenWrapper.classList.contains('open')) {
+                            childrenContainer.innerHTML = '';
+                        }
+                    }, 250);
+                } else {
+                    if (!childrenContainer.hasChildNodes()) {
+                        renderRecursiveTree(node ? node.sub : null, childrenContainer, currentPath, type);
+                    }
+                    requestAnimationFrame(() => {
+                        childrenWrapper.classList.add('open');
+                        row.querySelector('.row-icon').classList.add('expanded');
+                    });
+                }
+            } else {
+                openMobileSheet(); // Leaf click opens sheet
+            }
+        };
+        wrapper.appendChild(row);
+
+        if (hasSub) {
+            const anim = document.createElement('div');
+            anim.className = 'tree-children-wrapper';
+            const children = document.createElement('div');
+            children.className = 'tree-children';
+            
+            // FORCE EXPAND LOGIC
+            if (forceExpand) {
+                anim.classList.add('open');
+                row.querySelector('.row-icon').classList.add('expanded');
+                renderRecursiveTree(node ? node.sub : null, children, currentPath, type, true);
+            }
+            
+            anim.appendChild(children);
+            wrapper.appendChild(anim);
+        }
+        container.appendChild(wrapper);
+    });
+}
+        function renderFilteredTree(nodes, container, path, type, query) {
+     Object.keys(nodes).sort().forEach(key => {
+        const node = nodes[key];
+        const currentPath = path ? `${path}.${key}` : key;
+        const isMatch = currentPath.toLowerCase().includes(query);
+        const hasSub = node.sub && Object.keys(node.sub).length > 0;
+        
+        let childrenMatch = false;
+        if (hasSub) {
+            childrenMatch = checkDeepMatch(node.sub, query);
+        }
+
+        if (isMatch || childrenMatch) {
+              const wrapper = document.createElement('div');
+              wrapper.className = 'tree-node-wrapper';
+              const row = document.createElement('div');
+              row.className = 'tree-row';
+              row.dataset.path = currentPath;
+              row.dataset.hasSub = hasSub;
+              row.dataset.type = type;
+              
+              let label = escapeHTML(key);
+              if (key.toLowerCase().includes(query)) {
+                  const idx = key.toLowerCase().indexOf(query);
+                  label = key.substring(0, idx) + `<b>${key.substring(idx, idx + query.length)}</b>` + key.substring(idx + query.length);
+              } else if (isMatch) {
+                  label = `<b>${escapeHTML(key)}</b>`;
+              }
+
+              row.innerHTML = `<div class="row-icon ${hasSub ? '' : 'leaf'}">${hasSub ? '▶' : '●'}</div><div class="row-label">${label}</div>`;
+              
+              // --- INFO BUTTON ---
+              row.innerHTML += `
+              <div class="info-btn" onclick="event.stopPropagation(); selectNode(this.closest('.tree-row'), '${currentPath}', null, '${type}', this.closest('.tree-node-wrapper'), ${hasSub}); openMobileSheet();">
+                  <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+              </div>`;
+              
+              // --- ROW CLICK HANDLER ---
+              row.onclick = (e) => {
+                e.stopPropagation();
+                selectNode(row, currentPath, node, type, wrapper, hasSub);
+                if (hasSub) {
+                     const children = wrapper.querySelector('.tree-children-wrapper');
+                     children.classList.toggle('open');
+                     row.querySelector('.row-icon').classList.toggle('expanded');
+                } else {
+                    openMobileSheet();
+                }
+            };
+            wrapper.appendChild(row);
+
+            if (hasSub && childrenMatch) {
+                const anim = document.createElement('div');
+                anim.className = 'tree-children-wrapper open'; 
+                const children = document.createElement('div');
+                children.className = 'tree-children';
+                renderFilteredTree(node.sub, children, currentPath, type, query);
+                anim.appendChild(children);
+                wrapper.appendChild(anim);
+                row.querySelector('.row-icon').classList.add('expanded');
+            }
+            container.appendChild(wrapper);
+        }
+     });
+}
         
         function checkDeepMatch(sub, query) {
             if (!sub) return false;
@@ -3815,6 +4400,60 @@ window.renderScratchpad = () => {
         }
 // --- RESTORED SEARCH LISTENER ---
 document.getElementById('search-input').addEventListener('input', (e) => {
+    const query = e.target.value.toLowerCase();
+    const root = document.getElementById('registry-root');
+    
+    // 1. If search is empty, show default full view
+    if (!query) { 
+        root.innerHTML = ''; 
+        renderRegistry(state.data); 
+        return; 
+    }
+
+    root.innerHTML = ''; // Clear for search results
+
+    // Label mapping for nicer headers
+    const labels = { options: 'Nix Options', pkgs: 'Packages', maintainers: 'Maintainers' };
+
+    ['options', 'pkgs', 'maintainers'].forEach(catKey => {
+        if (!state.data[catKey]) return;
+
+        // Create Title
+        const catTitle = document.createElement('div');
+        catTitle.className = 'adw-group-title';
+        catTitle.textContent = labels[catKey] || catKey;
+        root.appendChild(catTitle);
+        
+        // 2. Handle Maintainers (Chips)
+        if (catKey === 'maintainers') {
+            const filtered = {};
+            Object.keys(state.data[catKey]).forEach(k => { 
+                if(k.toLowerCase().includes(query)) filtered[k] = state.data[catKey][k]; 
+            });
+            
+            const container = document.createElement('div');
+            container.className = 'chip-grid';
+            
+            Object.keys(filtered).sort().forEach(key => {
+                const chip = document.createElement('div');
+                chip.className = 'maintainer-chip';
+                chip.textContent = filtered[key].name || key;
+                chip.onclick = (e) => showMaintainerPopup(key, filtered[key], e.currentTarget);
+                container.appendChild(chip);
+            });
+            root.appendChild(container);
+        } 
+        // 3. Handle Trees (Options/Pkgs)
+        else {
+            const container = document.createElement('div');
+            container.className = 'tree-root';
+            // Calls the existing renderFilteredTree function in your file
+            renderFilteredTree(state.data[catKey], container, '', catKey, query);
+            root.appendChild(container);
+        }
+    });
+});
+document.getElementById('search-input-mobile').addEventListener('input', (e) => {
     const query = e.target.value.toLowerCase();
     const root = document.getElementById('registry-root');
     
@@ -3885,6 +4524,7 @@ document.getElementById('search-input').addEventListener('input', (e) => {
 
         window.navigateToPath = async (path, type) => {
             if (!path && !type) {
+                
                 try { history.replaceState(null, null, ' '); } catch(e) {}
                 document.querySelectorAll('.tree-row.selected').forEach(r => r.classList.remove('selected'));
                 state.focusedRow = null;
@@ -3924,6 +4564,8 @@ document.getElementById('search-input').addEventListener('input', (e) => {
         // Trigger fetch in preview mode (true) after render
         // This will populate the #start-news-preview div we just added
         setTimeout(() => fetchNews(true), 10);
+                setTimeout(() => { state.suppressSheet = false; }, 200);
+                
                 return;
             }
 
@@ -4109,7 +4751,7 @@ document.getElementById('search-input').addEventListener('input', (e) => {
             }
 
             // 2. Search History Navigation
-            if (document.activeElement.id === 'search-input') {
+            if (document.activeElement.id === 'search-input' || document.activeElement.id === 'search-input-mobile') {
                 const hist = document.getElementById('search-history');
                 if (hist.classList.contains('visible')) {
                     const items = hist.querySelectorAll('.history-item');
@@ -4152,9 +4794,9 @@ document.getElementById('search-input').addEventListener('input', (e) => {
                     if (e.target.id === 'sp-visual-view') {
                         document.getElementById('scratchpad-panel').classList.remove('visible');
                     }
-                    if(e.target.id === 'search-input') window.toggleSearch(); 
+                    if(e.target.id === 'search-input' || e.target.id === 'search-input-mobile') window.toggleSearch(); 
                 }
-                if(e.key === 'Enter' && e.target.id === 'search-input') {
+                if(e.key === 'Enter' && (e.target.id === 'search-input' || e.target.id === 'search-input-mobile')) {
                     addToSearchHistory(e.target.value);
                     const query = e.target.value.toLowerCase();
                     if (!query) return;
@@ -4201,8 +4843,8 @@ document.getElementById('search-input').addEventListener('input', (e) => {
             
             if (check(kb.search)) { 
                 e.preventDefault(); 
-                const searchBar = document.getElementById('search-bar');
-                const searchInput = document.getElementById('search-input');
+                const searchBar = window.innerWidth < 768 ? document.getElementById('search-bar-mobile') : document.getElementById('search-bar');
+                const searchInput = window.innerWidth < 768 ? document.getElementById('search-input-mobile') : document.getElementById('search-input');
                 const isVisible = searchBar.classList.contains('visible');
                 const isFocused = document.activeElement === searchInput;
 
@@ -4228,7 +4870,7 @@ document.getElementById('search-input').addEventListener('input', (e) => {
             else if (check(kb.prevMatch)) { e.preventDefault(); window.cycleSearchMatches(-1); matched = true; }
             
             if (combo === (kb.clearSearch || 'Escape')) {
-                const isSearchVisible = document.getElementById('search-bar').classList.contains('visible');
+                const isSearchVisible = window.innerWidth < 768 ? document.getElementById('search-bar-mobile').classList.contains('visible') : document.getElementById('search-bar').classList.contains('visible');
                 if (isSearchVisible) { e.preventDefault(); window.closeSearch(); return; }
             }
 
@@ -4500,24 +5142,152 @@ document.getElementById('search-input').addEventListener('input', (e) => {
 
             popup.classList.add('visible');
         }
+ 
+        // Helper: Iterative flatten to ensure reliable deep traversal without recursion limits
+        function flattenTreeIterative(sourceData, type) {
+            const result = [];
+            const stack = [];
+            
+            if (!sourceData) return [];
 
-        window.collapseTree = () => {
-            document.querySelectorAll('.tree-children-wrapper.open').forEach(el => el.classList.remove('open'));
-            document.querySelectorAll('.row-icon.expanded').forEach(el => el.classList.remove('expanded'));
-            showToast("Tree collapsed");
-        };
+            // 1. Push root items to stack in reverse order (so they pop in A-Z order)
+            const rootKeys = Object.keys(sourceData).sort();
+            for (let i = rootKeys.length - 1; i >= 0; i--) {
+                const key = rootKeys[i];
+                stack.push({
+                    key: key,
+                    node: sourceData[key],
+                    pathPrefix: '',
+                    level: 0
+                });
+            }
 
-        window.expandTree = () => {
+            while (stack.length > 0) {
+                const { key, node, pathPrefix, level } = stack.pop();
+                
+                // Safety check to prevent crashing on malformed data
+                if (!node) continue;
+
+                // Robust check for sub-nodes
+                const hasSub = node.sub && typeof node.sub === 'object' && Object.keys(node.sub).length > 0;
+                const path = pathPrefix ? `${pathPrefix}.${key}` : key;
+                
+                const item = {
+                    key: key,
+                    data: node,
+                    path: path,
+                    type: type,
+                    level: level,
+                    expanded: hasSub, // Force expanded state
+                    hasSub: hasSub,
+                    parentId: pathPrefix
+                };
+                
+                result.push(item);
+                
+                if (hasSub) {
+                    // Push children to stack in reverse order
+                    const subKeys = Object.keys(node.sub).sort();
+                    for (let i = subKeys.length - 1; i >= 0; i--) {
+                        const subKey = subKeys[i];
+                        stack.push({
+                            key: subKey,
+                            node: node.sub[subKey],
+                            pathPrefix: path,
+                            level: level + 1
+                        });
+                    }
+                }
+            }
+            return result;
+        }
+
+        window.expandTree = window.unwrapTree = () => {
+            let processedViaVirtual = false;
+
+            // 1. Handle Virtual Scrollers (Large Lists)
+            if (state.activeScrollers && state.activeScrollers.length > 0) {
+                showToast("Unwrapping tree...", false);
+                
+                setTimeout(() => {
+                    let totalNodes = 0;
+                    state.activeScrollers.forEach(({scroller, type}) => {
+                        const sourceData = state.data[type];
+                        if (sourceData) {
+                            const fullyExpanded = flattenTreeIterative(sourceData, type);
+                            scroller.setItems(fullyExpanded);
+                            totalNodes += fullyExpanded.length;
+                        }
+                    });
+                    showToast(`Tree expanded (${totalNodes} nodes)`);
+                }, 50);
+                processedViaVirtual = true;
+            }
+
+            // 2. Handle Standard DOM Trees (Small Lists)
+            // Identify standard categories that are NOT virtualized
+            const virtualTypes = state.activeScrollers ? state.activeScrollers.map(s => s.type) : [];
+            const standardCategories = ['options', 'pkgs'].filter(t => !virtualTypes.includes(t));
+
+            standardCategories.forEach(type => {
+                if (!state.data[type]) return;
+
+                // Find the container in the DOM
+                const row = document.querySelector(`.tree-row[data-type="${type}"]`);
+                if (row) {
+                    const container = row.closest('.tree-root');
+                    if (container) {
+                        // Re-render with forceExpand = true
+                        container.innerHTML = '';
+                        renderRecursiveTree(state.data[type], container, '', type, true);
+                    }
+                }
+            });
+
+            // 3. Handle Already-Rendered Nodes (e.g. Search Results)
+            // Search results are not lazy, so we can just open them via CSS if they were manually collapsed
             document.querySelectorAll('.tree-node-wrapper').forEach(wrapper => {
                 const anim = wrapper.querySelector('.tree-children-wrapper');
                 const icon = wrapper.querySelector('.row-icon');
-                if (anim) {
-                    anim.classList.add('open');
-                    if (icon) icon.classList.add('expanded');
+                if (anim && !anim.classList.contains('open')) {
+                    // Only open if it has content (prevents opening lazy nodes that we missed)
+                    const children = wrapper.querySelector('.tree-children');
+                    if (children && children.hasChildNodes()) {
+                        anim.classList.add('open');
+                        if (icon) icon.classList.add('expanded');
+                    }
                 }
             });
-            showToast("Tree expanded");
-        }
+
+            if (!processedViaVirtual) showToast("Tree expanded");
+        };
+
+        window.collapseTree = () => {
+            // 1. Handle Standard DOM Trees
+            document.querySelectorAll('.tree-children-wrapper.open').forEach(el => el.classList.remove('open'));
+            document.querySelectorAll('.row-icon.expanded').forEach(el => el.classList.remove('expanded'));
+
+            // 2. Handle Virtual Scrollers
+            if (state.activeScrollers && state.activeScrollers.length > 0) {
+                state.activeScrollers.forEach(({scroller}) => {
+                    // Filter down to just the root items (Level 0) and collapse them
+                    // We generate fresh root items from source to ensure clean state
+                    const type = scroller.items[0]?.type; 
+                    if (type && state.data[type]) {
+                        const sourceData = state.data[type];
+                        const keys = Object.keys(sourceData).sort();
+                        const rootItems = keys.map(k => ({ 
+                            key: k, data: sourceData[k], path: k, type: type,
+                            level: 0, expanded: false,
+                            hasSub: sourceData[k].sub && Object.keys(sourceData[k].sub).length > 0
+                        }));
+                        scroller.setItems(rootItems);
+                    }
+                });
+            }
+            
+            showToast("Tree collapsed");
+        };
 
         const COMMANDS = [
             { id: 'settings', bindKey: 'settings', label: 'Open Settings', shortcut: 'Ctrl+.', action: () => window.openModal('settings') },
@@ -4628,7 +5398,7 @@ document.getElementById('search-input').addEventListener('input', (e) => {
                 item.className = 'history-item';
                 item.innerHTML = `<svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>${escapeHTML(term)}`;
                 item.onclick = () => {
-                    const input = document.getElementById('search-input');
+                    const input = window.innerWidth < 768 ? document.getElementById('search-input-mobile') : document.getElementById('search-input');
                     input.value = term;
                     input.dispatchEvent(new Event('input'));
                     container.classList.remove('visible');
@@ -4754,10 +5524,11 @@ document.addEventListener('click', (e) => {
                 }
             };
 
-            closeIfOutside('menu-popover', '#menu-btn');
+            // Add .mobile-nav-btn to the allowed triggers
+closeIfOutside('menu-popover', '#menu-btn, .mobile-nav-btn');
             closeIfOutside('maintainer-popup', '.maintainer-chip');
             closeIfOutside('version-dropdown', '#version-btn');
-            closeIfOutside('search-history', '#search-bar');
+            closeIfOutside('search-history', window.innerWidth < 768 ? '#search-bar-mobile' : '#search-bar');
             
             // Scratchpad Popups (Input & Enum)
             // Trigger is the badge itself
