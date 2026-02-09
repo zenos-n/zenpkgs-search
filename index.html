@@ -497,13 +497,13 @@
         /* --- MODALS --- */
         .overlay-backdrop {
     position: fixed; inset: 0; background: rgba(0,0,0,0.6);
-    backdrop-filter: blur(8px); z-index: 100;
+    backdrop-filter: blur(0px); z-index: 100;
     display: flex; align-items: center; justify-content: center;
     visibility: hidden; opacity: 0; pointer-events: none;
-    transition: opacity 0.2s ease, visibility 0.2s ease;
+    transition: 0.2s ease;
     perspective: 1000px; /* <-- MOVED HERE */
 }
-        .overlay-backdrop.visible { visibility: visible; opacity: 1; pointer-events: auto; }
+        .overlay-backdrop.visible { visibility: visible; opacity: 1; pointer-events: auto; backdrop-filter: blur(20px); }
 
         .adw-window {
             width: 520px; max-width: 90vw; max-height: 85vh;
@@ -566,14 +566,14 @@
         }
 
         /* Exit States */
-        .stack-page.exit-left, .stack-page.exit-right {
+        .exit-left, .exit-right {
             position: absolute; top: 0; left: 0;
             height: auto; padding: 24px; 
             z-index: 0;
         }
         
-        .stack-page.exit-left { transform: translateX(-30%); opacity: 0; }
-        .stack-page.exit-right { transform: translateX(30%); opacity: 0; }
+        .exit-left { transform: translateX(-30%); opacity: 0; }
+        .exit-right { transform: translateX(30%); opacity: 0; }
         
         /* Off States (Collapsed) */
         .stack-page.off-right { transform: translateX(100%); }
@@ -1468,20 +1468,32 @@
         </div>
     </div>
 
-    <div class="overlay-backdrop" id="modal-news">
-        <div class="adw-window" style="width: 600px">
-            <div class="dialog-header">
-                <div style="width:24px"></div>
-                <span>Developer News</span>
-                <button class="window-close-button" onclick="closeModal('news')">
-                    <svg width="8" height="8" viewBox="0 0 8 8" fill="none"><path d="M2.5 4L0 1.5V0H1.5L4 2.5L6.5 0H8V1.5L5.5 4L8 6.5V8H6.5L4 5.5L1.5 8H0V6.5L2.5 4Z" fill="currentColor"/></svg>
-                </button>
+<div class="overlay-backdrop" id="modal-news">
+    <div class="adw-window" style="width: 600px">
+        <div class="dialog-header">
+            <button class="adw-button icon-only" id="news-back-btn" style="visibility: hidden;">
+                <svg xmlns="http://www.w3.org/2000/svg" height="16px" viewBox="0 0 16 16" width="16px"><path d="m 9.292969 13.707031 l -5 -5 c -0.390625 -0.390625 -0.390625 -1.023437 0 -1.414062 l 5 -5 c 0.390625 -0.390625 1.023437 -0.390625 1.414062 0 s 0.390625 1.023437 0 1.414062 l -4.292969 4.292969 l 4.292969 4.292969 c 0.390625 0.390625 0.390625 1.023437 0 1.414062 s -1.023437 0.390625 -1.414062 0 z m 0 0" fill="currentColor" fill-rule="evenodd"/></svg>
+            </button>
+            <span id="news-title">Developer News</span>
+            <button class="window-close-button" onclick="closeModal('news')">
+                <svg width="8" height="8" viewBox="0 0 8 8" fill="none"><path d="M2.5 4L0 1.5V0H1.5L4 2.5L6.5 0H8V1.5L5.5 4L8 6.5V8H6.5L4 5.5L1.5 8H0V6.5L2.5 4Z" fill="currentColor"/></svg>
+            </button>
+        </div>
+        <div class="window-content about-stack-container">
+            <div id="news-page-latest" class="stack-page active">
+                <div id="news-body-latest"></div>
             </div>
-            <div class="window-body" id="news-content-body">
-                <!-- Content injected via JS -->
+            
+            <div id="news-page-archive-list" class="stack-page off-right">
+                <div id="news-body-archive-list"></div>
+            </div>
+
+            <div id="news-page-archive-entry" class="stack-page off-right">
+                <div id="news-body-archive-entry"></div>
             </div>
         </div>
     </div>
+</div>
 
     <!-- SETTINGS MODAL -->
     <div class="overlay-backdrop" id="modal-settings">
@@ -1642,7 +1654,7 @@
                     </div>
                     <div style="font-weight: 800; font-size: 1.5rem; margin-bottom: 8px;">ZenPkgs Browser</div>
                     <div style="margin-bottom: 24px;">
-                        <span class="version-chip">v1.0.2</span>
+                        <span class="version-chip">v1.0.3</span>
                     </div>
                     
                     <div class="adw-group">
@@ -2146,85 +2158,16 @@ function activateDiff(baseData, label) {
        // The Adwaita Back Arrow SVG (Shared)
         const ADWAITA_BACK_ICON = `<svg xmlns="http://www.w3.org/2000/svg" height="16px" viewBox="0 0 16 16" width="16px"><path d="m 9.292969 13.707031 l -5 -5 c -0.390625 -0.390625 -0.390625 -1.023437 0 -1.414062 l 5 -5 c 0.390625 -0.390625 1.023437 -0.390625 1.414062 0 s 0.390625 1.023437 0 1.414062 l -4.292969 4.292969 l 4.292969 4.292969 c 0.390625 0.390625 0.390625 1.023437 0 1.414062 s -1.023437 0.390625 -1.414062 0 z m 0 0" fill="currentColor" fill-rule="evenodd"/></svg>`;
 
-        async function fetchNews(previewMode = false, specificFile = null) {
-            try {
-                // 1. Determine URL
-                const baseUrl = `https://raw.githubusercontent.com/${CONFIG.OWNER}/${CONFIG.REPO}/news`;
-                const url = specificFile ? `${baseUrl}/${specificFile}` : `${baseUrl}/latest.json?nocache=${Date.now()}`;
-                
-                const res = await fetch(url);
-                if(!res.ok) return; 
-                
-                const news = await res.json();
-                
-                // 2. Update Badges (Global)
-                if (!specificFile) {
-                    updateNewsBadges(news.id);
-                }
+        // Helper to reset animations quickly
+function resetStackClasses(el) {
+    el.classList.remove('active', 'exit-left', 'off-right');
+}
 
-                // 3. PREVIEW MODE
-                // We look for BOTH the sidebar placeholder AND the mobile dashboard placeholder
-                const previewContainers = [
-                    document.getElementById('start-news-preview'),
-                    document.getElementById('mobile-dash-news')
-                ];
-
-                if (previewMode && previewContainers.some(el => el)) {
-                    const cardHtml = getNewsCardHTML(news);
-                    
-                    previewContainers.forEach(container => {
-                        if (container) {
-                            container.innerHTML = cardHtml;
-                            container.style.display = 'block';
-                        }
-                    });
-                    return;
-                }
-
-                if (previewMode && previewContainers.some(el => el)) {
-                    const lastRead = localStorage.getItem('zenpkgs_news_id');
-                    const isNew = lastRead !== news.id;
-                    
-                    const html = `
-                        <div class="news-card" onclick="openModal('news'); fetchNews(false)">
-                            ${isNew ? '<div class="news-label-new">NEW</div>' : ''}
-                            <div style="font-weight:700; color:var(--text-color); font-size:1rem; margin-bottom:4px;">${escapeHTML(news.title)}</div>
-                            <div style="font-size:0.8rem; color:var(--dim-label); margin-bottom:12px;">${escapeHTML(news.date)}</div>
-                            <div style="font-size:0.85rem; color:var(--link-color); font-weight:700; display:flex; align-items:center; gap:4px;">
-                                Read Article 
-                                <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
-                            </div>
-                        </div>
-                    `;
-
-                    // Inject into all found containers
-                    previewContainers.forEach(el => {
-                        if(el) {
-                            el.innerHTML = html;
-                            el.style.display = 'block';
-                            // For mobile dash, ensure the parent wrapper is visible if needed, 
-                            // though .dash-section handles margin
-                        }
-                    });
-                    return;
-                }
-
-                // 4. FULL MODAL RENDER
-                if (!previewMode) {
-                    state.currentNewsContent = news.content; // Save for AI
-
-                    // Header Setup
-                    const headerLeft = document.querySelector('#modal-news .dialog-header > :first-child');
-                    const headerTitle = document.querySelector('#modal-news .dialog-header > span');
-                    if (headerTitle) headerTitle.textContent = "Developer News";
-                    if (headerLeft) {
-                        headerLeft.innerHTML = specificFile 
-                            ? `<button class="adw-button icon-only" onclick="renderNewsArchiveView()">${ADWAITA_BACK_ICON}</button>`
-                            : ''; 
-                    }
-
-                    // Authors Chips
-                    let authorsHtml = '';
+// --- NEWS NAVIGATION CONTROLLER ---
+const newsNav = {
+    // Helper to render standard article body
+    renderArticle: (news, targetId, isLatest) => {
+       let authorsHtml = '';
                     if (news.authors && Array.isArray(news.authors)) {
                         authorsHtml = news.authors.map(authorName => {
                             const maintainerData = state.data && state.data.maintainers ? state.data.maintainers[authorName] : null;
@@ -2236,22 +2179,12 @@ function activateDiff(baseData, label) {
                             return `<div class="maintainer-chip" ${onclick} style="display:inline-flex; align-items:center; gap:6px; padding:4px 10px; font-size:0.75rem; height:26px;">${avatar}${escapeHTML(authorName)}</div>`;
                         }).join('');
                     }
+        const footerHtml = isLatest 
+        ? `<button class="adw-action-btn secondary" onclick="newsNav.goToArchive()" style="width:240px; margin-top: 24px;">View Archive</button>` 
+        : ``; // Archive entries don't need a footer button, the back button handles navigation
 
-                    // AI Button Logic
-                    let aiButtonHtml = '';
-                    if (state.geminiKey) {
-                        aiButtonHtml = `
-                            <button class="adw-action-btn" onclick="summarizeNews(this)" style="background: linear-gradient(135deg, #4285f4, #d96570); border:none; color:white; padding: 0 24px; width: 240px;">
-                                <svg width="16" height="16" fill="currentColor" viewBox="0 0 24 24"><path d="M19 9l1.25-2.75L23 5l-2.75-1.25L19 1l-1.25 2.75L15 5l2.75 1.25L19 9zm-7.5.5L9 6 6.5 9.5 3 12l3.5 2.5L9 18l2.5-3.5L15 12l-3.5-2.5zM19 15l-1.25 2.75L15 19l2.75 1.25L19 23l1.25-2.75L23 19l-2.75-1.25L19 15z"/></svg>
-                                Summarize with AI
-                            </button>
-                            <div id="news-summary-box" style="display:none; margin-top:12px;"></div>
-                        `;
-                    }
-
-                    const body = document.getElementById('news-content-body');
-                    body.innerHTML = `
-                        <div class="news-full-header">
+        document.getElementById(targetId).innerHTML = `
+            <div class="news-full-header">
                             <div style="font-weight:800; font-size:1.4rem; line-height:1.2; margin-bottom:8px;">${escapeHTML(news.title)}</div>
                             <div class="news-meta-row" style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
                                 <span style="font-family:var(--font-mono); font-size:0.8rem; color:var(--dim-label)">${escapeHTML(news.date)}</span>
@@ -2259,60 +2192,124 @@ function activateDiff(baseData, label) {
                                 ${authorsHtml}
                             </div>
                         </div>
-                        <div class="markdown-body" style="background:transparent; border:none; padding:0; margin-bottom:24px;">
+                        <div class="markdown-body" style="background:transparent; border:none; padding:0; ">
                             ${marked.parse(news.content)}
                         </div>
-                        
-                        <div id="news-footer-actions" style="display:flex; flex-direction:column; align-items:center; gap:24px; ">
-                            ${aiButtonHtml}
-                        </div>
-                    `;
+                         <div id="news-footer-actions" style="display:flex; flex-direction:column; align-items:center; gap:16px; ">${footerHtml}</div>
+                                `;    },
 
-                    // Archive Check (Lazy Load)
-                    if (!specificFile) {
-                        localStorage.setItem('zenpkgs_news_id', news.id); 
-                        
-                        const renderArchiveButton = () => {
-                            if(state.newsArchive.length > 0) {
-                                const footer = document.getElementById('news-footer-actions');
-                                // Append button if not exists
-                                if(footer && !footer.querySelector('.secondary')) {
-                                    const btn = document.createElement('button');
-                                    btn.className = 'adw-action-btn secondary';
-                                    btn.onclick = renderNewsArchiveView;
-                                    btn.innerHTML = `View Archive (${state.newsArchive.length})`;
-                                    btn.style = "padding: 0 24px; width: 240px;";
-                                    footer.appendChild(btn);
-                                }
-                            }
-                        };
+    // LEVEL 0: Show Latest
+    goToLatest: () => {
+        document.getElementById('news-page-latest').classList.remove('exit-left', 'off-right');
+        document.getElementById('news-page-latest').classList.add('active');
 
-                        if (state.newsArchive.length === 0) {
-                             const listUrl = `https://api.github.com/repos/${CONFIG.OWNER}/${CONFIG.REPO}/contents?ref=news`;
-                             const headers = state.ghToken ? { 'Authorization': `Bearer ${state.ghToken}` } : {};
-                             
-                             fetch(listUrl, { headers })
-                                .then(r => r.json())
-                                .then(files => {
-                                    if(Array.isArray(files)) {
-                                        state.newsArchive = files.filter(f => f.name.endsWith('.json') && f.name !== 'latest.json')
-                                                                 .sort((a,b) => b.name.localeCompare(a.name)); 
-                                        renderArchiveButton();
-                                    }
-                                }).catch(e => console.warn("Archive check failed", e));
-                        } else {
-                            renderArchiveButton();
-                        }
-                    }
-                    
-                    if(!specificFile) {
-                         if(document.getElementById('btn-news-badge')) document.getElementById('btn-news-badge').style.display = 'none';
-                         const prev = document.getElementById('start-news-preview');
-                         if(prev) fetchNews(true);
-                    }
-                }
-            } catch(e) { console.error("News error:", e); }
+        document.getElementById('news-page-archive-list').classList.remove('active', 'exit-left');
+        document.getElementById('news-page-archive-list').classList.add('off-right');
+
+        // Header
+        document.getElementById('news-title').textContent = "Developer News";
+        document.getElementById('news-back-btn').style.visibility = 'hidden';
+    },
+
+    // LEVEL 1: Show Archive List
+    goToArchive: () => {
+        // 1. Move Latest to Left (Exit)
+        document.getElementById('news-page-latest').classList.remove('active');
+        document.getElementById('news-page-latest').classList.add('exit-left');
+
+        // 2. Bring List to Center (Active)
+        document.getElementById('news-page-archive-list').classList.remove('off-right', 'exit-left');
+        document.getElementById('news-page-archive-list').classList.add('active');
+
+        // 3. Move Entry to Right (Off) - In case we are coming back from an entry
+        document.getElementById('news-page-archive-entry').classList.remove('active', 'exit-left');
+        document.getElementById('news-page-archive-entry').classList.add('off-right');
+
+        // Header
+        document.getElementById('news-title').textContent = "News Archive";
+        const btn = document.getElementById('news-back-btn');
+        btn.style.visibility = 'visible';
+        btn.onclick = () => newsNav.goToLatest(); // Back goes to Latest
+
+        // Render List if empty
+        const body = document.getElementById('news-body-archive-list');
+        if (!body.hasChildNodes() || state.newsArchive.length > 0) {
+             let rows = state.newsArchive.map(file => `
+                <div class="adw-row news-archive-row" onclick="fetchNews(false, '${file.name}')">
+                    <div style="font-weight:600">${escapeHTML(file.name.replace('.json', ''))}</div>
+                    <svg width="16" height="16" style="opacity:0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 18l6-6-6-6"/></svg>
+                </div>
+            `).join('');
+            body.innerHTML = `<div class="adw-group" style="margin-top:12px">${rows || '<div class="adw-row">Loading archive...</div>'}</div>`;
         }
+    },
+
+    // LEVEL 2: Show Specific Entry
+    goToEntry: (filename) => {
+        // 1. Move List to Left (Exit)
+        document.getElementById('news-page-archive-list').classList.remove('active');
+        document.getElementById('news-page-archive-list').classList.add('exit-left');
+
+        // 2. Bring Entry to Center (Active)
+        const page = document.getElementById('news-page-archive-entry');
+        page.classList.remove('off-right', 'exit-left');
+        page.classList.add('active');
+
+        // Header
+        document.getElementById('news-title').textContent = filename.replace('.json', '');
+        const btn = document.getElementById('news-back-btn');
+        btn.style.visibility = 'visible';
+        btn.onclick = () => newsNav.goToArchive(); // Back goes to Archive List
+    }
+};
+
+// --- MAIN FETCH FUNCTION ---
+async function fetchNews(previewMode = false, specificFile = null) {
+    try {
+        const baseUrl = `https://raw.githubusercontent.com/${CONFIG.OWNER}/${CONFIG.REPO}/news`;
+        const url = specificFile ? `${baseUrl}/${specificFile}` : `${baseUrl}/latest.json?nocache=${Date.now()}`;
+        
+        // 1. Fetch Data
+        const res = await fetch(url);
+        if(!res.ok) return; 
+        const news = await res.json();
+
+        // 2. Handle Preview (Dashboard)
+        if (previewMode) {
+            if (!specificFile) updateNewsBadges(news.id);
+            const containers = [document.getElementById('start-news-preview'), document.getElementById('mobile-dash-news')];
+            containers.forEach(c => { if(c) { c.innerHTML = getNewsCardHTML(news); c.style.display = 'block'; } });
+            return;
+        }
+
+        // 3. Handle Full Modal Navigation
+        state.currentNewsContent = news.content; // For AI
+
+        if (specificFile) {
+            // Render into Entry Page and Navigate Level 1 -> 2
+            newsNav.renderArticle(news, 'news-body-archive-entry', false);
+            newsNav.goToEntry(specificFile);
+        } else {
+            // Render into Latest Page and Navigate (Reset to Level 0)
+            updateNewsBadges(news.id);
+            newsNav.renderArticle(news, 'news-body-latest', true);
+            newsNav.goToLatest();
+            
+            // Lazy load archive list in background
+            if (state.newsArchive.length === 0) {
+                const listUrl = `https://api.github.com/repos/${CONFIG.OWNER}/${CONFIG.REPO}/contents?ref=news`;
+                fetch(listUrl, { headers: state.ghToken ? { 'Authorization': `Bearer ${state.ghToken}` } : {} })
+                    .then(r => r.json()).then(files => {
+                        if(Array.isArray(files)) state.newsArchive = files.filter(f => f.name.endsWith('.json') && f.name !== 'latest.json').sort((a,b) => b.name.localeCompare(a.name));
+                    });
+            }
+        }
+    } catch(e) { console.error("News Error:", e); }
+}
+
+// Redirect old call to new system
+const renderNewsArchiveView = newsNav.goToArchive;
+
 
         async function summarizeNews(btn) {
             if (!state.currentNewsContent) return;
@@ -2334,8 +2331,8 @@ function activateDiff(baseData, label) {
                 btn.style.display = 'none';
                 const box = document.getElementById('news-summary-box');
                 box.innerHTML = `
-                    <div style="background:var(--bg-tree); border-radius:12px; padding:16px; border:1px solid var(--accent-bg);">
-                        <div style="display:flex; gap:8px; align-items:center; margin-bottom:8px; color:var(--accent-bg); font-weight:800; font-size:0.8rem; text-transform:uppercase; letter-spacing:0.5px;">
+                    <div style="background:var(--bg-tree); border-radius:12px; padding:16px; margin-top: 24px; border:1px solid var(--accent-bg);">
+                        <div style="display:flex; gap:8px; align-items:center; color:var(--accent-bg); font-weight:800; font-size:0.8rem; text-transform:uppercase; letter-spacing:0.5px;">
                             <svg width="14" height="14" fill="currentColor" viewBox="0 0 24 24"><path d="M19 9l1.25-2.75L23 5l-2.75-1.25L19 1l-1.25 2.75L15 5l2.75 1.25L19 9zm-7.5.5L9 6 6.5 9.5 3 12l3.5 2.5L9 18l2.5-3.5L15 12l-3.5-2.5z"/></svg>
                             AI Summary
                         </div>
@@ -2354,34 +2351,7 @@ function activateDiff(baseData, label) {
             }
         }
 
-        function renderNewsArchiveView() {
-            const headerLeft = document.querySelector('#modal-news .dialog-header > :first-child');
-            const headerTitle = document.querySelector('#modal-news .dialog-header > span');
-            
-            if(headerTitle) headerTitle.textContent = "News Archive";
-            if(headerLeft) {
-                headerLeft.innerHTML = `<button class="adw-button icon-only" onclick="fetchNews(false)">${ADWAITA_BACK_ICON}</button>`;
-            }
-
-            const body = document.getElementById('news-content-body');
-            let rowsHtml = '';
-            
-            state.newsArchive.forEach(file => {
-                const label = file.name.replace('.json', '');
-                rowsHtml += `
-                    <div class="adw-row news-archive-row" onclick="fetchNews(false, '${file.name}')">
-                        <div style="font-weight:600">${escapeHTML(label)}</div>
-                        <svg width="16" height="16" style="opacity:0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 18l6-6-6-6"/></svg>
-                    </div>
-                `;
-            });
-
-            body.innerHTML = `
-                <div class="adw-group" style="margin-top:12px">
-                    ${rowsHtml}
-                </div>
-            `;
-        }
+        
         window.toggleAdvancedScratchpad = () => {
     state.advancedScratchpad = !state.advancedScratchpad;
     
