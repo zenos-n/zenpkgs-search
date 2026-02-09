@@ -166,26 +166,21 @@
         * { box-sizing: border-box; }
 
         body {
-            margin: 0; height: 100vh;
-            display: flex; flex-direction: row;
-            background-color: var(--bg-right);
-            color: var(--text-color);
-            font-family: var(--font-ui);
-            overflow: hidden;
-            transition: background 0.3s, color 0.3s;
-            perspective: 1000px; 
-            margin: 0;
-    /* OLD: height: 100vh; */
-    
-    /* NEW: Use dynamic viewport height */
+    margin: 0; height: 100vh;
+    display: flex; flex-direction: row;
+    background-color: var(--bg-right);
+    color: var(--text-color);
+    font-family: var(--font-ui);
+    overflow: hidden;
+    transition: background 0.3s, color 0.3s;
+    /* perspective: 1000px;  <-- REMOVED: Causing text to vanish on scroll */
+    margin: 0;
     height: 100vh; /* Fallback */
     height: 100dvh; 
-    
-    /* Ensure no scrolling on the body itself */
     overflow: hidden; 
-    position: fixed; /* Locks the body in place on iOS to prevent rubber-banding */
+    position: fixed;
     width: 100%;
-        }
+}
 
         body.reduce-motion * {
             animation-duration: 0.01ms !important;
@@ -241,7 +236,10 @@
         .header-brand svg path { fill: var(--text-color); }
         .header-brand svg g clipPath rect { fill: var(--text-color); }
 
-        .header-bar-center-stack { gap: 6px; flex: 1; position: relative; height: 34px; display: flex; align-items: center; }
+        .header-bar-center-stack {
+    gap: 6px; flex: 1; position: relative; height: 34px; display: flex; align-items: center;
+    perspective: 1000px; /* <-- MOVED HERE */
+}
 
         .search-wrapper {
             
@@ -419,11 +417,11 @@
         .meta-badge { font-size: 0.65rem; font-weight: 800; background: rgba(255, 85, 85, 0.15); color: #ff5555; padding: 2px 6px; border-radius: 4px; margin-left: 8px; }
         
         .tree-children-wrapper { 
-            display: grid; 
-            grid-template-rows: 0fr; 
-            transition: grid-template-rows 0.25s ease-out;
-            overflow: hidden;
-        }
+    display: grid; 
+    grid-template-rows: 0fr; 
+    transition: grid-template-rows 0.25s ease-out;
+    overflow: hidden;
+}
 
         .tree-children-wrapper.open { 
             grid-template-rows: 1fr; 
@@ -431,13 +429,13 @@
 
         .tree-children { 
             min-height: 0;
-            visibility: hidden;
-            transition: visibility 0.25s;
+            /* visibility: hidden;
+            transition: visibility 0.25s; */
         }
 
-        .tree-children-wrapper.open > .tree-children {
+        /* .tree-children-wrapper.open > .tree-children {
             visibility: visible;
-        }
+        } */
 
         /* --- GROUPS / ROWS --- */
         .adw-group {
@@ -498,12 +496,13 @@
 
         /* --- MODALS --- */
         .overlay-backdrop {
-            position: fixed; inset: 0; background: rgba(0,0,0,0.6);
-            backdrop-filter: blur(8px); z-index: 100;
-            display: flex; align-items: center; justify-content: center;
-            visibility: hidden; opacity: 0; pointer-events: none;
-            transition: opacity 0.2s ease, visibility 0.2s ease;
-        }
+    position: fixed; inset: 0; background: rgba(0,0,0,0.6);
+    backdrop-filter: blur(8px); z-index: 100;
+    display: flex; align-items: center; justify-content: center;
+    visibility: hidden; opacity: 0; pointer-events: none;
+    transition: opacity 0.2s ease, visibility 0.2s ease;
+    perspective: 1000px; /* <-- MOVED HERE */
+}
         .overlay-backdrop.visible { visibility: visible; opacity: 1; pointer-events: auto; }
 
         .adw-window {
@@ -968,6 +967,16 @@
     top: auto; bottom: -6px;
     box-shadow: 1px 1px 1px rgba(0,0,0,0.05);
 }
+
+#sp-input-popover.flipped.visible{
+
+    transform-origin: bottom center;
+    transform: translate(0, -15px) scale(1) !important;    
+}
+#sp-enum-popover.flipped.visible {
+    transform-origin: bottom center;
+    transform: translate(0, -25px) scale(1) !important;
+}
         
         .sp-pop-header { padding: 8px 12px; font-size: 0.7rem; font-weight: 800; color: var(--dim-label); text-transform: uppercase; border-bottom: 1px solid var(--border-color); }
         .sp-pop-body { padding: 6px; }
@@ -1253,12 +1262,13 @@
         }
 
         .virtual-row {
-            position: absolute;
-            left: 0; right: 0;
-            height: 44px; /* Must match item height */
-            display: flex; align-items: center; padding: 0 16px;
-            cursor: pointer; transition: background 0.1s;
-        }
+    position: absolute;
+    left: 0; right: 0;
+    width: 100%; /* <-- Added for safety */
+    height: 44px;
+    display: flex; align-items: center; padding: 0 16px;
+    cursor: pointer; transition: background 0.1s;
+}
         [data-theme="dark"] .virtual-row:hover { background-color: rgba(255,255,255,0.05); } 
         [data-theme="light"] .virtual-row:hover { background-color: rgba(0,0,0,0.03); }
         
@@ -1845,6 +1855,7 @@ function updateNewsBadges(latestNewsId) {
 }
         // --- VIRTUAL SCROLL ENGINE (Fixed Target) ---
         class VirtualScroller {
+        
             constructor(container, items, rowHeight, renderRowFn, onItemClick) {
                 this.container = container;
                 this.items = items; // Flattened array of keys/data
@@ -4137,6 +4148,9 @@ window.renderScratchpad = () => {
     
     // 2. Info Button
     row.innerHTML += `<div class="info-btn" onclick="event.stopPropagation(); selectNode(this.closest('.virtual-row'), '${item.path}', item.data, '${item.type}', null, ${item.hasSub}); openMobileSheet();"><svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg></div>`;
+
+    const textEl = row.querySelector('.row-label');
+    if (textEl) void textEl.offsetHeight;
     
     if (state.focusedRow && state.focusedRow.path === item.path) row.classList.add('selected');
 
