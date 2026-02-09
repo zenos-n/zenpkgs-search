@@ -12,6 +12,12 @@
         "description": "Tests the String badge. Clicking it should open a text input popover."
       }
     },
+    "desktops": {
+      "meta": {
+        "type": "string",
+        "description": "Tests the Desktop badge. Should show a desktop icon and open a text input on click."
+      }
+    },
     "tests.badges.integer": {
       "meta": {
         "type": "int",
