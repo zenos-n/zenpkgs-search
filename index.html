@@ -4313,70 +4313,116 @@ window.renderScratchpad = () => {
         container.appendChild(wrapper);
     });
 }
-        function renderFilteredTree(nodes, container, path, type, query) {
-     Object.keys(nodes).sort().forEach(key => {
-        const node = nodes[key];
-        const currentPath = path ? `${path}.${key}` : key;
-        const isMatch = currentPath.toLowerCase().includes(query);
-        const hasSub = node.sub && Object.keys(node.sub).length > 0;
+       
+function renderFilteredTree(nodes, container, path, type, query) {
+    // 1. FLATTEN THE DATA
+    // Instead of recursively creating DOM nodes, we recursively create a simple JS array.
+    // JS math is 100x faster than DOM manipulation.
+    const flatItems = [];
+    
+    // Helper function to flatten the tree based on the query
+    function collectMatches(currentNodes, currentPath, level) {
+        const keys = Object.keys(currentNodes).sort();
         
-        let childrenMatch = false;
-        if (hasSub) {
-            childrenMatch = checkDeepMatch(node.sub, query);
-        }
+        keys.forEach(key => {
+            const node = currentNodes[key];
+            const nextPath = currentPath ? `${currentPath}.${key}` : key;
+            const lowerPath = nextPath.toLowerCase();
+            const lowerQuery = query.toLowerCase();
 
-        if (isMatch || childrenMatch) {
-              const wrapper = document.createElement('div');
-              wrapper.className = 'tree-node-wrapper';
-              const row = document.createElement('div');
-              row.className = 'tree-row';
-              row.dataset.path = currentPath;
-              row.dataset.hasSub = hasSub;
-              row.dataset.type = type;
-              
-              let label = escapeHTML(key);
-              if (key.toLowerCase().includes(query)) {
-                  const idx = key.toLowerCase().indexOf(query);
-                  label = key.substring(0, idx) + `<b>${key.substring(idx, idx + query.length)}</b>` + key.substring(idx + query.length);
-              } else if (isMatch) {
-                  label = `<b>${escapeHTML(key)}</b>`;
-              }
-
-              row.innerHTML = `<div class="row-icon ${hasSub ? '' : 'leaf'}">${hasSub ? '▶' : '●'}</div><div class="row-label">${label}</div>`;
-              
-              // --- INFO BUTTON ---
-              row.innerHTML += `
-              <div class="info-btn" onclick="event.stopPropagation(); selectNode(this.closest('.tree-row'), '${currentPath}', null, '${type}', this.closest('.tree-node-wrapper'), ${hasSub}); openMobileSheet();">
-                  <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
-              </div>`;
-              
-              // --- ROW CLICK HANDLER ---
-              row.onclick = (e) => {
-                e.stopPropagation();
-                selectNode(row, currentPath, node, type, wrapper, hasSub);
-                if (hasSub) {
-                     const children = wrapper.querySelector('.tree-children-wrapper');
-                     children.classList.toggle('open');
-                     row.querySelector('.row-icon').classList.toggle('expanded');
-                } else {
-                    openMobileSheet();
-                }
-            };
-            wrapper.appendChild(row);
-
-            if (hasSub && childrenMatch) {
-                const anim = document.createElement('div');
-                anim.className = 'tree-children-wrapper open'; 
-                const children = document.createElement('div');
-                children.className = 'tree-children';
-                renderFilteredTree(node.sub, children, currentPath, type, query);
-                anim.appendChild(children);
-                wrapper.appendChild(anim);
-                row.querySelector('.row-icon').classList.add('expanded');
+            // Logic matches
+            const isMatch = lowerPath.includes(lowerQuery);
+            const hasSub = node.sub && Object.keys(node.sub).length > 0;
+            
+            // Check children
+            let childrenMatch = false;
+            if (hasSub) {
+                // We need to know if children match to decide if we show this parent
+                childrenMatch = checkDeepMatch(node.sub, lowerQuery);
             }
-            container.appendChild(wrapper);
+
+            // If this node or its children match, add to list
+            if (isMatch || childrenMatch) {
+                flatItems.push({
+                    key: key,
+                    path: nextPath,
+                    data: node,
+                    level: level,
+                    hasSub: hasSub,
+                    type: type,
+                    // In search results, we usually want to see the hierarchy expanded
+                    expanded: true 
+                });
+
+                // Recursion: If we added this node, process its children immediately
+                // (Flattening the structure into our 1D array)
+                if (hasSub) {
+                    collectMatches(node.sub, nextPath, level + 1);
+                }
+            }
+        });
+    }
+
+    // Run the collector
+    collectMatches(nodes, path, 0);
+
+    // 2. CLEAR CONTAINER
+    container.innerHTML = '';
+
+    // 3. RENDER WITH VIRTUAL SCROLLER
+    // If no results
+    if (flatItems.length === 0) {
+        container.innerHTML = `<div class="empty-state" style="padding: 6px 12px;">No matching results for <b>${query}</b></div>`;
+        return;
+    }
+
+    // Initialize your existing VirtualScroller class
+    // Assumes rowHeight is approx 44px
+    new VirtualScroller(container, flatItems, 44, (row, item) => {
+        // --- ROW RENDERER (Only runs for visible items) ---
+        
+        // 1. Indentation
+        // 16px base + 20px per level
+        row.style.paddingLeft = `${16 + (item.level * 20)}px`;
+
+        // 2. Highlighting
+        let label = escapeHTML(item.key);
+        const lowerKey = item.key.toLowerCase();
+        const lowerQuery = query.toLowerCase();
+        
+        if (lowerKey.includes(lowerQuery)) {
+            const idx = lowerKey.indexOf(lowerQuery);
+            label = item.key.substring(0, idx) + 
+                    `<b>${item.key.substring(idx, idx + lowerQuery.length)}</b>` + 
+                    item.key.substring(idx + lowerQuery.length);
+        } else if (item.path.toLowerCase().includes(lowerQuery)) {
+            // Path match, not key match
+            label = `<b>${escapeHTML(item.key)}</b>`;
         }
-     });
+
+        // 3. HTML Structure
+        row.innerHTML = `
+            <div class="row-icon ${item.hasSub ? 'expanded' : 'leaf'}">${item.hasSub ? '▶' : '●'}</div>
+            <div class="row-label">${label}</div>
+            <div class="info-btn">
+                 <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+            </div>
+        `;
+
+        // 4. Events
+        const infoBtn = row.lastElementChild;
+        infoBtn.onclick = (e) => {
+            e.stopPropagation();
+            selectNode(row, item.path, null, item.type, null, item.hasSub);
+            openMobileSheet();
+        };
+
+        row.onclick = (e) => {
+            e.stopPropagation();
+            selectNode(row, item.path, item.data, item.type, null, item.hasSub);
+            if (!item.hasSub) openMobileSheet();
+        };
+    });
 }
         
         function checkDeepMatch(sub, query) {
