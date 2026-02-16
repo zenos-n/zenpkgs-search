@@ -1866,87 +1866,102 @@ function updateNewsBadges(latestNewsId) {
     if(menuBadge) menuBadge.style.display = isNew ? 'inline' : 'none';
 }
         // --- VIRTUAL SCROLL ENGINE (Fixed Target) ---
-        class VirtualScroller {
+        // Replace your existing VirtualScroller class with this fixed version
+class VirtualScroller {
+    constructor(container, items, rowHeight, renderRowFn, onItemClick) {
+        this.container = container;
+        this.items = items;
+        this.rowHeight = rowHeight;
+        this.renderRowFn = renderRowFn;
+        this.onItemClick = onItemClick; // This is optional now
         
-            constructor(container, items, rowHeight, renderRowFn, onItemClick) {
-                this.container = container;
-                this.items = items; // Flattened array of keys/data
-                this.rowHeight = rowHeight;
-                this.renderRowFn = renderRowFn;
-                this.onItemClick = onItemClick;
-                
-                // FIX: Dynamically find the scrollable parent
-                // This ensures it works in both the Main Pane (Registry) and Sidebar (if needed)
-                this.scrollParent = this.container.closest('.main-content, .sidebar-content') || document.body;
-                
-                // Create viewport (simulates total height)
-                this.viewport = document.createElement('div');
-                this.viewport.className = 'virtual-viewport';
-                this.viewport.style.height = `${items.length * rowHeight}px`;
-                this.container.appendChild(this.viewport);
-                
-                this.renderChunk = this.renderChunk.bind(this);
-                this.scrollParent.addEventListener('scroll', this.renderChunk);
-                
-                // Initial Render
-                this.renderChunk(); 
-            }
+        // FIX: Ensure we find a parent even if detached (fallback to body, but better to attach first)
+        this.scrollParent = this.container.closest('.main-content, .sidebar-content') || document.body;
+        
+        this.viewport = document.createElement('div');
+        this.viewport.className = 'virtual-viewport';
+        this.viewport.style.height = `${items.length * rowHeight}px`;
+        this.container.appendChild(this.viewport);
+        
+        this.renderChunk = this.renderChunk.bind(this);
+        this.scrollParent.addEventListener('scroll', this.renderChunk);
+        
+        // Initial Render
+        this.renderChunk(); 
+    }
 
-            renderChunk() {
-                const scrollTop = this.scrollParent.scrollTop;
-                
-                // We need the offset of the container relative to the scroll parent
-                // Since .tree-root might have headers above it, we calculate the offset
-                let containerOffset = 0;
-                let el = this.container;
-                while (el && el !== this.scrollParent) {
-                    containerOffset += el.offsetTop;
-                    el = el.offsetParent;
-                }
+    renderChunk() {
+        const scrollTop = this.scrollParent.scrollTop;
+        
+        let containerOffset = 0;
+        let el = this.container;
+        while (el && el !== this.scrollParent) {
+            containerOffset += el.offsetTop;
+            el = el.offsetParent;
+        }
 
-                // Calculate visible window relative to the container
-                const relativeScroll = Math.max(0, scrollTop - containerOffset);
-                const viewportHeight = this.scrollParent.clientHeight;
-                
-                // Determine indices with a generous buffer to prevent blank space during fast scrolls
-                const buffer = 20; 
-                let startIndex = Math.floor(relativeScroll / this.rowHeight) - buffer;
-                let endIndex = Math.floor((relativeScroll + viewportHeight) / this.rowHeight) + buffer;
-                
-                startIndex = Math.max(0, startIndex);
-                endIndex = Math.min(this.items.length, endIndex);
-                
-                // Clear and Render
-                this.viewport.innerHTML = '';
-                
-                // Simple DOM Recycling: Just recreate for now (simplest for text updates)
-                for (let i = startIndex; i < endIndex; i++) {
-                    const item = this.items[i];
-                    const row = document.createElement('div');
-                    row.className = 'virtual-row';
-                    row.style.top = `${i * this.rowHeight}px`;
-                    
-                    // Call custom renderer
-                    this.renderRowFn(row, item);
-                    
-                    row.onclick = (e) => this.onItemClick(e, item, row);
-                    this.viewport.appendChild(row);
-                }
+        const relativeScroll = Math.max(0, scrollTop - containerOffset);
+        const viewportHeight = this.scrollParent.clientHeight;
+        
+        const buffer = 10; 
+        let startIndex = Math.floor(relativeScroll / this.rowHeight) - buffer;
+        let endIndex = Math.floor((relativeScroll + viewportHeight) / this.rowHeight) + buffer;
+        
+        startIndex = Math.max(0, startIndex);
+        endIndex = Math.min(this.items.length, endIndex);
+        
+        this.viewport.innerHTML = '';
+        
+        for (let i = startIndex; i < endIndex; i++) {
+            const item = this.items[i];
+            const row = document.createElement('div');
+            row.className = 'virtual-row';
+            row.style.top = `${i * this.rowHeight}px`;
+            
+            // Render content (sets row.onclick inside renderRowFn)
+            this.renderRowFn(row, item);
+            
+            // FIX: Only overwrite onclick if onItemClick was actually provided in constructor
+            if (this.onItemClick) {
+                row.onclick = (e) => this.onItemClick(e, item, row);
             }
             
-            // NEW: Allow dynamic updates to the list (for expansion/filtering)
-            setItems(newItems) {
-                this.items = newItems;
-                this.viewport.style.height = `${this.items.length * this.rowHeight}px`;
-                this.renderChunk();
-            }
-
-            destroy() {
-                if(this.scrollParent) this.scrollParent.removeEventListener('scroll', this.renderChunk);
-                if(this.viewport) this.viewport.remove();
-            }
+            this.viewport.appendChild(row);
         }
-        window.toggleDiffSelectionMode = () => {
+    }
+    
+    setItems(newItems) {
+        this.items = newItems;
+        this.viewport.style.height = `${this.items.length * this.rowHeight}px`;
+        this.renderChunk();
+    }
+    
+    // NEW: Helper to scroll to a specific index
+    scrollToIndex(index) {
+        if (index < 0 || index >= this.items.length) return;
+        
+        // Calculate position relative to container
+        const itemTop = index * this.rowHeight;
+        
+        // Calculate where that is in the scrollParent
+        let containerOffset = 0;
+        let el = this.container;
+        while (el && el !== this.scrollParent) {
+            containerOffset += el.offsetTop;
+            el = el.offsetParent;
+        }
+
+        // Scroll the parent
+        this.scrollParent.scrollTop = containerOffset + itemTop - (this.scrollParent.clientHeight / 2) + (this.rowHeight / 2);
+    }
+
+    destroy() {
+        if(this.scrollParent) this.scrollParent.removeEventListener('scroll', this.renderChunk);
+        if(this.viewport) this.viewport.remove();
+    }
+}
+
+window.toggleDiffSelectionMode = () => {
             const btn = document.getElementById('btn-diff-toggle');
 
             // 1. If Diff Mode is ALREADY active, turn it OFF.
@@ -3735,34 +3750,47 @@ window.renderScratchpad = () => {
         };
 
         window.cycleSearchMatches = (direction = 1) => {
-            const query = document.getElementById('search-input').value;
-            if (!query) return;
+    // 1. Check if we have an active scroller from the search
+    if (!state.searchScroller || state.searchScroller.items.length === 0) return;
 
-            const matches = Array.from(document.querySelectorAll('.tree-root .tree-row')).filter(row => 
-                row.querySelector('.row-label b')
-            );
+    const items = state.searchScroller.items;
 
-            if (matches.length === 0) return;
+    // 2. Update Index
+    if (state.searchMatchIndex === -1 && direction === -1) {
+        state.searchMatchIndex = items.length - 1;
+    } else {
+        state.searchMatchIndex = (state.searchMatchIndex + direction + items.length) % items.length;
+    }
 
-            if (state.searchMatchIndex === -1 && direction === -1) {
-                state.searchMatchIndex = matches.length - 1;
-            } else {
-                state.searchMatchIndex = (state.searchMatchIndex + direction + matches.length) % matches.length;
-            }
+    const item = items[state.searchMatchIndex];
 
-            const target = matches[state.searchMatchIndex];
+    // 3. Scroll to it using the new helper
+    state.searchScroller.scrollToIndex(state.searchMatchIndex);
 
-            selectNode(
-                target, 
-                target.dataset.path, 
-                null, 
-                target.dataset.type, 
-                target.parentElement, 
-                target.dataset.hasSub === 'true'
-            );
-            
-            showToast(`Match ${state.searchMatchIndex + 1} of ${matches.length}`);
-        };
+    // 4. Trigger Selection (Visuals + Recents + Breadcrumbs)
+    // We need to find the DOM element. Since we just scrolled, it *should* be rendered now or soon.
+    // However, selectNode takes a row Element. 
+    // We can manually fake the selection or try to grab the row after a brief delay.
+    
+    // Better approach: Update state.focusedRow manually and force a re-render of that row
+    // BUT simplest fix for now:
+    
+    setTimeout(() => {
+        // Try to find the row in the DOM (it should be visible now)
+        // We look inside the viewport of the active scroller
+        const rows = state.searchScroller.viewport.children;
+        // Since virtual rows are recycled/absolute, we can't easily query by data attribute unless we added it.
+        // But the scroller knows the index.
+        
+        // Let's rely on data updates:
+        state.focusedRow = { path: item.path, type: item.type, hasSub: item.hasSub }; // Min data needed
+        state.searchScroller.renderChunk(); // Re-render to apply 'selected' class
+        
+        // Update UI components
+        updateBreadcrumbs(item.path, item.type);
+        showToast(`Match ${state.searchMatchIndex + 1} of ${items.length}`);
+    }, 50); // Small delay for scroll to settle
+};
 
         // --- INTERNAL LOGIC ---
         async function loadSettings() {
@@ -4315,77 +4343,47 @@ window.renderScratchpad = () => {
 }
        
 function renderFilteredTree(nodes, container, path, type, query) {
-    // 1. FLATTEN THE DATA
-    // Instead of recursively creating DOM nodes, we recursively create a simple JS array.
-    // JS math is 100x faster than DOM manipulation.
     const flatItems = [];
     
-    // Helper function to flatten the tree based on the query
     function collectMatches(currentNodes, currentPath, level) {
         const keys = Object.keys(currentNodes).sort();
-        
         keys.forEach(key => {
             const node = currentNodes[key];
             const nextPath = currentPath ? `${currentPath}.${key}` : key;
             const lowerPath = nextPath.toLowerCase();
             const lowerQuery = query.toLowerCase();
 
-            // Logic matches
             const isMatch = lowerPath.includes(lowerQuery);
             const hasSub = node.sub && Object.keys(node.sub).length > 0;
             
-            // Check children
             let childrenMatch = false;
-            if (hasSub) {
-                // We need to know if children match to decide if we show this parent
-                childrenMatch = checkDeepMatch(node.sub, lowerQuery);
-            }
+            if (hasSub) childrenMatch = checkDeepMatch(node.sub, lowerQuery);
 
-            // If this node or its children match, add to list
             if (isMatch || childrenMatch) {
                 flatItems.push({
-                    key: key,
-                    path: nextPath,
-                    data: node,
-                    level: level,
-                    hasSub: hasSub,
-                    type: type,
-                    // In search results, we usually want to see the hierarchy expanded
-                    expanded: true 
+                    key: key, path: nextPath, data: node, level: level,
+                    hasSub: hasSub, type: type, expanded: true 
                 });
-
-                // Recursion: If we added this node, process its children immediately
-                // (Flattening the structure into our 1D array)
-                if (hasSub) {
-                    collectMatches(node.sub, nextPath, level + 1);
-                }
+                if (hasSub) collectMatches(node.sub, nextPath, level + 1);
             }
         });
     }
 
-    // Run the collector
     collectMatches(nodes, path, 0);
 
-    // 2. CLEAR CONTAINER
+    // FIX: Container is already in DOM (passed from listener), just clear it
     container.innerHTML = '';
 
-    // 3. RENDER WITH VIRTUAL SCROLLER
-    // If no results
     if (flatItems.length === 0) {
-        container.innerHTML = `<div class="empty-state" style="padding: 6px 12px;">No matching results for <b>${query}</b></div>`;
-        return;
+        container.innerHTML = `<div class="empty-state" style="padding: 6px 12px;">No matching results</div>`;
+        return null;
     }
 
-    // Initialize your existing VirtualScroller class
-    // Assumes rowHeight is approx 44px
-    new VirtualScroller(container, flatItems, 44, (row, item) => {
-        // --- ROW RENDERER (Only runs for visible items) ---
-        
-        // 1. Indentation
-        // 16px base + 20px per level
+    // Initialize VirtualScroller without passing the 5th argument (onItemClick)
+    // allowing the internal row.onclick to work
+    const scroller = new VirtualScroller(container, flatItems, 44, (row, item) => {
         row.style.paddingLeft = `${16 + (item.level * 20)}px`;
 
-        // 2. Highlighting
         let label = escapeHTML(item.key);
         const lowerKey = item.key.toLowerCase();
         const lowerQuery = query.toLowerCase();
@@ -4396,11 +4394,9 @@ function renderFilteredTree(nodes, container, path, type, query) {
                     `<b>${item.key.substring(idx, idx + lowerQuery.length)}</b>` + 
                     item.key.substring(idx + lowerQuery.length);
         } else if (item.path.toLowerCase().includes(lowerQuery)) {
-            // Path match, not key match
             label = `<b>${escapeHTML(item.key)}</b>`;
         }
 
-        // 3. HTML Structure
         row.innerHTML = `
             <div class="row-icon ${item.hasSub ? 'expanded' : 'leaf'}">${item.hasSub ? '▶' : '●'}</div>
             <div class="row-label">${label}</div>
@@ -4409,7 +4405,6 @@ function renderFilteredTree(nodes, container, path, type, query) {
             </div>
         `;
 
-        // 4. Events
         const infoBtn = row.lastElementChild;
         infoBtn.onclick = (e) => {
             e.stopPropagation();
@@ -4417,12 +4412,20 @@ function renderFilteredTree(nodes, container, path, type, query) {
             openMobileSheet();
         };
 
+        // This click handler will now persist
         row.onclick = (e) => {
             e.stopPropagation();
             selectNode(row, item.path, item.data, item.type, null, item.hasSub);
             if (!item.hasSub) openMobileSheet();
         };
+        
+        // Highlight active if selected via keyboard
+        if (state.focusedRow && state.focusedRow.path === item.path) {
+            row.classList.add('selected');
+        }
     });
+
+    return scroller;
 }
         
         function checkDeepMatch(sub, query) {
@@ -4434,6 +4437,10 @@ document.getElementById('search-input').addEventListener('input', (e) => {
     const query = e.target.value.toLowerCase();
     const root = document.getElementById('registry-root');
     
+    // Clear previous search state
+    state.searchScroller = null; 
+    state.searchMatchIndex = -1;
+
     // 1. If search is empty, show default full view
     if (!query) { 
         root.innerHTML = ''; 
@@ -4446,16 +4453,21 @@ document.getElementById('search-input').addEventListener('input', (e) => {
     // Label mapping for nicer headers
     const labels = { options: 'Nix Options', pkgs: 'Packages', maintainers: 'Maintainers' };
 
+    // We only want ONE virtual scroller for search results to make navigation easy.
+    // So we will aggregate all matches into one list if possible, or just scroll the trees.
+    // For this specific logic, we will keep your category structure but only track the *last* created scroller for navigation,
+    // OR ideally, we flatten everything for search. 
+    // BUT, preserving your category headers:
+    
     ['options', 'pkgs', 'maintainers'].forEach(catKey => {
         if (!state.data[catKey]) return;
 
-        // Create Title
         const catTitle = document.createElement('div');
         catTitle.className = 'adw-group-title';
         catTitle.textContent = labels[catKey] || catKey;
         root.appendChild(catTitle);
         
-        // 2. Handle Maintainers (Chips)
+        // Handle Maintainers (Chips) - No Virtual Scroll needed usually
         if (catKey === 'maintainers') {
             const filtered = {};
             Object.keys(state.data[catKey]).forEach(k => { 
@@ -4464,7 +4476,6 @@ document.getElementById('search-input').addEventListener('input', (e) => {
             
             const container = document.createElement('div');
             container.className = 'chip-grid';
-            
             Object.keys(filtered).sort().forEach(key => {
                 const chip = document.createElement('div');
                 chip.className = 'maintainer-chip';
@@ -4474,13 +4485,21 @@ document.getElementById('search-input').addEventListener('input', (e) => {
             });
             root.appendChild(container);
         } 
-        // 3. Handle Trees (Options/Pkgs)
+        // Handle Trees (Options/Pkgs) - Virtual Scroller
         else {
             const container = document.createElement('div');
             container.className = 'tree-root';
-            // Calls the existing renderFilteredTree function in your file
-            renderFilteredTree(state.data[catKey], container, '', catKey, query);
-            root.appendChild(container);
+            
+            // FIX 1: Append to DOM BEFORE rendering/initializing VirtualScroller
+            root.appendChild(container); 
+            
+            // renderFilteredTree now returns the scroller instance
+            const scroller = renderFilteredTree(state.data[catKey], container, '', catKey, query);
+            
+            // We store the 'primary' scroller (usually pkgs or options) for keyboard nav
+            if (scroller && (catKey === 'pkgs' || !state.searchScroller)) {
+                state.searchScroller = scroller;
+            }
         }
     });
 });
@@ -4828,22 +4847,27 @@ document.getElementById('search-input-mobile').addEventListener('input', (e) => 
                     if(e.target.id === 'search-input' || e.target.id === 'search-input-mobile') window.toggleSearch(); 
                 }
                 if(e.key === 'Enter' && (e.target.id === 'search-input' || e.target.id === 'search-input-mobile')) {
-                    addToSearchHistory(e.target.value);
-                    const query = e.target.value.toLowerCase();
-                    if (!query) return;
-                    const allVisibleRows = Array.from(document.querySelectorAll('.tree-root .tree-row'));
-                    const firstHighlighted = allVisibleRows.find(row => row.querySelector('.row-label b'));
-                    if (firstHighlighted) {
-                        state.searchMatchIndex = 0;
-                        const path = firstHighlighted.dataset.path;
-                        const type = firstHighlighted.dataset.type;
-                        const hasSub = firstHighlighted.dataset.hasSub === 'true';
-                        selectNode(firstHighlighted, path, null, type, firstHighlighted.parentElement, hasSub);
-                        e.target.blur();
-                        showToast(`Focused: ${path}`);
-                    }
-                }
-                return;
+    e.preventDefault();
+    addToSearchHistory(e.target.value);
+    
+    // FIX: Use the scroller state, not DOM query
+    if (state.searchScroller && state.searchScroller.items.length > 0) {
+        state.searchMatchIndex = 0;
+        const item = state.searchScroller.items[0];
+        
+        // Scroll to top
+        state.searchScroller.scrollToIndex(0);
+        
+        // Select logic
+        state.focusedRow = { path: item.path, type: item.type, hasSub: item.hasSub };
+        state.searchScroller.renderChunk(); // Re-render visuals
+        
+        updateBreadcrumbs(item.path, item.type);
+        showToast(`Focused: ${item.path}`);
+        e.target.blur();
+    }
+    return;
+}
             }
 
             // Global Shortcuts (Ctrl+K, P)
