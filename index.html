@@ -2465,7 +2465,7 @@ const renderNewsArchiveView = newsNav.goToArchive;
 
             // 3. Determine Token
             let targetValue = "..."; 
-            if (category === 'pkgs') targetValue = "true";
+            if (category === 'pkgs') targetValue = "__BOOL:true__";
             else if (nixType.includes('bool')) targetValue = "__BOOL:true__";
             else if (nixType.includes('int')) targetValue = "__NUM:0|int__";
             else if (nixType.includes('float') || nixType.includes('number')) targetValue = "__NUM:0.0|float__";
@@ -3471,7 +3471,7 @@ window.renderScratchpad = () => {
             const isFav = state.favorites.includes(`${type}:${path}`);
             const body = document.getElementById('sidebar-body');
             
-            let typeLabel = meta && meta.type ? meta.type : "Unknown";
+            let typeLabel = meta && meta.type?.name != null ? meta.type.name : meta && meta.type ? meta.type : "Unknown";
             let typeIcon = getIconForType(typeLabel);
             if (typeof typeLabel === 'object') {
                  if (typeLabel.enum) typeLabel = "Enum";
@@ -3536,11 +3536,27 @@ window.renderScratchpad = () => {
                 const shortDesc = meta.summary || meta.description;
                 const longDesc = meta.summary ? meta.description : meta.longDescription;
                 if (shortDesc) html += `<div class="adw-group-title" style="margin-left:24px;">Description</div><div class="adw-group" style="margin: 0 12px 24px 12px;"><div class="adw-row" style="cursor:default; padding:16px; color:var(--text-color)" id="inspector-desc-text">${escapeHTML(shortDesc)}</div></div>`;
+                
+                // --- UPDATED MAINTAINER LOGIC ---
                 if (meta.maintainers && meta.maintainers.length) {
                     html += `<div class="adw-group-title" style="margin-left:24px;">Maintainers</div><div class="chip-grid" style="padding: 0 12px; margin-bottom:24px;">`;
-                    meta.maintainers.forEach(m => { html += `<div class="maintainer-chip" onclick="showMaintainerPopup('${m}', {name:'${escapeHTML(m)}'}, this)">${escapeHTML(m)}</div>`; });
+                    meta.maintainers.forEach(m => { 
+                        // Handle Object vs String
+                        const isObj = typeof m === 'object' && m !== null;
+                        const label = isObj ? (m.name || 'Unknown') : m;
+                        
+                        // If object, use it directly. If string, try registry lookup, else fallback.
+                        const mData = isObj ? m : (state.data && state.data.maintainers && state.data.maintainers[m] ? state.data.maintainers[m] : { name: m });
+                        
+                        // Safe serialization for HTML attribute (replace double quotes with entity)
+                        const safeData = JSON.stringify(mData).replace(/"/g, "&quot;");
+                        
+                        html += `<div class="maintainer-chip" onclick="showMaintainerPopup('${escapeHTML(label)}', ${safeData}, this)">${escapeHTML(label)}</div>`; 
+                    });
                     html += `</div>`;
                 }
+                // --------------------------------
+                
                 if (longDesc) html += `<div class="adw-group-title" style="margin-left:24px;">Documentation</div><div class="markdown-body" style="margin: 0 12px 24px 12px;">${marked.parse(longDesc)}</div>`;
             }
             body.innerHTML = html;
@@ -5144,7 +5160,7 @@ document.getElementById('search-input-mobile').addEventListener('input', (e) => 
             let html = `
                 <div style="border-bottom:1px solid var(--border-color); padding-bottom:8px;  display:flex; justify-content:space-between; align-items:center">
                     <span style="font-weight:800; font-size:1rem">${data.name || id}</span>
-                    <span style="font-size:0.65rem; font-weight:800; background:color-mix(in srgb, var(--accent-bg) 20%, var(--bg-modal)); color:var(--link-color); padding:2px 6px; border-radius:4px">${data.role || 'MAINTAINER'}</span>
+                   ${data.role ? `<span style="font-size:0.65rem; font-weight:800; background:color-mix(in srgb, var(--accent-bg) 20%, var(--bg-modal)); color:var(--link-color); padding:2px 6px; border-radius:4px">${data.role}</span>` : ""} 
                 </div>
             `;
             Object.keys(data).forEach(k => {
