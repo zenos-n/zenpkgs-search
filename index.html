@@ -1654,7 +1654,7 @@
                     </div>
                     <div style="font-weight: 800; font-size: 1.5rem; margin-bottom: 8px;">ZenPkgs Browser</div>
                     <div style="margin-bottom: 24px;">
-                        <span class="version-chip">v1.1.1</span>
+                        <span class="version-chip">v1.1.2</span>
                     </div>
                     
                     <div class="adw-group">
@@ -1865,8 +1865,21 @@ function updateNewsBadges(latestNewsId) {
     if(mobileBadge) mobileBadge.style.display = disp; // Update mobile badge too
     if(menuBadge) menuBadge.style.display = isNew ? 'inline' : 'none';
 }
+
+function isRowVisible(row) {
+    // Search results are always visible if they exist in the DOM
+    if (row.classList.contains('virtual-search-result') || row.classList.contains('virtual-row')) {
+        return true;
+    }
+    // Standard tree check
+    let parent = row.closest('.tree-children-wrapper');
+    while (parent) {
+        if (!parent.classList.contains('open')) return false;
+        parent = parent.parentElement.closest('.tree-children-wrapper');
+    }
+    return true; 
+}
         // --- VIRTUAL SCROLL ENGINE (Fixed Target) ---
-        // Replace your existing VirtualScroller class with this fixed version
 class VirtualScroller {
     constructor(container, items, rowHeight, renderRowFn, onItemClick) {
         this.container = container;
@@ -1938,10 +1951,8 @@ class VirtualScroller {
     
     // NEW: Helper to scroll to a specific index
     scrollToIndex(index) {
-        if (index < 0 || index >= this.items.length) return;
-        
-        // Calculate position relative to container
-        const itemTop = index * this.rowHeight;
+    if (index < 0 || index >= this.items.length) return;
+    const itemTop = index * this.rowHeight;
         
         // Calculate where that is in the scrollParent
         let containerOffset = 0;
@@ -1952,8 +1963,11 @@ class VirtualScroller {
         }
 
         // Scroll the parent
-        this.scrollParent.scrollTop = containerOffset + itemTop - (this.scrollParent.clientHeight / 2) + (this.rowHeight / 2);
-    }
+        this.scrollParent.scrollTo({
+        top: containerOffset + itemTop - (this.scrollParent.clientHeight / 2) + (this.rowHeight / 2),
+        behavior: 'smooth'
+    });
+}
 
     destroy() {
         if(this.scrollParent) this.scrollParent.removeEventListener('scroll', this.renderChunk);
@@ -2543,7 +2557,6 @@ const renderNewsArchiveView = newsNav.goToArchive;
                 let result = lines.map(line => {
                     if (line.startsWith('}') || line.startsWith('};')) depth--;
                     const out = " ".repeat(depth * INDENT_SIZE) + line;
-                    console.log(depth, out, INDENT_SIZE * depth);
                     if (line.endsWith('{')) depth++;
                     return out;
                 }).join('\n');
@@ -2606,11 +2619,9 @@ const renderNewsArchiveView = newsNav.goToArchive;
                 if (finalized.trim() === current.trim()) {
                     showToast("Already in Config");
                 } else {
-                    console.log(finalized)
                     state.scratchpadConfig = finalized;
                     renderScratchpad();
                     if (typeof saveSettings === 'function') saveSettings();
-                    console.log(state.scratchpadConfig)
                     
                     const panel = document.getElementById('scratchpad-panel');
                     if (panel && !panel.classList.contains('visible')) panel.classList.add('visible');
@@ -3765,49 +3776,7 @@ window.renderScratchpad = () => {
             }
         };
 
-        window.cycleSearchMatches = (direction = 1) => {
-    // 1. Check if we have an active scroller from the search
-    if (!state.searchScroller || state.searchScroller.items.length === 0) return;
-
-    const items = state.searchScroller.items;
-
-    // 2. Update Index
-    if (state.searchMatchIndex === -1 && direction === -1) {
-        state.searchMatchIndex = items.length - 1;
-    } else {
-        state.searchMatchIndex = (state.searchMatchIndex + direction + items.length) % items.length;
-    }
-
-    const item = items[state.searchMatchIndex];
-
-    // 3. Scroll to it using the new helper
-    state.searchScroller.scrollToIndex(state.searchMatchIndex);
-
-    // 4. Trigger Selection (Visuals + Recents + Breadcrumbs)
-    // We need to find the DOM element. Since we just scrolled, it *should* be rendered now or soon.
-    // However, selectNode takes a row Element. 
-    // We can manually fake the selection or try to grab the row after a brief delay.
-    
-    // Better approach: Update state.focusedRow manually and force a re-render of that row
-    // BUT simplest fix for now:
-    
-    setTimeout(() => {
-        // Try to find the row in the DOM (it should be visible now)
-        // We look inside the viewport of the active scroller
-        const rows = state.searchScroller.viewport.children;
-        // Since virtual rows are recycled/absolute, we can't easily query by data attribute unless we added it.
-        // But the scroller knows the index.
         
-        // Let's rely on data updates:
-        state.focusedRow = { path: item.path, type: item.type, hasSub: item.hasSub }; // Min data needed
-        state.searchScroller.renderChunk(); // Re-render to apply 'selected' class
-        
-        // Update UI components
-        updateBreadcrumbs(item.path, item.type);
-        showToast(`Match ${state.searchMatchIndex + 1} of ${items.length}`);
-    }, 50); // Small delay for scroll to settle
-};
-
         // --- INTERNAL LOGIC ---
         async function loadSettings() {
             const prefs = await settingsStore.getItem('user_prefs');
@@ -4087,6 +4056,9 @@ window.renderScratchpad = () => {
                         const [type, path] = favKey.split(':');
                         const row = document.createElement('div');
                         row.className = 'tree-row';
+                        row.dataset.path = path;
+    row.dataset.type = type;
+    row.dataset.hasSub = "false";
                         row.innerHTML = `<div class="row-icon leaf" style="color:var(--accent-yellow)">★</div><div class="row-label">${escapeHTML(path)}</div>`;
                         row.onclick = () => {navigateToPath(path, type); openMobileSheet()};
                         const wrapper = document.createElement('div');
@@ -4358,6 +4330,69 @@ window.renderScratchpad = () => {
     });
 }
        
+function getSearchTreeItems(nodes, type, query) {
+    const lowerQuery = query.toLowerCase();
+    const resultItems = [];
+    const includedPaths = new Set();
+
+    // 1. First Pass: Find all leaf-level matches and mark their ancestors
+    function findMatches(currentNodes, currentPath) {
+        Object.keys(currentNodes).forEach(key => {
+            const node = currentNodes[key];
+            const path = currentPath ? `${currentPath}.${key}` : key;
+            const isMatch = key.toLowerCase().includes(lowerQuery);
+
+            if (isMatch) {
+                // Mark this path and all its parents for inclusion
+                const parts = path.split('.');
+                let acc = "";
+                parts.forEach((part, i) => {
+                    acc = i === 0 ? part : `${acc}.${part}`;
+                    includedPaths.add(acc);
+                });
+            }
+
+            if (node.sub) {
+                findMatches(node.sub, path);
+            }
+        });
+    }
+
+    findMatches(nodes, "");
+
+    // 2. Second Pass: Flatten only the marked paths into the virtual list
+    function flattenIncluded(currentNodes, currentPath, level) {
+        const keys = Object.keys(currentNodes).sort();
+        keys.forEach(key => {
+            const path = currentPath ? `${currentPath}.${key}` : key;
+            
+            if (includedPaths.has(path)) {
+                const node = currentNodes[key];
+                const hasSub = node.sub && Object.keys(node.sub).length > 0;
+                const isActualMatch = key.toLowerCase().includes(lowerQuery);
+
+                resultItems.push({
+                    key: key,
+                    path: path,
+                    data: node,
+                    level: level,
+                    type: type,
+                    hasSub: hasSub,
+                    isMatch: isActualMatch,
+                    expanded: true
+                });
+
+                if (hasSub) {
+                    flattenIncluded(node.sub, path, level + 1);
+                }
+            }
+        });
+    }
+
+    flattenIncluded(nodes, "", 0);
+    return resultItems;
+}
+
 function renderFilteredTree(nodes, container, path, type, query) {
     const flatItems = [];
     
@@ -4395,51 +4430,41 @@ function renderFilteredTree(nodes, container, path, type, query) {
         return null;
     }
 
-    // Initialize VirtualScroller without passing the 5th argument (onItemClick)
     // allowing the internal row.onclick to work
-    const scroller = new VirtualScroller(container, flatItems, 44, (row, item) => {
-        row.style.paddingLeft = `${16 + (item.level * 20)}px`;
+    // This covers the logic inside both renderFilteredTree and the search-input listeners
+// --- FIX FOR DESKTOP SEARCH RENDERER ---
+const scroller = new VirtualScroller(container, branchItems, 44, (row, item) => {
+    row.style.paddingLeft = `${16 + (item.level * 20)}px`;
+    
+    // --- FORCE DATASET ATTACHMENT ---
+    row._item = item; 
+    row.dataset.path = item.path;
+    row.dataset.type = item.type;
+    row.dataset.hasSub = item.hasSub;
+    row.classList.add('virtual-search-result'); 
 
-        let label = escapeHTML(item.key);
-        const lowerKey = item.key.toLowerCase();
-        const lowerQuery = query.toLowerCase();
-        
-        if (lowerKey.includes(lowerQuery)) {
-            const idx = lowerKey.indexOf(lowerQuery);
-            label = item.key.substring(0, idx) + 
-                    `<b>${item.key.substring(idx, idx + lowerQuery.length)}</b>` + 
-                    item.key.substring(idx + lowerQuery.length);
-        } else if (item.path.toLowerCase().includes(lowerQuery)) {
-            label = `<b>${escapeHTML(item.key)}</b>`;
-        }
+    let labelHTML = escapeHTML(item.key);
+    if (item.isMatch) {
+        const idx = item.key.toLowerCase().indexOf(query);
+        labelHTML = item.key.substring(0, idx) + 
+                   `<b>${item.key.substring(idx, idx + query.length)}</b>` + 
+                   item.key.substring(idx + query.length);
+        row.classList.add('search-leaf-match');
+    }
 
-        row.innerHTML = `
-            <div class="row-icon ${item.hasSub ? 'expanded' : 'leaf'}">${item.hasSub ? '▶' : '●'}</div>
-            <div class="row-label">${label}</div>
-            <div class="info-btn">
-                 <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
-            </div>
-        `;
+    row.innerHTML = `
+        <div class="row-icon ${item.hasSub ? 'expanded' : 'leaf'}">${item.hasSub ? '▶' : '●'}</div>
+        <div class="row-label">${labelHTML}</div>
+    `;
 
-        const infoBtn = row.lastElementChild;
-        infoBtn.onclick = (e) => {
-            e.stopPropagation();
-            selectNode(row, item.path, null, item.type, null, item.hasSub);
-            openMobileSheet();
-        };
-
-        // This click handler will now persist
-        row.onclick = (e) => {
-            e.stopPropagation();
-            selectNode(row, item.path, item.data, item.type, null, item.hasSub);
-            if (!item.hasSub) openMobileSheet();
-        };
-        
-        // Highlight active if selected via keyboard
-        if (state.focusedRow && state.focusedRow.path === item.path) {
-            row.classList.add('selected');
-        }
-    });
+    // Visual selection sync
+    if (state.focusedRow && state.focusedRow.path === item.path && state.focusedRow.type === item.type) {
+        row.classList.add('selected');
+    }
+}, (ev, item, row) => {
+    // Click handler
+    selectNode(row, item.path, item.data, item.type, null, item.hasSub);
+});
 
     return scroller;
 }
@@ -4449,76 +4474,148 @@ function renderFilteredTree(nodes, container, path, type, query) {
             return Object.keys(sub).some(k => k.toLowerCase().includes(query) || checkDeepMatch(sub[k].sub, query));
         }
 // --- RESTORED SEARCH LISTENER ---
+// Replace the search-input 'input' listener with this:
+// --- UPDATED SEARCH LOGIC ---
+
 document.getElementById('search-input').addEventListener('input', (e) => {
     const query = e.target.value.toLowerCase();
     const root = document.getElementById('registry-root');
     
-    // Clear previous search state
-    state.searchScroller = null; 
     state.searchMatchIndex = -1;
+    state.searchMasterIndex = []; 
 
-    // 1. If search is empty, show default full view
     if (!query) { 
         root.innerHTML = ''; 
         renderRegistry(state.data); 
         return; 
     }
 
-    root.innerHTML = ''; // Clear for search results
+    state.activeScrollers = [];
 
-    // Label mapping for nicer headers
-    const labels = { options: 'Nix Options', pkgs: 'Packages', maintainers: 'Maintainers' };
+    root.innerHTML = '';
+    const labels = { options: 'Nix Options', pkgs: 'Packages' };
 
-    // We only want ONE virtual scroller for search results to make navigation easy.
-    // So we will aggregate all matches into one list if possible, or just scroll the trees.
-    // For this specific logic, we will keep your category structure but only track the *last* created scroller for navigation,
-    // OR ideally, we flatten everything for search. 
-    // BUT, preserving your category headers:
-    
-    ['options', 'pkgs', 'maintainers'].forEach(catKey => {
+    ['options', 'pkgs'].forEach(catKey => {
         if (!state.data[catKey]) return;
 
-        const catTitle = document.createElement('div');
-        catTitle.className = 'adw-group-title';
-        catTitle.textContent = labels[catKey] || catKey;
-        root.appendChild(catTitle);
-        
-        // Handle Maintainers (Chips) - No Virtual Scroll needed usually
-        if (catKey === 'maintainers') {
-            const filtered = {};
-            Object.keys(state.data[catKey]).forEach(k => { 
-                if(k.toLowerCase().includes(query)) filtered[k] = state.data[catKey][k]; 
-            });
-            
-            const container = document.createElement('div');
-            container.className = 'chip-grid';
-            Object.keys(filtered).sort().forEach(key => {
-                const chip = document.createElement('div');
-                chip.className = 'maintainer-chip';
-                chip.textContent = filtered[key].name || key;
-                chip.onclick = (e) => showMaintainerPopup(key, filtered[key], e.currentTarget);
-                container.appendChild(chip);
-            });
-            root.appendChild(container);
-        } 
-        // Handle Trees (Options/Pkgs) - Virtual Scroller
-        else {
+        const branchItems = getSearchTreeItems(state.data[catKey], catKey, query);
+
+        if (branchItems.length > 0) {
+            const title = document.createElement('div');
+            title.className = 'adw-group-title';
+            title.textContent = labels[catKey];
+            root.appendChild(title);
+
             const container = document.createElement('div');
             container.className = 'tree-root';
-            
-            // FIX 1: Append to DOM BEFORE rendering/initializing VirtualScroller
-            root.appendChild(container); 
-            
-            // renderFilteredTree now returns the scroller instance
-            const scroller = renderFilteredTree(state.data[catKey], container, '', catKey, query);
-            
-            // We store the 'primary' scroller (usually pkgs or options) for keyboard nav
-            if (scroller && (catKey === 'pkgs' || !state.searchScroller)) {
-                state.searchScroller = scroller;
-            }
+            root.appendChild(container);
+
+            const scroller = new VirtualScroller(container, branchItems, 44, (row, item) => {
+                row.style.paddingLeft = `${16 + (item.level * 20)}px`;
+
+                row._item = item; 
+        row.dataset.path = item.path;
+        row.dataset.type = item.type;
+        row.dataset.hasSub = item.hasSub;
+                
+                let labelHTML = escapeHTML(item.key);
+                if (item.isMatch) {
+                    const idx = item.key.toLowerCase().indexOf(query);
+                    labelHTML = item.key.substring(0, idx) + 
+                               `<b>${item.key.substring(idx, idx + query.length)}</b>` + 
+                               item.key.substring(idx + query.length);
+                    row.classList.add('search-leaf-match');
+                }
+
+                row.innerHTML = `
+                    <div class="row-icon ${item.hasSub ? 'expanded' : 'leaf'}">${item.hasSub ? '▶' : '●'}</div>
+                    <div class="row-label">${labelHTML}</div>
+                `;
+
+                // Single Selection Highlight Fix
+                if (state.focusedRow && state.focusedRow.path === item.path && state.focusedRow.type === item.type) {
+                    row.classList.add('selected');
+                } else {
+                    row.classList.remove('selected');
+                }
+            }, (ev, item, row) => {
+                selectNode(row, item.path, item.data, item.type, null, item.hasSub);
+            });
+            state.activeScrollers.push({ scroller, type: catKey });
+
+            // Only add the actual matches (not the parents) to the keyboard cycle index
+            branchItems.forEach(m => {
+                if (m.isMatch) state.searchMasterIndex.push({ item: m, scroller });
+            });
         }
     });
 });
+
+// --- UPDATED NAVIGATION LOGIC ---
+
+window.cycleSearchMatches = (direction = 1) => {
+    if (!state.searchMasterIndex || state.searchMasterIndex.length === 0) return;
+
+    // 1. Calculate New Index
+    state.searchMatchIndex = (state.searchMatchIndex + direction + state.searchMasterIndex.length) % state.searchMasterIndex.length;
+    const { item, scroller } = state.searchMasterIndex[state.searchMatchIndex];
+
+    // 2. Identify the node in the virtual list
+    const itemIdx = scroller.items.findIndex(i => i.path === item.path);
+    
+    // 3. Update Sidebar immediately (even before scroll)
+    const node = resolveNode(state.data, item.type, item.path);
+    state.focusedRow = { path: item.path, type: item.type, node: node, hasSub: item.hasSub };
+    openInspector(item.path, node ? node.meta : null, item.type);
+    addToRecents(item.path, item.type);
+    updateBreadcrumbs(item.path, item.type);
+
+    // 4. Perform Virtual Scroll
+    scroller.scrollToIndex(itemIdx);
+    
+    // 5. Force UI Sync
+    state.activeScrollers.forEach(s => s.scroller.renderChunk());
+
+    // 6. HARDENED SELECTION (The "100% Fix")
+    // We retry looking for the DOM element because VirtualScroller is asynchronous
+    let attempts = 0;
+    const findAndSelect = () => {
+        const row = document.querySelector(`.virtual-row[data-path="${CSS.escape(item.path)}"]`);
+        if (row) {
+            // Found it! Apply visual selection and smart scroll
+            document.querySelectorAll('.selected').forEach(r => r.classList.remove('selected'));
+            row.classList.add('selected');
+            state.focusedRow.el = row;
+            window.smartScroll(row);
+        } else if (attempts < 10) {
+            attempts++;
+            requestAnimationFrame(findAndSelect);
+        }
+    };
+    findAndSelect();
+};
+
+// --- UPDATED SELECT NODE (Core Fix) ---
+function selectNode(rowEl, path, node, type, wrapper, hasSub) {
+    // 1. Remove selection from any standard DOM rows
+    document.querySelectorAll('.tree-row.selected').forEach(r => r.classList.remove('selected'));
+    
+    // 2. Set the global focused state
+    state.focusedRow = { el: rowEl, path, node, type, wrapper, hasSub };
+    
+    // 3. Force re-render of all virtual lists to sync the 'selected' class
+    if (state.activeScrollers) state.activeScrollers.forEach(s => s.scroller.renderChunk());
+    if (state.searchMasterIndex) {
+        const uniqueScrollers = [...new Set(state.searchMasterIndex.map(m => m.scroller))];
+        uniqueScrollers.forEach(s => s.renderChunk());
+    }
+
+    // 4. Update UI
+    addToRecents(path, type);
+    openInspector(path, node ? node.meta : null, type);
+    updateBreadcrumbs(path, type);
+    if (rowEl) rowEl.classList.add('selected');
+}
 document.getElementById('search-input-mobile').addEventListener('input', (e) => {
     const query = e.target.value.toLowerCase();
     const root = document.getElementById('registry-root');
@@ -4573,20 +4670,7 @@ document.getElementById('search-input-mobile').addEventListener('input', (e) => 
         }
     });
 });
-        function selectNode(rowEl, path, node, type, wrapper, hasSub) {
-            document.querySelectorAll('.tree-row.selected').forEach(r => r.classList.remove('selected'));
-            rowEl.classList.add('selected');
-            state.focusedRow = { el: rowEl, path, node, type, wrapper, hasSub };
-            
-            try {
-                window.location.hash = `#${type}:${path}`;
-            } catch(e) { console.warn("Cannot set hash in sandbox"); }
-            
-            addToRecents(path, type);
-            openInspector(path, node ? node.meta : null, type);
-            updateBreadcrumbs(path, type);
-            rowEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-        }
+       
 
         window.navigateToPath = async (path, type) => {
             if (!path && !type) {
@@ -4787,143 +4871,116 @@ document.getElementById('search-input-mobile').addEventListener('input', (e) => 
         // --- INTERNAL LOGIC ---
         // Context-Aware Keydown
         document.addEventListener('keydown', (e) => {
-            // 1. Command Palette Navigation
-            if (document.getElementById('modal-palette').classList.contains('visible')) {
-                const items = document.querySelectorAll('.command-item');
-                const current = document.querySelector('.command-item.active');
-                let idx = Array.from(items).indexOf(current);
-                
-                if (e.key === 'ArrowDown') {
-                    e.preventDefault();
-                    idx = (idx + 1) % items.length;
-                } else if (e.key === 'ArrowUp') {
-                    e.preventDefault();
-                    idx = (idx - 1 + items.length) % items.length;
-                } else if (e.key === 'Enter') {
-                    e.preventDefault();
-                    if(current) current.click();
-                    return;
-                } else if (e.key === 'Escape') {
-                    window.toggleCommandPalette();
-                    return;
-                }
-                
-                if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
-                    items.forEach(i => i.classList.remove('active'));
-                    items[idx].classList.add('active');
-                    items[idx].scrollIntoView({ block: 'nearest' });
-                }
-                return;
-            }
+            
+    const isInput = e.target.tagName === 'INPUT' || 
+                    e.target.tagName === 'TEXTAREA' || 
+                    e.target.isContentEditable;
 
-            // 2. Search History Navigation
-            if (document.activeElement.id === 'search-input' || document.activeElement.id === 'search-input-mobile') {
-                const hist = document.getElementById('search-history');
-                if (hist.classList.contains('visible')) {
-                    const items = hist.querySelectorAll('.history-item');
-                    const current = hist.querySelector('.history-item.active');
-                    let idx = Array.from(items).indexOf(current);
-
-                    if (e.key === 'ArrowDown') {
-                        e.preventDefault();
-                        if (idx === -1) idx = 0; else idx = (idx + 1) % items.length;
-                    } else if (e.key === 'ArrowUp') {
-                        e.preventDefault();
-                        if (idx === -1) idx = items.length - 1; else idx = (idx - 1 + items.length) % items.length;
-                    } else if (e.key === 'Enter') {
-                        e.preventDefault();
-                        if (current) current.click();
-                        else {
-                            addToSearchHistory(e.target.value);
-                            hist.classList.remove('visible');
-                            window.cycleSearchMatches(0);
-                        }
-                        return;
-                    }
-
-                    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
-                        items.forEach(i => i.classList.remove('active'));
-                        items[idx].classList.add('active');
-                    }
-                    return;
-                }
-                if (e.key === 'ArrowDown' && !hist.classList.contains('visible')) {
-                    renderSearchHistory();
-                }
-            }
-
-            if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.isContentEditable) {
-                if(e.key === 'Escape') { 
-                    e.target.blur();
-                    document.getElementById('search-history').classList.remove('visible');
-                    // Special case: If scratchpad textarea has focus, collapse scratchpad
-                    if (e.target.id === 'sp-visual-view') {
-                        document.getElementById('scratchpad-panel').classList.remove('visible');
-                    }
-                    if(e.target.id === 'search-input' || e.target.id === 'search-input-mobile') window.toggleSearch(); 
-                }
-                if(e.key === 'Enter' && (e.target.id === 'search-input' || e.target.id === 'search-input-mobile')) {
-    e.preventDefault();
-    addToSearchHistory(e.target.value);
-    
-    // FIX: Use the scroller state, not DOM query
-    if (state.searchScroller && state.searchScroller.items.length > 0) {
-        state.searchMatchIndex = 0;
-        const item = state.searchScroller.items[0];
+    // 1. Command Palette Navigation (Always allow regardless of focus)
+    if (document.getElementById('modal-palette').classList.contains('visible')) {
+        const items = document.querySelectorAll('.command-item');
+        const current = document.querySelector('.command-item.active');
+        let idx = Array.from(items).indexOf(current);
         
-        // Scroll to top
-        state.searchScroller.scrollToIndex(0);
+        if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            idx = (idx + 1) % items.length;
+        } else if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            idx = (idx - 1 + items.length) % items.length;
+        } else if (e.key === 'Enter') {
+            e.preventDefault();
+            if(current) current.click();
+            return;
+        } else if (e.key === 'Escape') {
+            window.toggleCommandPalette();
+            return;
+        }
         
-        // Select logic
-        state.focusedRow = { path: item.path, type: item.type, hasSub: item.hasSub };
-        state.searchScroller.renderChunk(); // Re-render visuals
-        
-        updateBreadcrumbs(item.path, item.type);
-        showToast(`Focused: ${item.path}`);
-        e.target.blur();
+        if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+            items.forEach(i => i.classList.remove('active'));
+            items[idx].classList.add('active');
+            items[idx].scrollIntoView({ block: 'nearest' });
+        }
+        return;
     }
-    return;
-}
+
+
+    
+    // 2. Focus Logic: If user is typing, ignore global shortcuts UNLESS it's Escape or Enter
+    if (isInput) {
+        if (e.key === 'Escape') {
+            e.target.blur();
+            document.getElementById('search-history').classList.remove('visible');
+            if (e.target.id === 'sp-visual-view') {
+                document.getElementById('scratchpad-panel').classList.remove('visible');
             }
-
-            // Global Shortcuts (Ctrl+K, P)
-            if ((e.ctrlKey || e.metaKey) && (e.key === 'k' || e.key === 'p')) {
-                e.preventDefault();
-                window.toggleCommandPalette();
-                return;
+            if (e.target.id === 'search-input' || e.target.id === 'search-input-mobile') {
+                window.toggleSearch(); 
             }
-
-            // Standard Tree Navigation Logic
-            let parts = [];
-            if (e.ctrlKey) parts.push('Ctrl');
-            if (e.shiftKey) parts.push('Shift');
-            if (e.altKey) parts.push('Alt');
-            if (e.metaKey) parts.push('Meta');
+        }
+        
+        if (e.key === 'Enter' && (e.target.id === 'search-input' || e.target.id === 'search-input-mobile')) {
+            e.preventDefault();
+            addToSearchHistory(e.target.value);
             
-            let key = e.key;
-            if(key === ' ') key = 'Space';
-            if(key.length === 1) key = key.toLowerCase();
-            
-            parts.push(key);
-            const combo = parts.join('+');
-
-            const kb = state.keybinds;
-            const check = (setting) => setting === combo;
-            
-            let matched = false;
-            
-            if (check(kb.search)) { 
-                e.preventDefault(); 
-                const searchBar = window.innerWidth < 768 ? document.getElementById('search-bar-mobile') : document.getElementById('search-bar');
-                const searchInput = window.innerWidth < 768 ? document.getElementById('search-input-mobile') : document.getElementById('search-input');
-                const isVisible = searchBar.classList.contains('visible');
-                const isFocused = document.activeElement === searchInput;
-
-                if (isVisible && !isFocused) {
-                    searchInput.focus();
-                    searchInput.select(); 
-                    renderSearchHistory(); 
-                } else {
+            // Updated check: use searchMasterIndex instead of searchScroller
+            if (state.searchMasterIndex && state.searchMasterIndex.length > 0) {
+                state.searchMatchIndex = 0;
+                const { item, scroller } = state.searchMasterIndex[0];
+                
+                // 1. Scroll the specific category scroller to the top match
+                const itemIdx = scroller.items.findIndex(i => i.path === item.path);
+                scroller.scrollToIndex(itemIdx);
+                
+                // 2. Perform the selection (triggers inspector & breadcrumbs)
+                // Passing null for rowEl because virtual scroller handles the 'selected' class
+                selectNode(null, item.path, item.data, item.type, null, item.hasSub);
+                
+                e.target.blur();
+            }
+        }
+        return; 
+    }
+    
+    // Global Shortcuts (Ctrl+K, P)
+    if ((e.ctrlKey || e.metaKey) && (e.key === 'k' || e.key === 'p')) {
+        e.preventDefault();
+        window.toggleCommandPalette();
+        return;
+    }
+    
+    // Standard Tree Navigation Logic
+    let parts = [];
+    if (e.ctrlKey) parts.push('Ctrl');
+    if (e.shiftKey) parts.push('Shift');
+    if (e.altKey) parts.push('Alt');
+    if (e.metaKey) parts.push('Meta');
+    
+    let key = e.key;
+    if(key === ' ') key = 'Space';
+    if(key.length === 1) key = key.toLowerCase();
+    
+    parts.push(key);
+    const combo = parts.join('+');
+    
+    const kb = state.keybinds;
+    const check = (setting) => setting === combo;
+    
+    let matched = false;
+    
+    if (check(kb.search)) { 
+        e.preventDefault(); 
+        const searchBar = window.innerWidth < 768 ? document.getElementById('search-bar-mobile') : document.getElementById('search-bar');
+        const searchInput = window.innerWidth < 768 ? document.getElementById('search-input-mobile') : document.getElementById('search-input');
+        const isVisible = searchBar.classList.contains('visible');
+        const isFocused = document.activeElement === searchInput;
+        
+        if (isVisible && !isFocused) {
+            searchInput.focus();
+            searchInput.select(); 
+            renderSearchHistory(); 
+        } else {
                     window.toggleSearch(); 
                 }
                 matched = true; 
@@ -4944,7 +5001,7 @@ document.getElementById('search-input-mobile').addEventListener('input', (e) => 
                 const isSearchVisible = window.innerWidth < 768 ? document.getElementById('search-bar-mobile').classList.contains('visible') : document.getElementById('search-bar').classList.contains('visible');
                 if (isSearchVisible) { e.preventDefault(); window.closeSearch(); return; }
             }
-
+            
             if (combo === 'Escape') {
                 if(document.querySelector('.overlay-backdrop.visible')) {
                     document.querySelectorAll('.overlay-backdrop.visible').forEach(el => el.classList.remove('visible'));
@@ -4953,30 +5010,51 @@ document.getElementById('search-input-mobile').addEventListener('input', (e) => 
                 const vDrop = document.getElementById('version-dropdown');
                 if (vDrop.classList.contains('visible')) vDrop.classList.remove('visible');
             }
-
+            
+            
+            // Inside keydown listener...
+            const searchActive = !!document.querySelector('.search-wrapper.visible');
+           
             // Only run buffer if not matched
             if (!matched && !e.ctrlKey && !e.altKey && !e.metaKey) {
                 keyBuffer.push(key);
-                const seq = keyBuffer.join(' ');
-                if (seq === kb.top) {
-                    const rows = Array.from(document.querySelectorAll('.tree-row'));
-                    const first = rows.find(r => isRowVisible(r));
-                    if(first) selectNode(first, first.dataset.path, null, first.dataset.type, first.parentNode, first.dataset.hasSub === 'true');
-                    keyBuffer = [];
-                } 
-                if (combo === kb.bottom) {
-                     const rows = Array.from(document.querySelectorAll('.tree-row'));
-                    for(let i = rows.length -1; i >= 0; i--) {
-                        if (isRowVisible(rows[i])) {
-                            selectNode(rows[i], rows[i].dataset.path, null, rows[i].dataset.type, rows[i].parentNode, rows[i].dataset.hasSub === 'true');
-                            break;
-                        }
-                    }
-                    keyBuffer = [];
-                }
+                
                 clearTimeout(keyTimer);
                 keyTimer = setTimeout(() => { keyBuffer = []; }, state.comboTimeout);
             }
+            const seq = keyBuffer.join(' ');
+            
+if (seq === kb.top) {
+    e.preventDefault();
+    if (searchActive && state.searchMasterIndex?.length > 0) {
+        // Force the index back to the first element
+        state.searchMatchIndex = -1; 
+        window.cycleSearchMatches(1);
+    } else {
+        // Standard Tree: Find first visible row and pin to top
+        const rows = Array.from(document.querySelectorAll('.tree-row, .virtual-row'))
+                          .filter(r => isRowVisible(r));
+        if (rows.length > 0) window.selectAndScroll(rows[0]);
+    }
+    keyBuffer = [];
+} 
+
+if (combo === kb.bottom) {
+    e.preventDefault();
+    if (searchActive && state.searchMasterIndex?.length > 0) {
+        // Force the index to the last element
+        state.searchMatchIndex = state.searchMasterIndex.length - 2; 
+        window.cycleSearchMatches(1);
+    } else {
+        // Standard Tree: Find last visible row and pin to top
+        const rows = Array.from(document.querySelectorAll('.tree-row, .virtual-row'))
+                          .filter(r => isRowVisible(r));
+        if (rows.length > 0) window.selectAndScroll(rows[rows.length - 1]);
+    }
+    keyBuffer = [];
+}           
+            
+  
         });
         
         // Keybind Recording Logic
@@ -5030,6 +5108,8 @@ document.getElementById('search-input-mobile').addEventListener('input', (e) => 
                 }, state.comboTimeout);
             });
         });
+
+        
           window.clearScratchpad = () => {
             state.scratchpadConfig = "";
             renderScratchpad();
@@ -5524,62 +5604,161 @@ document.getElementById('search-input-mobile').addEventListener('input', (e) => 
         };
 
         // --- UTILS ---
-        function handleNav(action) {
-            const allRows = Array.from(document.querySelectorAll('.tree-row'));
-            const visibleRows = allRows.filter(r => isRowVisible(r));
-            
-            if (!state.focusedRow && visibleRows.length > 0) {
-                const next = visibleRows[0];
-                selectNode(next, next.dataset.path, null, next.dataset.type, next.parentNode, next.dataset.hasSub === 'true');
+        // --- UPDATED NAVIGATION & SCROLLING LOGIC ---
+
+
+window.smartScroll = (el) => {
+    if (!el) return;
+    
+    const scroller = el.closest('.main-content, .sidebar-content') || document.querySelector('.main-content');
+    if (!scroller) return;
+
+    const rect = el.getBoundingClientRect();
+    const scrollerRect = scroller.getBoundingClientRect();
+    
+    // The "Dead Zone" boundary (50% of the scroller's visible height)
+    const midPoint = scrollerRect.top + (scrollerRect.height * 0.5);
+
+    // If the element is below the midpoint
+    if (rect.top > midPoint) {
+        // Calculate the distance needed to move the element to the midpoint
+        const diff = rect.top - midPoint;
+        scroller.scrollBy({
+            top: diff,
+            behavior: 'smooth'
+        });
+    } 
+    // If the element is above the top of the viewport (scrolling up)
+    else {
+        const superTop = rect.top - 80;
+        scroller.scrollBy({ behavior: 'smooth', top: superTop });
+    }
+};
+
+// Update selectAndScroll to use the new engine
+function selectAndScroll(el) {
+    if (!el) return;
+    const path = el.dataset.path || (el._item ? el._item.path : null);
+    const type = el.dataset.type || (el._item ? el._item.type : null);
+    const hasSub = el.dataset.hasSub === 'true' || (el._item ? el._item.hasSub : false);
+    
+    if (!path || !type) return;
+
+    const node = resolveNode(state.data, type, path);
+    selectNode(el, path, node, type, el.closest('.tree-node-wrapper'), hasSub);
+    
+    smartScroll(el);
+}
+
+window.selectVirtualItem = (scroller, index) => {
+    const item = scroller.items[index];
+    if (!item) return;
+
+    const node = resolveNode(state.data, item.type, item.path);
+    
+    // Update state FIRST so renderChunk() knows which row to highlight
+    state.focusedRow = { 
+        path: item.path, 
+        type: item.type, 
+        node: node, 
+        hasSub: item.hasSub,
+        el: null // Will be populated after render
+    };
+
+    // UI Updates
+    openInspector(item.path, node ? node.meta : null, item.type);
+    updateBreadcrumbs(item.path, item.type);
+    
+    // Force the scroller to move and RE-RENDER the divs
+    scroller.scrollToIndex(index);
+    scroller.renderChunk(); 
+
+    // Find the newly rendered div to keep the 'el' reference fresh
+    requestAnimationFrame(() => {
+        const row = document.querySelector(`.virtual-row[data-path="${CSS.escape(item.path)}"]`);
+        if (row) {
+            state.focusedRow.el = row;
+            // Remove old selections and add new one
+            document.querySelectorAll('.virtual-row.selected').forEach(r => r.classList.remove('selected'));
+            row.classList.add('selected');
+        }
+    });
+};
+
+
+function handleNav(action) {
+    const isSearch = document.getElementById('search-input').value.length > 0 || 
+                     document.getElementById('search-input-mobile').value.length > 0;
+    
+    if (isSearch && state.activeScrollers) {
+        // 1. Find which scroller currently holds our focused item
+        let activeScroller = null;
+        let currentIndex = -1;
+
+        for (const sObj of state.activeScrollers) {
+            const idx = sObj.scroller.items.findIndex(i => state.focusedRow && i.path === state.focusedRow.path);
+            if (idx !== -1) {
+                activeScroller = sObj.scroller;
+                currentIndex = idx;
+                break;
+            }
+        }
+
+        // 2. If no selection yet, default to the first scroller's first item
+        if (!activeScroller && state.activeScrollers.length > 0) {
+            activeScroller = state.activeScrollers[0].scroller;
+            currentIndex = -1; 
+        }
+
+        if (activeScroller) {
+            const items = activeScroller.items;
+            if (action === 'down') {
+                // Only increment if not at the very end of this scroller
+                if (currentIndex < items.length - 1) {
+                    window.selectVirtualItem(activeScroller, currentIndex + 1);
+                } else {
+                    // OPTIONAL: Jump to the next category's scroller if at the end
+                    const sIdx = state.activeScrollers.findIndex(s => s.scroller === activeScroller);
+                    if (sIdx < state.activeScrollers.length - 1) {
+                        window.selectVirtualItem(state.activeScrollers[sIdx + 1].scroller, 0);
+                    }
+                }
+                return;
+            } 
+            else if (action === 'up') {
+                if (currentIndex > 0) {
+                    window.selectVirtualItem(activeScroller, currentIndex - 1);
+                } else {
+                    // OPTIONAL: Jump to previous category's scroller
+                    const sIdx = state.activeScrollers.findIndex(s => s.scroller === activeScroller);
+                    if (sIdx > 0) {
+                        const prevScroller = state.activeScrollers[sIdx - 1].scroller;
+                        window.selectVirtualItem(prevScroller, prevScroller.items.length - 1);
+                    }
+                }
                 return;
             }
-
-            const idx = visibleRows.indexOf(state.focusedRow.el);
-            if (idx === -1) return;
-
-            if (action === 'down') {
-                if (idx < visibleRows.length - 1) {
-                    const next = visibleRows[idx + 1];
-                    selectNode(next, next.dataset.path, null, next.dataset.type, next.parentNode, next.dataset.hasSub === 'true');
-                }
-            } else if (action === 'up') {
-                if (idx > 0) {
-                    const prev = visibleRows[idx - 1];
-                    selectNode(prev, prev.dataset.path, null, prev.dataset.type, prev.parentNode, prev.dataset.hasSub === 'true');
-                }
-            } else if (action === 'right') { 
-                if (state.focusedRow.hasSub) {
-                    const children = state.focusedRow.wrapper.querySelector('.tree-children-wrapper');
-                    if (!children.classList.contains('open')) {
-                        children.classList.add('open');
-                        state.focusedRow.el.querySelector('.row-icon').classList.add('expanded');
-                    }
-                }
-            } else if (action === 'left') { 
-                if (state.focusedRow.hasSub) {
-                    const children = state.focusedRow.wrapper.querySelector('.tree-children-wrapper');
-                    if (children.classList.contains('open')) {
-                        children.classList.remove('open');
-                        state.focusedRow.el.querySelector('.row-icon').classList.remove('expanded');
-                        return;
-                    }
-                }
-                const parentWrapper = state.focusedRow.wrapper.parentElement.closest('.tree-node-wrapper');
-                if (parentWrapper) {
-                    const parentRow = parentWrapper.querySelector('.tree-row');
-                    if(parentRow) selectNode(parentRow, parentRow.dataset.path, null, parentRow.dataset.type, parentWrapper, parentRow.dataset.hasSub === 'true');
-                }
-            }
         }
+    }
 
-        function isRowVisible(row) {
-            let parent = row.closest('.tree-children-wrapper');
-            while (parent) {
-                if (!parent.classList.contains('open')) return false;
-                parent = parent.parentElement.closest('.tree-children-wrapper');
-            }
-            return true; 
-        }
+    // --- Standard Fallback ---
+    const visibleRows = Array.from(document.querySelectorAll('.tree-row, .virtual-row'))
+                             .filter(r => isRowVisible(r));
+    
+    if (!state.focusedRow && visibleRows.length > 0) {
+        selectAndScroll(visibleRows[0]);
+        return;
+    }
+
+    const currentEl = state.focusedRow.el || document.querySelector(`.virtual-row[data-path="${CSS.escape(state.focusedRow.path)}"]`);
+    const idx = visibleRows.indexOf(currentEl);
+    
+    if (action === 'down' && idx < visibleRows.length - 1) {
+        selectAndScroll(visibleRows[idx + 1]);
+    } else if (action === 'up' && idx > 0) {
+        selectAndScroll(visibleRows[idx - 1]);
+    }
+}
 
 document.addEventListener('click', (e) => {
             // Close Popups if clicked outside
