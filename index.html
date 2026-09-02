@@ -1726,6 +1726,16 @@
     <div id="toast">Copied to Clipboard</div>
 
     <script>
+        window.serializeScratchpad = () => {
+    const editor = document.getElementById('scratchpad-editor');
+    if (!editor) return "";
+    
+    // Map through each div line and join with newlines
+    return Array.from(editor.querySelectorAll('.sp-line'))
+        .map(line => line.innerText)
+        .join('\n');
+};
+
 window.openMobileSheet = () => {
     if (window.innerWidth <= 768) {
         // This adds the class that triggers the CSS transition
@@ -2778,13 +2788,25 @@ window.renderScratchpad = () => {
                 .replace(/__FUNC:(.*?)__/g, "$1"); // raw lambda
         };
 
-        const lines = text.split('\n');
-        let html = '';
-        lines.forEach(line => {
-            if (line.trim().startsWith('#')) {
-                html += `<div class="sp-line"><span class="sp-token-comment">${preserveIndent(line)}</span></div>`;
-                return;
-            }
+        const lines = state.scratchpadConfig.split('\n');
+    editor.innerHTML = '';
+
+    let isInsideBlockComment = false;
+
+    lines.forEach((lineText) => {
+        const lineDiv = document.createElement('div');
+        lineDiv.className = 'sp-line';
+
+        // Block comment logic (/* */)
+        if (lineText.includes('/*')) isInsideBlockComment = true;
+        
+        const isHashComment = lineText.trim().startsWith('#');
+        
+        if (isHashComment || isInsideBlockComment) {
+            lineDiv.classList.add('sp-comment');
+            lineDiv.textContent = lineText;
+            if (lineText.includes('*/')) isInsideBlockComment = false;
+        } 
             
             const assignMatch = line.match(assignmentRegex);
             if (assignMatch) {
@@ -3337,116 +3359,76 @@ window.renderScratchpad = () => {
         let renderTimeout;
         const editorEl = document.getElementById('sp-visual-view');
 
-        editorEl.addEventListener('input', (e) => {
-            // 1. Always save state immediately (raw text tokens)
-            state.scratchpadConfig = window.getScratchpadContent();
-            
-            // 2. Check for Immediate Triggers (Enter, Semicolon, Closing Brace)
-            // (InputType check helps avoid firing on backspace/deletes which feels jumpy)
-            const isTrigger = e.data === ';' || e.data === '}' || e.inputType === 'insertParagraph';
-
-            if (renderTimeout) clearTimeout(renderTimeout);
-
-            if (isTrigger) {
-                // Immediate Render for structural changes
-                const saved = getCursorPos(editorEl);
-                renderScratchpad();
-                restoreCursorPos(editorEl, saved);
-                saveSettings();
-            } else {
-                // Debounced Render for regular typing (600ms delay)
-                renderTimeout = setTimeout(() => {
-                    const saved = getCursorPos(editorEl);
-                    renderScratchpad();
-                    restoreCursorPos(editorEl, saved);
-                    saveSettings();
-                }, 600);
-            }
-        });
-        // 3. ENHANCED DELETION LOGIC
         editorEl.addEventListener('keydown', (e) => {
-            if (e.key === 'Backspace') {
-                const sel = window.getSelection();
-                if (!sel.rangeCount) return;
-                const range = sel.getRangeAt(0);
+    const sel = window.getSelection();
+    if (!sel.rangeCount) return;
+    const range = sel.getRangeAt(0);
+    const lineNode = range.startContainer.parentElement.closest('.sp-line');
+    if (!lineNode) return;
 
-                if (range.collapsed) {
-                    let currentNode = range.startContainer;
-                    let currentOffset = range.startOffset;
+    const lineText = lineNode.innerText.trim();
+    const isComment = lineNode.classList.contains('sp-comment') || /^\s*(#|\/\*)/.test(lineText);
 
-                    // 1. Normalize: If we are in an Element node, get the actual child node
-                    if (currentNode.nodeType === Node.ELEMENT_NODE) {
-                        if (currentOffset > 0) {
-                            currentNode = currentNode.childNodes[currentOffset - 1];
-                            // If it's a text node, go to the end of it
-                            if (currentNode.nodeType === Node.TEXT_NODE) {
-                                currentOffset = currentNode.textContent.length;
-                            } else {
-                                // It's an element (like a badge)
-                                if (currentNode.classList && (currentNode.classList.contains('sp-type-badge') || currentNode.classList.contains('sp-bool-wrapper'))) {
-                                    e.preventDefault();
-                                    currentNode.remove();
-                                    state.scratchpadConfig = window.getScratchpadContent();
-                                    renderScratchpad(); // Re-render to clean up structure
-                                    return;
-                                }
-                                return; // Browser handles other cases
-                            }
-                        }
-                    }
+    if (e.key === 'Backspace' && !isComment && range.startOffset === range.endOffset) {
+        // --- RULE 1: Deleting a key at a time in dot notation ---
+        // Pattern matches: path.to.key = (badge/value);
+        // It captures (path.to) as group 1, (key) as group 2, and (value) as group 3.
+        const dotPattern = /^([\w\.]+)\.(\w+)\s*=\s*([^;]+);?$/;
+        const dotMatch = lineText.match(dotPattern);
 
-                    // 2. We are at the start of a text node
-                    if (currentNode.nodeType === Node.TEXT_NODE && currentOffset === 0) {
-                        // Look for the previous sibling (element or text)
-                        let prev = currentNode.previousSibling;
-                        
-                        // Skip empty text nodes if any exist
-                        while (prev && prev.nodeType === Node.TEXT_NODE && prev.textContent.length === 0) {
-                            prev = prev.previousSibling;
-                        }
+        if (dotMatch) {
+            e.preventDefault();
+            const parentPath = dotMatch[1];
+            // Instead of just deleting the badge, we delete the entire last assignment
+            lineNode.innerText = `${parentPath} = {};`;
+            
+            state.scratchpadConfig = window.serializeScratchpad();
+            window.renderScratchpad();
+            return;
+        }
 
-                        if (prev) {
-                            // CASE A: Previous is a Badge -> DELETE IT
-                            if (prev.nodeType === Node.ELEMENT_NODE && (prev.classList.contains('sp-type-badge') || prev.classList.contains('sp-bool-wrapper'))) {
-                                e.preventDefault();
-                                prev.remove();
-                                state.scratchpadConfig = window.getScratchpadContent();
-                                renderScratchpad();
-                                return;
-                            }
+        // --- RULE 2: Assignment in {} to Dot Notation ---
+        // Match: key = value;
+        const itemPattern = /^\s*(\w+)\s*=\s*([^;]+);?$/;
+        const itemMatch = lineText.match(itemPattern);
 
-                            // CASE B: Previous is a Syntax Span -> DELETE LAST CHAR MANUALLY
-                            // This fixes the "double backspace" issue by modifying the previous text directly
-                            if (prev.nodeType === Node.ELEMENT_NODE || prev.nodeType === Node.TEXT_NODE) {
-                                e.preventDefault();
-                                
-                                let textTarget = prev;
-                                // If it's a span (like .sp-token-key), get its inner text node
-                                if (prev.nodeType === Node.ELEMENT_NODE && prev.firstChild) {
-                                    textTarget = prev.lastChild; 
-                                }
+        if (itemMatch) {
+            let prev = lineNode.previousElementSibling;
+            let parentKey = null;
 
-                                if (textTarget.nodeType === Node.TEXT_NODE && textTarget.textContent.length > 0) {
-                                    const newText = textTarget.textContent.slice(0, -1);
-                                    textTarget.textContent = newText;
-                                    
-                                    // Move cursor to end of that modified node
-                                    const newRange = document.createRange();
-                                    newRange.setStart(textTarget, newText.length);
-                                    newRange.collapse(true);
-                                    sel.removeAllRanges();
-                                    sel.addRange(newRange);
-                                    
-                                    // Trigger quick save (debounce will handle the render)
-                                    state.scratchpadConfig = window.getScratchpadContent();
-                                }
-                                return;
-                            }
-                        }
-                    }
+            // Search up for the block parent: parent.path = {
+            while (prev) {
+                const parentMatch = prev.innerText.match(/^([\w\.]+)\s*=\s*\{/);
+                if (parentMatch) {
+                    parentKey = parentMatch[1];
+                    break;
                 }
+                prev = prev.previousElementSibling;
             }
-        });
+
+            if (parentKey) {
+                e.preventDefault();
+                const childKey = itemMatch[1];
+                const value = itemMatch[2];
+                
+                // Convert the line to parent.child = value;
+                lineNode.innerText = `${parentKey}.${childKey} = ${value};`;
+                
+                state.scratchpadConfig = window.serializeScratchpad();
+                window.renderScratchpad();
+                return;
+            }
+        }
+    }
+
+    if (e.key === 'Enter') {
+        // [Requirement 2]: Allow manual line breaks.
+        // We defer to the browser and then serialize to save.
+        setTimeout(() => {
+            state.scratchpadConfig = window.serializeScratchpad();
+        }, 0);
+    }
+});
         
         // Disable spellcheck explicitly on the element to reduce squiggly lines on code
         editorEl.setAttribute('spellcheck', 'false');
