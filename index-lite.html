@@ -101,6 +101,7 @@ a{color:var(--l)}
  </div>
 </div>
 <div id="T" class="T">Copied</div>
+<script src="package-catalog.js"></script>
 <script>
 const Cfg={O:"zenos-n",R:"zenpkgs",B:"json"},St={d:null,v:[],sv:null};
 const El=(t,c,i)=>{const e=document.createElement(t);if(c)e.className=c;if(i)e.innerHTML=i;return e};
@@ -113,13 +114,13 @@ async function init(){
    const x=new DOMParser().parseFromString(await(await fetch(`https://github.com/${Cfg.O}/${Cfg.R}/releases.atom`)).text(),"text/xml");
    St.v=Array.from(x.querySelectorAll("entry>title")).map(t=>t.textContent.trim());
   }catch(e){}
-  m.options||m.pkgs?(St.d=m,St.sv="Latest",rend(m)):ldV(m.latest);
+  m.options||m.pkgs?(St.d=PackageCatalog.normalize(m),St.sv="Latest",rend(St.d)):ldV(m.latest);
   uVer();uCr('');defSb();
  }catch(e){Id('rt').innerHTML='Load Error';}
 }
 async function ldV(v){
  Id('rt').innerHTML='<div class="S"></div>';Id('sb').innerHTML='';
- try{St.d=await(await fetch(`https://raw.githubusercontent.com/${Cfg.O}/${Cfg.R}/${Cfg.B}/${v}.json`)).json();St.sv=v;rend(St.d);uVer();uCr('')}catch(e){Id('rt').innerText='Err'}
+ try{St.d=await(await fetch(`https://raw.githubusercontent.com/${Cfg.O}/${Cfg.R}/${Cfg.B}/${v}.json`)).json();St.d=PackageCatalog.normalize(St.d);St.sv=v;rend(St.d);uVer();uCr('')}catch(e){Id('rt').innerText='Err'}
 }
 function uVer(){
  Id('cv').innerText=St.sv;const c=Id('vL');c.innerHTML='';
@@ -128,6 +129,7 @@ function uVer(){
  if(St.v.length)St.v.forEach(v=>add(v));
 }
 function rend(d,q=''){
+ d=PackageCatalog.normalize(d);
  const r=Id('rt');r.innerHTML='';
  const cats=[{k:'options',l:'Options'},{k:'pkgs',l:'Packages'},{k:'maintainers',l:'Maintainers'}];
  cats.forEach(c=>{
@@ -137,7 +139,7 @@ function rend(d,q=''){
      if(!Object.keys(f).length)return;
      r.append(El('div','g',c.l));const g=El('div','cg');rM(f,g);r.append(g);return;
   }
-  if(q && !match(d[c.k],q)) return;
+  if(q && !(c.k==='pkgs'?Object.entries(d.pkgs).some(([k,n])=>PackageCatalog.matches(k,n,q)):match(d[c.k],q))) return;
   r.append(El('div','g',c.l));const box=c.k==='maintainers'?El('div','cg'):El('div','t');
   c.k==='maintainers'?rM(d[c.k],box):rT(d[c.k],box,'',c.k,q);
   r.append(box);
@@ -149,7 +151,7 @@ function rM(l,c){
 function match(n,q){return Object.keys(n).some(k=>k.toLowerCase().includes(q)||(n[k].sub&&match(n[k].sub,q)))}
 function rT(n,c,p,t,q){
  Object.keys(n).sort().forEach(k=>{
-  const node=n[k],cp=p?`${p}.${k}`:k,hs=node.sub&&Object.keys(node.sub).length>0,sm=cp.toLowerCase().includes(q),cm=hs&&match(node.sub,q);
+  const node=n[k],cp=p?`${p}.${k}`:k,hs=node.sub&&Object.keys(node.sub).length>0,sm=t==='pkgs'?PackageCatalog.matches(k,node,q):cp.toLowerCase().includes(q),cm=hs&&match(node.sub,q);
   if(q&&!sm&&!cm)return;
   const w=El('div','tw'),row=El('div','r');
   const ic=El('div',`rd ${hs?'':'l'}`,hs?'▶':'●'),tx=El('div','rl');tx.textContent=k;row.append(ic,tx);
@@ -160,8 +162,9 @@ function rT(n,c,p,t,q){
  });
 }
 function insp(p,m,t){
- const b=Id('sb');b.innerHTML='';const ib=El('div','id');ib.textContent=p;ib.title=p;ib.onclick=()=>nav.cb(p);const c=El('div','',`<div class="g">ID</div>`);c.append(ib);
+ const b=Id('sb');b.innerHTML='';const ib=El('div','id');ib.textContent=t==='pkgs'?m?.id||`pkgs.${p}`:p;ib.title=p;ib.onclick=()=>nav.cb(ib.textContent);const c=El('div','',`<div class="g">ID</div>`);c.append(ib);
  if(m){
+  const category=PackageCatalog.categories(m).join(" · ");if(category){const el=El("div","md");el.textContent=category;c.append(El("div","g","Category"),el)}
   if(m.description)c.append(El('div','g','Desc'),El('div','md',m.description));
   if(m.maintainers){const md=El('div','cg');md.style.padding='0 12px';m.maintainers.forEach(mn=>{const ch=El('div','ch',mn);ch.onclick=(e)=>hov(mn,St.d?.maintainers?.[mn]||{name:mn},e.target);md.append(ch)});c.append(El('div','g','Maint'),md)}
   if(m.longDescription)c.append(El('div','g','Docs'),El('div','md',marked.parse(m.longDescription)));
@@ -172,7 +175,7 @@ function uCr(p,t){
  const c=Id('c');c.innerHTML='';
  const add=(l,fn,a)=>{const b=El('div','n '+(a?'a':''));b.textContent=l;if(fn)b.onclick=fn;c.append(b);if(!a)c.append(El('span','','›'))};
  add('root',defSb);
- if(p){add(t,()=>insp(t,{description:`Root of ${t}`},t));const pts=p.split('.');const pt=[];pts.forEach((x,i)=>{pt.push(x);const cp=pt.join('.');add(x,i<pts.length-1?()=>insp(cp,St.d[t],t):null,i===pts.length-1)})}
+ if(p){add(t,()=>insp(t,{description:`Root of ${t}`},t));const pts=t==='pkgs'?[p]:p.split('.');const pt=[];pts.forEach((x,i)=>{pt.push(x);const cp=pt.join('.');add(x,i<pts.length-1?()=>insp(cp,St.d[t],t):null,i===pts.length-1)})}
 }
 function defSb(){uCr('');Id('sb').innerHTML='<div style="text-align:center;color:var(--t2);padding-top:60px"><h3>ZenPkgs</h3><p>Select an item</p></div>'}
 function tog(i,cls){Id(i).classList.toggle(cls||'v')}

@@ -1725,7 +1725,8 @@
     <div id="maintainer-popup" class="popover-inner common-popover"><div class="popup-arrow" id="mp-arrow"></div><div id="mp-content" style="padding: 16px; gap: 10px; display: flex;flex-direction: column;"></div></div>
     <div id="toast">Copied to Clipboard</div>
 
-    <script>
+    <script src="package-catalog.js"></script>
+<script>
         window.serializeScratchpad = () => {
     const editor = document.getElementById('scratchpad-editor');
     if (!editor) return "";
@@ -1800,7 +1801,7 @@ window.openMobileSheet = () => {
         window.addEventListener('resize', () => {
             // If we're resizing to desktop size, ensure the sheet is closed
             if (window.innerWidth > 768) {
-                closeMobileSheet();
+                closeAllSheets();
             }
             renderDashboardWidgets(document.getElementById('registry-root'));
         });
@@ -2054,7 +2055,7 @@ window.toggleDiffSelectionMode = () => {
                         activateDiff(jsonData, `Local File (${file.name})`);
                     } else {
                         // NORMAL MODE: View Uploaded
-                        state.data = jsonData;
+                        state.data = PackageCatalog.normalize(jsonData);
                         state.selectedVersion = `Local: ${file.name}`;
                         renderRegistry(jsonData);
                         updateBreadcrumbs();
@@ -2077,7 +2078,7 @@ window.toggleDiffSelectionMode = () => {
             input.value = ''; // Reset
         };
 function activateDiff(baseData, label) {
-            state.diffBaseData = baseData;
+            state.diffBaseData = PackageCatalog.normalize(baseData);
             state.diffBaseVersion = label;
             state.diffMode = true;
             
@@ -2132,7 +2133,7 @@ function activateDiff(baseData, label) {
                     await dataStore.setItem(`version_${targetVer}`, baseData);
                 }
 
-                state.diffBaseData = baseData;
+                state.diffBaseData = PackageCatalog.normalize(baseData);
                 state.diffBaseVersion = targetVer;
                 state.diffMode = true;
                 
@@ -2149,6 +2150,7 @@ function activateDiff(baseData, label) {
         function resolveNode(root, type, path) {
             if (!root || !root[type]) return null;
             if (path === "") return root[type]; // Root of category
+            if (Object.hasOwn(root[type], path)) return root[type][path];
             
             const parts = path.split('.');
             let current = root[type];
@@ -3460,6 +3462,7 @@ window.renderScratchpad = () => {
         }
 
         function openInspector(path, meta, type) {
+            const publicId = type === 'pkgs' ? meta?.id || `pkgs.${path}` : path;
             state.currentMeta = meta; 
             const isFav = state.favorites.includes(`${type}:${path}`);
             const body = document.getElementById('sidebar-body');
@@ -3494,12 +3497,12 @@ window.renderScratchpad = () => {
                 </div>
                 <div class="adw-group" style="margin: 0 12px 24px 12px;">
                     <div class="adw-row" style="flex-direction: column; align-items: flex-start; gap: 12px; border-bottom:none;">
-                        <div style="font-family:var(--font-mono); font-size:0.85rem; word-break:break-all;" id="inspector-id-text">${path}</div>
+                        <div style="font-family:var(--font-mono); font-size:0.85rem; word-break:break-all;" id="inspector-id-text">${escapeHTML(publicId)}</div>
                         <div style="display:flex; gap:8px; width:100%; justify-content:center;">
                              <div class="maintainer-chip" style="background:var(--accent-bg); color:var(--accent-fg); flex:0 0 auto; min-width:140px; justify-content:center; text-align:center" onclick="addToScratchpad('${path}', '${type}')">
                                 + Add to Scratchpad
                              </div>
-                             <div class="maintainer-chip" style="background:var(--accent-bg); color:var(--accent-fg); flex:0 0 auto; min-width:100px; justify-content:center; text-align:center" onclick="copyToClipboard('${path}')">
+                             <div class="maintainer-chip" style="background:var(--accent-bg); color:var(--accent-fg); flex:0 0 auto; min-width:100px; justify-content:center; text-align:center" id="inspector-copy-id">
                                 Copy ID
                              </div>
                         </div>
@@ -3552,7 +3555,12 @@ window.renderScratchpad = () => {
                 
                 if (longDesc) html += `<div class="adw-group-title" style="margin-left:24px;">Documentation</div><div class="markdown-body" style="margin: 0 12px 24px 12px;">${marked.parse(longDesc)}</div>`;
             }
+            if (type === 'pkgs' && meta) {
+                const category = PackageCatalog.categories(meta).map(escapeHTML).join('<br>');
+                if (category) html += `<div class="adw-group-title">Category</div><div class="adw-group"><div class="adw-row">${category}</div></div>`;
+            }
             body.innerHTML = html;
+            document.getElementById('inspector-copy-id').addEventListener('click', () => copyToClipboard(publicId));
         }
 
         // --- GLOBAL EXPORTS ---
@@ -3852,7 +3860,7 @@ window.renderScratchpad = () => {
             initialMeta = await metaRes.json();
             
             if (initialMeta.options || initialMeta.pkgs) {
-                state.data = initialMeta;
+                state.data = PackageCatalog.normalize(initialMeta);
                 state.selectedVersion = "Latest Commit"; 
                 renderRegistry(initialMeta);
             } else {
@@ -3869,7 +3877,7 @@ window.renderScratchpad = () => {
                     const path = decodeURIComponent(rawPath);
                     
                     if (type && path && state.data[type]) {
-                        const pathParts = path.split('.');
+                        const pathParts = type === 'pkgs' && state.data.pkgs[path] ? [path] : path.split('.');
                         let current = state.data[type];
                         let isValid = true;
                         
@@ -3959,7 +3967,7 @@ window.renderScratchpad = () => {
                     data = await res.json();
                     await dataStore.setItem(`version_${v}`, data);
                 }
-                state.data = data;
+                state.data = PackageCatalog.normalize(data);
                 state.selectedVersion = v;
                 renderRegistry(data);
                 updateVersionUI();
@@ -4016,6 +4024,7 @@ window.renderScratchpad = () => {
         };
 
         function renderRegistry(data) {
+            data = PackageCatalog.normalize(data);
             const root = document.getElementById('registry-root');
             root.innerHTML = '';
             renderDashboardWidgets(root);
@@ -4322,11 +4331,11 @@ function getSearchTreeItems(nodes, type, query) {
         Object.keys(currentNodes).forEach(key => {
             const node = currentNodes[key];
             const path = currentPath ? `${currentPath}.${key}` : key;
-            const isMatch = key.toLowerCase().includes(lowerQuery);
+            const isMatch = type === 'pkgs' ? PackageCatalog.matches(key, node, lowerQuery) : key.toLowerCase().includes(lowerQuery);
 
             if (isMatch) {
                 // Mark this path and all its parents for inclusion
-                const parts = path.split('.');
+                const parts = type === 'pkgs' ? [path] : path.split('.');
                 let acc = "";
                 parts.forEach((part, i) => {
                     acc = i === 0 ? part : `${acc}.${part}`;
@@ -4351,7 +4360,7 @@ function getSearchTreeItems(nodes, type, query) {
             if (includedPaths.has(path)) {
                 const node = currentNodes[key];
                 const hasSub = node.sub && Object.keys(node.sub).length > 0;
-                const isActualMatch = key.toLowerCase().includes(lowerQuery);
+                const isActualMatch = type === 'pkgs' ? PackageCatalog.matches(key, node, lowerQuery) : key.toLowerCase().includes(lowerQuery);
 
                 resultItems.push({
                     key: key,
@@ -4386,7 +4395,7 @@ function renderFilteredTree(nodes, container, path, type, query) {
             const lowerPath = nextPath.toLowerCase();
             const lowerQuery = query.toLowerCase();
 
-            const isMatch = lowerPath.includes(lowerQuery);
+            const isMatch = type === 'pkgs' ? PackageCatalog.matches(key, node, lowerQuery) : lowerPath.includes(lowerQuery);
             const hasSub = node.sub && Object.keys(node.sub).length > 0;
             
             let childrenMatch = false;
@@ -4415,7 +4424,7 @@ function renderFilteredTree(nodes, container, path, type, query) {
     // allowing the internal row.onclick to work
     // This covers the logic inside both renderFilteredTree and the search-input listeners
 // --- FIX FOR DESKTOP SEARCH RENDERER ---
-const scroller = new VirtualScroller(container, branchItems, 44, (row, item) => {
+const scroller = new VirtualScroller(container, flatItems, 44, (row, item) => {
     row.style.paddingLeft = `${16 + (item.level * 20)}px`;
     
     // --- FORCE DATASET ATTACHMENT ---
@@ -4444,8 +4453,9 @@ const scroller = new VirtualScroller(container, branchItems, 44, (row, item) => 
         row.classList.add('selected');
     }
 }, (ev, item, row) => {
-    // Click handler
+    // Show the selected search result in the mobile details sheet.
     selectNode(row, item.path, item.data, item.type, null, item.hasSub);
+    if (window.innerWidth < 768) openMobileSheet();
 });
 
     return scroller;
@@ -4501,7 +4511,7 @@ document.getElementById('search-input').addEventListener('input', (e) => {
         row.dataset.hasSub = item.hasSub;
                 
                 let labelHTML = escapeHTML(item.key);
-                if (item.isMatch) {
+                if (item.isMatch && item.key.toLowerCase().includes(query)) {
                     const idx = item.key.toLowerCase().indexOf(query);
                     labelHTML = item.key.substring(0, idx) + 
                                `<b>${item.key.substring(idx, idx + query.length)}</b>` + 
@@ -4701,7 +4711,7 @@ document.getElementById('search-input-mobile').addEventListener('input', (e) => 
                 return;
             }
 
-            const parts = path.split('.');
+            const parts = type === 'pkgs' && state.data.pkgs[path] ? [path] : path.split('.');
             let currentPath = '';
 
             for (let i = 0; i < parts.length; i++) {
@@ -4720,7 +4730,7 @@ document.getElementById('search-input-mobile').addEventListener('input', (e) => 
                 if (i === parts.length - 1) {
                     const hasSub = row.dataset.hasSub === 'true';
                     row.scrollIntoView({ behavior: 'auto', block: 'center' });
-                    selectNode(row, currentPath, null, type, row.closest('.tree-node-wrapper'), hasSub);
+                    selectNode(row, currentPath, resolveNode(state.data, type, currentPath), type, row.closest('.tree-node-wrapper'), hasSub);
                 } else {
                     const wrapper = row.closest('.tree-node-wrapper');
                     const childrenWrapper = wrapper.querySelector('.tree-children-wrapper');
@@ -5109,7 +5119,7 @@ if (combo === kb.bottom) {
             container.innerHTML += `<span class="crumb-sep">›</span><div class="crumb-btn" onclick="navigateToPath('', '${type}')">${escapeHTML(type)}</div>`;
             
             let currentAcc = [];
-            path.split('.').forEach((part, i, arr) => {
+            (type === 'pkgs' ? [path] : path.split('.')).forEach((part, i, arr) => {
                 currentAcc.push(part);
                 const fullPath = currentAcc.join('.');
                 const activeClass = i === arr.length - 1 ? 'active' : '';
@@ -5130,7 +5140,7 @@ if (combo === kb.bottom) {
             reader.onload = (e) => {
                 try {
                     const data = JSON.parse(e.target.result);
-                    state.data = data;
+                    state.data = PackageCatalog.normalize(data);
                     state.selectedVersion = "Local File";
                     renderRegistry(data);
                     updateVersionUI();
@@ -5577,6 +5587,10 @@ if (combo === kb.bottom) {
         };
 
         window.goToParent = (path, type) => {
+            if (type === 'pkgs') {
+                window.navigateToPath(null, null);
+                return;
+            }
             if (!path.includes('.')) {
                 window.navigateToPath('', type);
             } else {
