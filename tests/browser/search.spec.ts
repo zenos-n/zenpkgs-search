@@ -28,8 +28,16 @@ const fixture = {
 		}
 	},
 	options: {
-		'programs.gnosis.enable': {
-			meta: { type: 'boolean', default: false, description: 'Install Gnosis' }
+		programs: {
+			sub: {
+				gnosis: {
+					sub: {
+						enable: {
+							meta: { type: 'boolean', default: false, description: 'Install Gnosis' }
+						}
+					}
+				}
+			}
 		}
 	},
 	maintainers: { doromiert: { name: 'doromiert', github: 'doromiert' } }
@@ -62,6 +70,10 @@ test('canonical package, search, scratchpad, and settings work without page erro
 	await page.getByRole('button', { name: 'Settings and news' }).click();
 	await page.getByLabel('Theme').selectOption('light');
 	await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
+	await page.getByRole('button', { name: 'Close' }).click();
+	await page.getByRole('searchbox', { name: 'Search registry' }).fill('');
+	await page.getByRole('button', { name: 'Options' }).click();
+	await expect(page.locator('.tree-row')).toContainText('programs.gnosis.enable');
 	expect(errors).toEqual([]);
 });
 

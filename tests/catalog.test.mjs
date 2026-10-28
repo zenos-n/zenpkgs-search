@@ -49,3 +49,12 @@ test('old nested catalogs and distinct IDs remain usable', () => {
   assert.equal(catalog.normalize(undefined), undefined);
 });
 
+test('nested production options become searchable leaves', () => {
+  const options = { users: { sub: { '<name>': { sub: { programs: { sub: {
+    gnosis: { sub: { enable: { meta: { type: 'boolean', description: 'Install Gnosis' } } } }
+  } } } } } } };
+  const entries = catalog.flattenOptions(options);
+  assert.deepEqual(entries.map(([id]) => id), ['users.<name>.programs.gnosis.enable']);
+  assert.equal(catalog.matches(entries[0][0], entries[0][1], 'GNOSIS'), true);
+});
+

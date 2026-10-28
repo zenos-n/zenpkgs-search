@@ -22,6 +22,22 @@ export interface Catalog {
 	[key: string]: unknown;
 }
 
+export function flattenOptions(
+	nodes: Record<string, CatalogNode> | undefined
+): Array<[string, CatalogNode]> {
+	const entries: Array<[string, CatalogNode]> = [];
+	function visit(children: Record<string, CatalogNode> | undefined, prefix: string[] = []): void {
+		for (const [key, node] of Object.entries(children || {})) {
+			if (!node || typeof node !== 'object') continue;
+			const path = [...prefix, key];
+			if (node.sub && Object.keys(node.sub).length) visit(node.sub, path);
+			else if (node.meta) entries.push([path.join('.'), node]);
+		}
+	}
+	visit(nodes);
+	return entries;
+}
+
 export function categories(meta: CatalogMeta): string[] {
 	return (meta.categoryPaths || [meta.categoryPath || meta.categoryTarget])
 		.filter((parts): parts is string[] => Array.isArray(parts))

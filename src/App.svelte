@@ -3,7 +3,14 @@
 	import { marked } from 'marked';
 	import DOMPurify from 'dompurify';
 	import localforage from 'localforage';
-	import { normalize, matches, categories, type Catalog, type CatalogMeta } from './lib/catalog';
+	import {
+		normalize,
+		matches,
+		categories,
+		flattenOptions,
+		type Catalog,
+		type CatalogMeta
+	} from './lib/catalog';
 	import { loadLatest, loadVersion, listVersions } from './lib/registry';
 
 	type Entry = {
@@ -122,9 +129,7 @@
 		const output: Entry[] = [];
 		for (const [id, node] of Object.entries(normalized.pkgs || {}))
 			output.push({ id: `pkgs.${id}`, kind: 'Package', meta: node.meta || {}, node });
-		for (const [id, node] of Object.entries(
-			(data.options || {}) as Record<string, { meta?: CatalogMeta }>
-		))
+		for (const [id, node] of flattenOptions(data.options as Record<string, { meta?: CatalogMeta }>))
 			output.push({ id, kind: 'Option', meta: node?.meta || {}, node });
 		for (const [id, value] of Object.entries(
 			(data.maintainers || {}) as Record<string, CatalogMeta>
