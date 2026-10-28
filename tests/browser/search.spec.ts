@@ -94,4 +94,8 @@ test('large catalog keeps DOM rows bounded', async ({ page }) => {
 	await page.getByRole('button', { name: 'Options' }).click();
 	await expect(page.locator('.count')).toHaveText('10,000 entries');
 	expect(await page.locator('.tree-row').count()).toBeLessThan(100);
+	await page
+		.locator('.tree-scroll')
+		.evaluate((element) => (element.scrollTop = element.scrollHeight));
+	await expect(page.locator('.tree-row').last()).toContainText('stress.option.9999');
 });
