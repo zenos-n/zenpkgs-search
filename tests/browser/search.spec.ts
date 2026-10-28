@@ -24,7 +24,7 @@ test('canonical package, search, scratchpad, and settings work without page erro
   await page.locator('.tree-row').click();
   await expect(page.getByText('Native Figma client')).toBeVisible();
   await page.getByRole('button', { name: '+ Scratchpad' }).click();
-  await expect(page.locator('textarea.scratchpad')).toContainText('com.neg-zero.select-for-figma');
+  await expect(page.locator('textarea.scratchpad')).toHaveValue(/com\.neg-zero\.select-for-figma/);
   await page.getByRole('button', { name: 'Close' }).click();
   await page.getByRole('button', { name: 'Settings and news' }).click();
   await page.getByLabel('Theme').selectOption('light');

@@ -80,6 +80,12 @@
     entries = flatten(data);
     currentVersion = label;
     selected = entries.find(e => e.id === selected?.id) || null;
+    const deepLink = decodeURIComponent(location.hash.slice(1));
+    if (deepLink) {
+      const [kind, ...parts] = deepLink.split(':');
+      const id = parts.join(':');
+      selected = entries.find(e => e.kind.toLowerCase() === (kind === 'pkgs' ? 'package' : kind === 'options' ? 'option' : 'maintainer') && e.id === (kind === 'pkgs' && !id.startsWith('pkgs.') ? `pkgs.${id}` : id)) || selected;
+    }
     loading = false;
     error = '';
     status = `${entries.length.toLocaleString()} entries loaded`;
@@ -104,7 +110,7 @@
     } catch (e) { error = e instanceof Error ? e.message : String(e); }
   }
   function chooseSection(value: typeof section) { section = value; scrollTop = 0; if (scroller) scroller.scrollTop = 0; mobileSidebar = false; modal = ''; }
-  function select(entry: Entry) { selected = entry; recents = [entry.id, ...recents.filter(id => id !== entry.id)].slice(0, 30); save('zenpkgs-search-recents', recents); aiText = ''; mobileSidebar = false; }
+  function select(entry: Entry) { selected = entry; const kind = entry.kind === 'Package' ? 'pkgs' : entry.kind === 'Option' ? 'options' : 'maintainers'; history.replaceState(null, '', `#${kind}:${encodeURIComponent(entry.kind === 'Package' ? entry.id.slice(5) : entry.id)}`); recents = [entry.id, ...recents.filter(id => id !== entry.id)].slice(0, 30); save('zenpkgs-search-recents', recents); aiText = ''; mobileSidebar = false; }
   function toggleFavorite() { if (!selected) return; favorites = favorites.includes(selected.id) ? favorites.filter(id => id !== selected?.id) : [...favorites, selected.id]; save('zenpkgs-search-favorites', favorites); }
   function rememberSearch() { if (!query.trim()) return; searchHistory = [query.trim(), ...searchHistory.filter(s => s !== query.trim())].slice(0, 12); save('zenpkgs-search-searches', searchHistory); }
   function focusSearch() { modal = ''; tick().then(() => searchInput?.focus()); }

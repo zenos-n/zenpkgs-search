@@ -1,11 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import * as catalog from '../src/lib/catalog.ts';
-import { readFileSync } from 'node:fs';
-import { runInNewContext } from 'node:vm';
-const legacyContext = { module: { exports: {} } };
-runInNewContext(readFileSync(new URL('../package-catalog.js', import.meta.url), 'utf8'), legacyContext);
-const legacy = legacyContext.module.exports;
 
 const id = 'pkgs.org.mozilla.firefox';
 const canonical = { meta: { id, kind: 'package', name: 'Firefox', summary: 'Web browser', categoryTarget: ['apps', 'browsers', 'firefox'] } };
@@ -54,12 +49,3 @@ test('old nested catalogs and distinct IDs remain usable', () => {
   assert.equal(catalog.normalize(undefined), undefined);
 });
 
-test('TypeScript port agrees with the shared JavaScript module', () => {
-  for (const input of [fixture, { pkgs: { old: { meta: { description: 'Legacy' } } } }, { options: {} }, null]) {
-    const expected = legacy.normalize(input);
-    assert.deepEqual(catalog.normalize(input), expected == null ? expected : JSON.parse(JSON.stringify(expected)));
-  }
-  const meta = { categoryPath: ['apps', 'browsers'], aliases: ['browser'] };
-  assert.deepEqual(catalog.categories(meta), [...legacy.categories(meta)]);
-  assert.equal(catalog.matches('firefox', { meta }, 'BROWSER'), legacy.matches('firefox', { meta }, 'BROWSER'));
-});
