@@ -49,12 +49,19 @@ async function getJson(url: string, options: RegistryOptions): Promise<unknown> 
 }
 
 export async function loadLatest(options: RegistryOptions = {}): Promise<Catalog> {
-  const value = await getJson(`${raw}/latestCommit.json`, options);
-  if (isObject(value) && (isObject(value.pkgs) || isObject(value.options))) return asCatalog(value);
-  if (isObject(value) && typeof value.latest === 'string' && value.latest && value.latest !== 'latestCommit') {
-    return loadVersion(value.latest, options);
+  const cache = await cacheFor(options);
+  try {
+    const value = await getJson(`${raw}/latestCommit.json`, options);
+    const catalog = isObject(value) && typeof value.latest === 'string' && value.latest && value.latest !== 'latestCommit'
+      ? await loadVersion(value.latest, options) : asCatalog(value);
+    await cache.setItem('latest_catalog', catalog);
+    return catalog;
+  } catch (error) {
+    options.signal?.throwIfAborted();
+    const saved = await cache.getItem<unknown>('latest_catalog');
+    if (saved !== null) return asCatalog(saved);
+    throw error;
   }
-  throw new Error('Invalid registry JSON');
 }
 
 export async function loadVersion(ref: string, options: RegistryOptions = {}): Promise<Catalog> {

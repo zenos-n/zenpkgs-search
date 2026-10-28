@@ -59,6 +59,17 @@ test('version JSON is cached and an HTTP error is propagated', async () => {
   } finally { globalThis.fetch = previous; }
 });
 
+test('latest registry falls back to the last valid catalog when offline', async () => {
+  const { cache } = fixture();
+  const previous = globalThis.fetch;
+  globalThis.fetch = async () => Response.json(catalog);
+  try {
+    assert.deepEqual(await loadLatest({ cache }), catalog);
+    globalThis.fetch = async () => { throw new Error('offline'); };
+    assert.deepEqual(await loadLatest({ cache }), catalog);
+  } finally { globalThis.fetch = previous; }
+});
+
 test('release tags fall back to cache on network failure, while abort propagates', async () => {
   const { cache, values } = fixture();
   const previous = globalThis.fetch;

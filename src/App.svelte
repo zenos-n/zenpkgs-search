@@ -25,6 +25,8 @@
   let loading = true;
   let error = '';
   let status = '';
+  let statusTimer: ReturnType<typeof setTimeout> | undefined;
+  function announce(message: string) { status = message; clearTimeout(statusTimer); statusTimer = setTimeout(() => status = '', 4000); }
   let scrollTop = 0;
   let viewportHeight = 600;
   let scroller: HTMLDivElement;
@@ -88,7 +90,7 @@
     }
     loading = false;
     error = '';
-    status = `${entries.length.toLocaleString()} entries loaded`;
+    announce(`${entries.length.toLocaleString()} entries loaded`);
   }
   async function refresh() {
     loading = true; error = '';
@@ -124,19 +126,19 @@
     if (!style) { style = document.createElement('style'); style.id = 'custom-css'; document.head.append(style); }
     style.textContent = prefs.customCss;
   }
-  async function copy(value: string) { try { await navigator.clipboard.writeText(value); status = 'Copied to clipboard'; } catch { status = 'Clipboard unavailable; select and copy the text manually'; } }
+  async function copy(value: string) { try { await navigator.clipboard.writeText(value); announce('Copied to clipboard'); } catch { announce('Clipboard unavailable; select and copy the text manually'); } }
   function addToScratchpad() {
     if (!selected) return;
     const line = selected.kind === 'Package' ? `  ${selected.id.replace(/^pkgs\./, '')}` : `  ${selected.id} = ${optionValue || (selected.meta.default ? String(selected.meta.default) : 'true')};`;
     if (selected.kind === 'Package') scratchpad = scratchpad.replace(/(environment\.systemPackages\s*=\s*with pkgs;\s*\[)/, `$1\n${line}`);
     else scratchpad += `\n${line}\n`;
-    save('zenpkgs-search-scratchpad', scratchpad); status = 'Added to scratchpad'; modal = 'scratchpad';
+    save('zenpkgs-search-scratchpad', scratchpad); announce('Added to scratchpad'); modal = 'scratchpad';
   }
   async function openNews() {
     modal = 'news';
     if (news.length) return;
     try { const response = await fetch('https://raw.githubusercontent.com/zenos-n/zenpkgs/news/latest.json'); if (response.ok) { const body = await response.json(); news = Array.isArray(body) ? body : [{ title: body.title, body: body.content, date: body.date }]; } }
-    catch { status = 'News is unavailable right now'; }
+    catch { announce('News is unavailable right now'); }
   }
   async function explain() {
     if (!selected || !prefs.geminiKey) { modal = 'settings'; return; }
@@ -195,7 +197,7 @@
     const resize = new ResizeObserver(() => { if (scroller) viewportHeight = scroller.clientHeight; });
     if (scroller) resize.observe(scroller);
     window.addEventListener('keydown', onKey);
-    return () => { resize.disconnect(); window.removeEventListener('keydown', onKey); };
+    return () => { resize.disconnect(); clearTimeout(statusTimer); window.removeEventListener('keydown', onKey); };
   });
 </script>
 
