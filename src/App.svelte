@@ -29,7 +29,7 @@
 		geminiKey: string;
 	};
 	const defaults: Preferences = {
-		theme: 'system',
+		theme: 'dark',
 		accent: '#9b75d6',
 		reduceMotion: false,
 		customCss: '',
@@ -193,10 +193,14 @@
 	}
 	function chooseSection(value: typeof section) {
 		section = value;
-		scrollTop = 0;
-		if (scroller) scroller.scrollTop = 0;
+		query = '';
+		resetScroll();
 		mobileSidebar = false;
 		modal = '';
+	}
+	function resetScroll() {
+		scrollTop = 0;
+		if (scroller) scroller.scrollTop = 0;
 	}
 	function select(entry: Entry) {
 		selected = entry;
@@ -272,8 +276,7 @@
 		announce('Added to scratchpad');
 		modal = 'scratchpad';
 	}
-	async function openNews() {
-		modal = 'news';
+	async function loadNews() {
 		if (news.length) return;
 		try {
 			const response = await fetch(
@@ -288,6 +291,10 @@
 		} catch {
 			announce('News is unavailable right now');
 		}
+	}
+	function openNews() {
+		modal = 'news';
+		void loadNews();
 	}
 	async function explain() {
 		if (!selected || !prefs.geminiKey) {
@@ -433,6 +440,7 @@
 	}
 	onMount(() => {
 		applyPrefs();
+		void loadNews();
 		void migrateLegacySettings().then(() => {
 			refresh();
 			listVersions({ token: prefs.githubToken })
@@ -455,22 +463,52 @@
 <svelte:head><title>{selected ? `${selected.id} · ZenPkgs` : 'ZenPkgs Search'}</title></svelte:head>
 <div class="app">
 	<header class="topbar">
+		<button class="icon-button search-toggle" aria-label="Focus search" onclick={focusSearch}
+			><svg
+				width="16"
+				height="16"
+				viewBox="0 0 24 24"
+				fill="none"
+				stroke="currentColor"
+				stroke-width="2.5"
+				aria-hidden="true"><circle cx="11" cy="11" r="8" /><path d="m21 21-4.35-4.35" /></svg
+			></button
+		>
 		<button
 			class="icon-button mobile-menu"
 			aria-label="Open navigation"
 			onclick={() => (mobileSidebar = !mobileSidebar)}>☰</button
 		>
-		<div class="brand"><span class="brand-mark">◈</span><span>ZenPkgs</span></div>
+		<div class="brand">
+			<svg
+				class="brand-mark"
+				width="16"
+				height="16"
+				viewBox="0 0 16 16"
+				fill="none"
+				stroke="currentColor"
+				stroke-width="1.5"
+				aria-hidden="true"
+				><circle cx="12.5" cy="3.5" r="2.75" /><circle cx="12.5" cy="12.5" r="2.75" /><circle
+					cx="3.5"
+					cy="8"
+					r="2.75"
+				/></svg
+			><span>ZenPkgs</span>
+		</div>
 		<div class="search-wrap">
 			<input
 				bind:this={searchInput}
 				bind:value={query}
+				oninput={resetScroll}
 				onkeydown={(e) => {
 					if (e.key === 'Enter') rememberSearch();
 				}}
 				type="search"
 				aria-label="Search registry"
-				placeholder="Search registry…"
+				placeholder={selected && !query
+					? `zenpkgs  ›  ${selected.kind.toLowerCase()}  ›  ${selected.id.replace(/^pkgs\./, '')}`
+					: 'zenpkgs'}
 			/><kbd>/</kbd>
 		</div>
 		<button
@@ -550,9 +588,19 @@
 			</div>
 		</aside>
 		<main class="browser">
+			{#if section === 'Packages' && !query}<div class="home-groups">
+					<div class="group-label">Nix Options</div>
+					<div class="home-group">
+						{#each ['desktops', 'legacy', 'system', 'users'] as root}<button
+								onclick={() => {
+									chooseSection('Options');
+									query = root + '.';
+								}}><span class="group-chevron">▸</span>{root}</button
+							>{/each}
+					</div>
+				</div>{/if}
 			<div class="section-heading">
 				<div>
-					<span class="eyebrow">Registry</span>
 					<h1>{section}</h1>
 				</div>
 				<span class="count"
@@ -564,7 +612,11 @@
 				</div>{:else if error}<div class="empty error" role="alert">
 					{error} <button onclick={refresh}>Retry</button>
 				</div>{:else if !shown.length}<div class="empty">
-					No matching entries. {#if query}<button onclick={() => (query = '')}>Clear search</button
+					No matching entries. {#if query}<button
+							onclick={() => {
+								query = '';
+								resetScroll();
+							}}>Clear search</button
 						>{/if}
 				</div>{:else}
 				<div
@@ -583,8 +635,9 @@
 								aria-selected={selected?.id === entry.id}
 								onclick={() => select(entry)}
 								><span class="row-icon"
-									>{entry.kind === 'Package' ? '▣' : entry.kind === 'Option' ? '◇' : '♙'}</span
-								><span class="row-label">{entry.id}</span><span class="row-type">{entry.kind}</span
+									>{entry.kind === 'Package' ? '•' : entry.kind === 'Option' ? '▸' : '•'}</span
+								><span class="row-label">{entry.id.replace(/^pkgs\./, '')}</span><span
+									class="row-type">{entry.kind}</span
 								></button
 							>{/each}
 					</div>
@@ -593,18 +646,23 @@
 		</main>
 		<section class="inspector" aria-label="Entry details">
 			{#if selected}<div class="inspector-inner">
-					<div class="eyebrow">{selected.kind}</div>
+					<div class="identifier-heading">
+						<div class="eyebrow">Identifier</div>
+						<button onclick={toggleFavorite} aria-label="Toggle favorite" title="Toggle favorite"
+							>{favorites.includes(selected.id) ? '★' : '☆'}</button
+						>
+					</div>
 					<h2>{selected.meta.name || selected.id}</h2>
 					<p class="entry-id">{selected.id}</p>
 					<div class="inspector-actions">
-						<button onclick={toggleFavorite} title="Toggle favorite"
-							>{favorites.includes(selected.id) ? '★' : '☆'} Favorite</button
-						><button onclick={() => selected && copy(selected.id)}>Copy ID</button><button
-							onclick={addToScratchpad}>+ Scratchpad</button
+						<button onclick={addToScratchpad}>+ Add to Scratchpad</button><button
+							onclick={() => selected && copy(selected.id)}>Copy ID</button
 						>
 					</div>
-					{#if selected.meta.summary}<p class="summary">{selected.meta.summary}</p>{/if}
-					{#if selected.meta.description}<div class="markdown">
+					{#if selected.meta.summary}<div class="eyebrow">Description</div>
+						<p class="summary">{selected.meta.summary}</p>{/if}
+					{#if selected.meta.description}<div class="eyebrow">Documentation</div>
+						<div class="markdown">
 							{@html DOMPurify.sanitize(
 								marked.parse(String(selected.meta.description), { async: false }) as string
 							)}
@@ -645,9 +703,15 @@
 							</div>{/if}
 					</div>
 				</div>{:else}<div class="inspector-empty">
-					<span>◇</span>
-					<h2>Select an entry</h2>
-					<p>Browse packages, options, and maintainers from the ZenPkgs registry.</p>
+					<span>ⓘ</span>
+					<h2>ZenPkgs Explorer</h2>
+					<p>Select an option to view details.</p>
+					<button class="news-preview" onclick={openNews}
+						><span>NEW</span><strong>{news[0]?.title || 'Developer News'}</strong
+						>{#if news[0]?.date}<time>{news[0].date}</time>{/if}<small>Read Article →</small
+						></button
+					>
+					<p class="keyboard-hint">Ctrl+F to search<br />ArrowUp/ArrowDown to navigate</p>
 				</div>{/if}
 		</section>
 	</div>

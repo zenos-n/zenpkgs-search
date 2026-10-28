@@ -64,7 +64,7 @@ test('canonical package, search, scratchpad, and settings work without page erro
 	await page.getByRole('searchbox', { name: 'Search registry' }).fill('select');
 	await page.locator('.tree-row').click();
 	await expect(page.getByText('Native Figma client')).toBeVisible();
-	await page.getByRole('button', { name: '+ Scratchpad' }).click();
+	await page.getByRole('button', { name: '+ Add to Scratchpad' }).click();
 	await expect(page.locator('textarea.scratchpad')).toHaveValue(/com\.neg-zero\.select-for-figma/);
 	await page.getByRole('button', { name: 'Close' }).click();
 	await page.getByRole('button', { name: 'Settings and news' }).click();
@@ -72,6 +72,7 @@ test('canonical package, search, scratchpad, and settings work without page erro
 	await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
 	await page.getByRole('button', { name: 'Close' }).click();
 	await page.getByRole('searchbox', { name: 'Search registry' }).fill('');
+	await page.getByRole('button', { name: 'Open navigation' }).click();
 	await page.getByRole('button', { name: 'Options' }).click();
 	await expect(page.locator('.tree-row')).toContainText('programs.gnosis.enable');
 	expect(errors).toEqual([]);
@@ -91,6 +92,7 @@ test('large catalog keeps DOM rows bounded', async ({ page }) => {
 		(route) => route.fulfill({ json: many })
 	);
 	await page.goto('/');
+	await page.getByRole('button', { name: 'Open navigation' }).click();
 	await page.getByRole('button', { name: 'Options' }).click();
 	await expect(page.locator('.count')).toHaveText('10,000 entries');
 	expect(await page.locator('.tree-row').count()).toBeLessThan(100);
@@ -98,4 +100,6 @@ test('large catalog keeps DOM rows bounded', async ({ page }) => {
 		.locator('.tree-scroll')
 		.evaluate((element) => (element.scrollTop = element.scrollHeight));
 	await expect(page.locator('.tree-row').last()).toContainText('stress.option.9999');
+	await page.getByRole('searchbox', { name: 'Search registry' }).fill('stress.option.1');
+	await expect(page.locator('.tree-row').first()).toContainText('stress.option.1');
 });
