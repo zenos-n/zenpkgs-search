@@ -37,6 +37,6 @@ test('large catalog keeps DOM rows bounded', async ({ page }) => {
   await page.route('https://raw.githubusercontent.com/zenos-n/zenpkgs/json/latestCommit.json', route => route.fulfill({ json: many }));
   await page.goto('/');
   await page.getByRole('button', { name: 'Options' }).click();
-  await expect(page.getByText('10,000 entries')).toBeVisible();
+  await expect(page.locator('.count')).toHaveText('10,000 entries');
   expect(await page.locator('.tree-row').count()).toBeLessThan(100);
 });
