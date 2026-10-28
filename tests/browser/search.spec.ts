@@ -59,12 +59,18 @@ test('canonical package, search, scratchpad, and settings work without page erro
 	const errors: string[] = [];
 	page.on('pageerror', (error) => errors.push(error.message));
 	await page.goto('/');
-	await expect(page.locator('.tree-row')).toHaveCount(1);
+	await expect(page.locator('.tree-row')).toHaveCount(2);
+	await page.locator('.tree-row').filter({ hasText: 'By reverse DNS notation' }).click();
 	await expect(page.locator('.tree-row').filter({ hasText: 'select-for-figma' })).toBeVisible();
 	await page.getByRole('button', { name: 'Focus search' }).click();
 	await page.getByRole('searchbox', { name: 'Search registry' }).fill('select');
 	await page.locator('.tree-row').click();
 	await expect(page.getByText('Native Figma client')).toBeVisible();
+	await page.getByRole('button', { name: '+ Add to Scratchpad' }).click();
+	await expect(page.getByRole('textbox', { name: 'Scratchpad configuration' })).toHaveValue(
+		/com\.neg-zero\.select-for-figma/
+	);
+	await page.getByRole('button', { name: 'Clear scratchpad', exact: true }).click();
 	await page.getByRole('button', { name: '+ Add to Scratchpad' }).click();
 	await expect(page.getByRole('textbox', { name: 'Scratchpad configuration' })).toHaveValue(
 		/com\.neg-zero\.select-for-figma/
@@ -167,4 +173,36 @@ test('news creator, archive navigation, and option breadcrumbs work', async ({ p
 	await expect(page.locator('.news-article')).toContainText('Previous news');
 	await page.getByRole('button', { name: 'Back' }).click();
 	await expect(page.locator('.legacy-header h2')).toHaveText('News Archive');
+});
+
+test('category tree selects the canonical package', async ({ page }) => {
+	await page.goto('/');
+	await page.locator('.tree-row').filter({ hasText: 'By category' }).click();
+	for (const label of ['apps', 'graphics', 'select-for-figma'])
+		await page
+			.locator('.tree-row')
+			.filter({ has: page.locator(`.row-label:text-is("${label}")`) })
+			.click();
+	await expect(page.locator('.entry-id')).toHaveText('pkgs.com.neg-zero.select-for-figma');
+	await expect(page.locator('.inspector')).not.toContainText('Category');
+	await expect(page.locator('.inspector')).not.toContainText('Value for scratchpad');
+});
+
+test('release picker fetches registry versions and loads the selected catalog', async ({
+	page
+}) => {
+	await page.route('https://api.github.com/repos/zenos-n/zenpkgs/releases', (route) =>
+		route.fulfill({ json: [{ tag_name: 'v1' }, { tag_name: 'nzportable-maps-test' }] })
+	);
+	await page.route('https://raw.githubusercontent.com/zenos-n/zenpkgs/json/v1.json', (route) =>
+		route.fulfill({ json: fixture })
+	);
+	await page.goto('/');
+	await page.locator('.version-button').click();
+	await expect(
+		page.locator('.version-list').getByRole('button', { name: 'v1', exact: true })
+	).toBeVisible();
+	await expect(page.locator('.version-list')).not.toContainText('nzportable-maps-test');
+	await page.locator('.version-list').getByRole('button', { name: 'v1', exact: true }).click();
+	await expect(page.locator('.version-button')).toContainText('v1');
 });

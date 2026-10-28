@@ -32,9 +32,6 @@
 	width: min(400px, 100%);
 	text-align: center;
 }
-.legacy-window--about.about-wide {
-	width: min(760px, 100%);
-}
 .legacy-window--news {
 	width: min(600px, 100%);
 }
@@ -133,6 +130,9 @@
 .legacy-body > h3:first-child,
 .credits-page > h3:first-child {
 	margin-top: 24px;
+}
+.legacy-settings > h3:first-child {
+	margin-top: 0;
 }
 
 .legacy-group {
@@ -301,20 +301,34 @@ button.legacy-row:hover {
 	outline-offset: 2px;
 }
 
-.switch-input {
-	appearance: none;
+.switch-control {
 	position: relative;
+	display: block;
 	flex: 0 0 44px;
 	width: 44px;
 	height: 24px;
+}
+.switch-input {
+	position: absolute;
+	inset: 0;
+	z-index: 1;
+	width: 100%;
+	height: 100%;
 	margin: 0;
-	border-radius: 24px;
-	background: rgba(120, 120, 120, 0.35);
+	opacity: 0;
 	cursor: pointer;
+}
+.switch-toggle {
+	position: relative;
+	display: block;
+	width: 100%;
+	height: 100%;
+	border-radius: 24px;
+	background: rgba(120, 120, 120, 0.3);
 	transition-property: background-color;
 	transition-duration: 0.2s;
 }
-.switch-input::after {
+.switch-toggle::after {
 	position: absolute;
 	top: 2px;
 	left: 2px;
@@ -327,11 +341,18 @@ button.legacy-row:hover {
 	transition-property: transform;
 	transition-duration: 0.2s;
 }
-.switch-input:checked {
+.switch-input:checked + .switch-toggle {
 	background: var(--accent-bg);
 }
-.switch-input:checked::after {
+.switch-input:checked + .switch-toggle::after {
 	transform: translateX(20px);
+}
+.switch-input:focus-visible + .switch-toggle {
+	outline: 2px solid var(--accent-bg);
+	outline-offset: 2px;
+}
+.switch-row {
+	cursor: pointer;
 }
 
 .legacy-range {
@@ -433,7 +454,7 @@ button.legacy-row:hover {
 	fill: currentColor;
 }
 .about-main h1 {
-	margin: 0 0 12px;
+	margin: 0 0 8px;
 	font-size: 1.5rem;
 	font-weight: 800;
 	text-wrap: balance;
@@ -451,6 +472,15 @@ button.legacy-row:hover {
 .about-links {
 	text-align: left;
 }
+.about-chevron {
+	flex: none;
+	width: 16px;
+	height: 16px;
+	fill: none;
+	stroke: currentColor;
+	stroke-width: 2.5;
+	opacity: 0.5;
+}
 .about-links .legacy-row > span:last-child,
 .news-archive .legacy-row > span:last-child {
 	flex: none;
@@ -460,17 +490,32 @@ button.legacy-row:hover {
 .legal-page {
 	text-align: left;
 }
-.legal-page h3 {
-	margin: 0;
-	font-size: 1.25rem;
+.legal-page .markdown-body {
+	display: flex;
+	flex-direction: column;
+	gap: 14px;
 }
-.legal-page p {
-	color: var(--secondary-label);
-	line-height: 1.6;
-	text-wrap: pretty;
+.legal-page .markdown-body * {
+	margin: 0;
 }
 .credits-page {
+	font-size: 0.9rem;
 	text-align: left;
+}
+.credits-page > h3 {
+	letter-spacing: 0.5px;
+}
+.credits-page .legacy-row > span {
+	color: var(--secondary-label);
+	font-size: 0.85rem;
+}
+.credits-page .stacked-row {
+	align-items: flex-start;
+	gap: 4px;
+}
+.credits-page small {
+	margin: 0;
+	font-size: 0.8rem;
 }
 
 .news-heading {
@@ -607,7 +652,6 @@ button.legacy-row:hover {
 	}
 	.legacy-window,
 	.legacy-window--about,
-	.legacy-window--about.about-wide,
 	.legacy-window--news,
 	.legacy-window--keybinds {
 		width: 100%;
@@ -646,8 +690,8 @@ button.legacy-row:hover {
 		animation-iteration-count: 1;
 	}
 	.legacy-window,
-	.switch-input,
-	.switch-input::after,
+	.switch-toggle,
+	.switch-toggle::after,
 	.accent-circle {
 		transition-duration: 0.01ms;
 	}

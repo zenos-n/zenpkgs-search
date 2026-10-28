@@ -14,3 +14,5 @@
 .topbar .version-footer button.active { background: var(--accent-bg); color: var(--accent-fg); }
 .topbar .version-footer .version-refresh { flex: 0 0 34px; padding: 0; }
 @media (max-width: 768px) { .topbar .version-menu { right: 8px; } }
+.version-message { margin: 8px 12px; color: var(--dim-label); font-size: .8rem; line-height: 1.4; }
+.version-footer button, .version-upload { gap: 8px; }

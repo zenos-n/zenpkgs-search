@@ -10,6 +10,8 @@
 	export let versionOpen: boolean;
 	export let currentVersion: string;
 	export let versions: Version[];
+	export let versionsError: string;
+	export let versionsLoading: boolean;
 	export let searchInput: HTMLInputElement;
 	export let onfocusSearch: () => void;
 	export let onresetScroll: () => void;
@@ -28,7 +30,16 @@
 </script>
 
 <header class="topbar">
-	<button class="icon-button search-toggle" aria-label="Focus search" onclick={onfocusSearch}
+	<button
+		class="icon-button search-toggle"
+		aria-label="Focus search"
+		onclick={() => {
+			if (searchOpen) {
+				query = '';
+				searchOpen = false;
+				onresetScroll();
+			} else onfocusSearch();
+		}}
 		><svg
 			width="16"
 			height="16"
@@ -154,9 +165,6 @@
 				bind:this={searchInput}
 				bind:value={query}
 				oninput={onresetScroll}
-				onblur={() => {
-					if (!query) searchOpen = false;
-				}}
 				onkeydown={(e) => {
 					if (e.key === 'Enter') onrememberSearch();
 				}}
@@ -184,6 +192,8 @@
 	<VersionPicker
 		{currentVersion}
 		{versions}
+		{versionsError}
+		{versionsLoading}
 		bind:versionOpen
 		bind:menuOpen
 		{onrefresh}

@@ -22,6 +22,7 @@
 	import ScratchpadPanel from './ScratchpadPanel.svelte';
 	import ActionDialogs from './ActionDialogs.svelte';
 	import MaintainerPopover from './MaintainerPopover.svelte';
+	import { packageTree } from './lib/package-tree';
 	const defaults: Preferences = {
 		theme: 'dark',
 		accent: '#9141ac',
@@ -54,7 +55,6 @@
 	);
 	let catalog: Catalog | null = null;
 	let entries: Entry[] = [];
-	let optionRows: TreeEntry[] = [];
 	let query = '';
 	let section: Section = 'Packages';
 	let selected: Entry | null = null;
@@ -76,6 +76,8 @@
 	let keybinds = read<Record<string, string>>('zenpkgs-search-keybinds', legacyKeybindDefaults);
 	let paletteQuery = '';
 	let versions: Version[] = [];
+	let versionsError = '';
+	let versionsLoading = false;
 	let currentVersion = 'Latest Commit';
 	let versionOpen = false;
 	let diffBase: Catalog | null = null;
@@ -88,8 +90,8 @@
 	let menuOpen = false;
 	let newsUnread = true;
 	let expanded = new Set<string>();
+	let treeFold = { anchor: 0, size: 0 };
 	let searchHistory = read<string[]>('zenpkgs-search-searches', []);
-	let optionValue = '';
 	let maintainerPopup: { name: string; data: CatalogMeta; anchor: HTMLElement } | null = null;
 	const legacyAccent: Record<string, string> = {
 		blue: '#3584e4',
@@ -129,7 +131,13 @@
 		return rows;
 	}
 	$: shown = (
-		query ? entries : section === 'Options' ? treeRows('Option', expanded, entries) : entries
+		query
+			? entries
+			: section === 'Options'
+				? treeRows('Option', expanded, entries)
+				: section === 'Packages'
+					? packageTree(entries, expanded)
+					: entries
 	).filter((e) => {
 		if (section === 'Favorites' && !favorites.includes(e.id)) return false;
 		if (section === 'Recent' && !recents.includes(e.id)) return false;
@@ -138,13 +146,20 @@
 		if (section === 'Maintainers' && e.kind !== 'Maintainer') return false;
 		return !query || matches(e.id, { meta: e.meta }, query);
 	});
-	$: optionRows = treeRows('Option', expanded, entries);
 	function activate(entry: Entry | TreeEntry) {
 		if ('branch' in entry && entry.branch && !query) {
 			const key = `${entry.kind}:${entry.path}`;
-			expanded = new Set(expanded);
-			if (expanded.has(key)) expanded.delete(key);
-			else expanded.add(key);
+			const next = new Set(expanded);
+			if (next.has(key)) next.delete(key);
+			else next.add(key);
+			const nextRows =
+				entry.kind === 'Package' ? packageTree(entries, next) : treeRows('Option', next, entries);
+			const index = shown.findIndex((row) => 'path' in row && row.path === entry.path);
+			treeFold = {
+				anchor: (index + 1) * rowHeight,
+				size: Math.abs(nextRows.length - shown.length) * rowHeight
+			};
+			expanded = next;
 			return;
 		}
 		select(entry);
@@ -272,6 +287,7 @@
 		};
 		maintainerPopup = { name, data, anchor };
 	}
+
 	function resetScroll() {
 		scrollTop = 0;
 		if (scroller) scroller.scrollTop = 0;
@@ -351,13 +367,20 @@
 		const line =
 			selected.kind === 'Package'
 				? `  ${selected.id.replace(/^pkgs\./, '')}`
-				: `  ${selected.id} = ${optionValue || (selected.meta.default ? String(selected.meta.default) : 'true')};`;
-		if (selected.kind === 'Package')
+				: `  ${selected.id} = ${selected.meta.default !== undefined ? String(selected.meta.default) : 'true'};`;
+		if (selected.kind === 'Package') {
+			if (!/environment\.systemPackages\s*=\s*with pkgs;\s*\[/.test(scratchpad))
+				scratchpad += '\n{ pkgs, ... }: {\n  environment.systemPackages = with pkgs; [\n  ];\n}\n';
 			scratchpad = scratchpad.replace(
 				/(environment\.systemPackages\s*=\s*with pkgs;\s*\[)/,
 				`$1\n${line}`
 			);
-		else scratchpad += `\n${line}\n`;
+		} else {
+			if (!scratchpad.trim()) scratchpad = '{ pkgs, ... }: {\n}\n';
+			scratchpad = /}\s*$/.test(scratchpad)
+				? scratchpad.replace(/}\s*$/, `${line}\n}\n`)
+				: `${scratchpad}\n${line}\n`;
+		}
 		save('zenpkgs-search-scratchpad', scratchpad);
 		announce('Added to scratchpad');
 		scratchpadOpen = true;
@@ -463,6 +486,8 @@
 			return;
 		}
 		if (event.key === 'Escape') {
+			query = '';
+			searchOpen = false;
 			modal = '';
 			maintainerPopup = null;
 			versionOpen = false;
@@ -485,10 +510,18 @@
 			select(shown[Math.max(0, i - 1)]);
 		}
 	}
-	function reloadVersions() {
-		versionOpen = false;
-		listVersions({ token: prefs.githubToken }).then((value) => (versions = value));
+	async function reloadVersions() {
+		versionsLoading = true;
+		versionsError = '';
+		try {
+			versions = await listVersions({ token: prefs.githubToken });
+		} catch (error) {
+			versionsError = `Could not fetch releases: ${String(error)}`;
+		} finally {
+			versionsLoading = false;
+		}
 	}
+
 	function clearCache() {
 		clearRegistryCache()
 			.then(() => announce('Registry cache cleared'))
@@ -552,9 +585,7 @@
 		void loadNews();
 		void migrateLegacySettings().then(() => {
 			refresh();
-			listVersions({ token: prefs.githubToken })
-				.then((v) => (versions = v))
-				.catch(() => {});
+			void reloadVersions();
 		});
 		window.addEventListener('keydown', onKey);
 		const closePopovers = (event: PointerEvent) => {
@@ -582,6 +613,8 @@
 		bind:searchInput
 		{currentVersion}
 		{versions}
+		{versionsError}
+		{versionsLoading}
 		onfocusSearch={focusSearch}
 		onresetScroll={resetScroll}
 		onrememberSearch={rememberSearch}
@@ -604,8 +637,9 @@
 		<CatalogBrowser
 			{section}
 			bind:query
-			{optionRows}
+			optionEntries={entries.filter((entry) => entry.kind === 'Option')}
 			{expanded}
+			{treeFold}
 			{shown}
 			{visible}
 			{selected}
@@ -622,7 +656,6 @@
 		<EntryInspector
 			{selected}
 			{favorites}
-			bind:optionValue
 			{aiBusy}
 			{aiText}
 			{news}

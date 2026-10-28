@@ -4,6 +4,8 @@
 	import { popover } from './lib/motion';
 	export let currentVersion: string;
 	export let versions: Version[];
+	export let versionsError: string;
+	export let versionsLoading: boolean;
 	export let versionOpen: boolean;
 	export let menuOpen: boolean;
 	export let onrefresh: () => void;
@@ -47,6 +49,13 @@
 						versionOpen = false;
 					}}>Latest Commit</button
 				>
+				{#if versionsLoading}<p class="version-message">
+						Fetching releases…
+					</p>{:else if versionsError}<p class="version-message" role="alert">
+						{versionsError}
+					</p>{:else if !releases.length}<p class="version-message">
+						No registry releases published
+					</p>{/if}
 				{#if releases.length}<div class="version-separator"><span>Releases</span></div>{/if}
 				{#each releases as version}
 					<button class:active={currentVersion === version.label} onclick={() => choose(version)}
@@ -61,6 +70,15 @@
 					title="Toggle Diff Selection Mode">Diff</button
 				>
 				<label class="version-upload"
+					><svg
+						width="16"
+						height="16"
+						viewBox="0 0 24 24"
+						fill="none"
+						stroke="currentColor"
+						stroke-width="2"
+						aria-hidden="true"
+						><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12" /></svg
 					>Upload<input
 						type="file"
 						accept=".json,application/json"

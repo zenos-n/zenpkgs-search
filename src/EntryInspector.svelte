@@ -1,13 +1,11 @@
 <script lang="ts">
 	import { marked } from 'marked';
 	import DOMPurify from 'dompurify';
-	import { categories } from './lib/catalog';
 	import type { Entry } from './lib/types';
 	import './entry-inspector.css';
 
 	export let selected: Entry | null;
 	export let favorites: string[];
-	export let optionValue: string;
 	export let aiBusy: boolean;
 	export let aiText: string;
 	export let news: Array<{ title?: string; body?: string; date?: string; url?: string }>;
@@ -96,25 +94,6 @@
 				<div class="inspector-section">
 					<h3>Documentation</h3>
 					<div class="inspector-card markdown">{@html markdown(longDescription)}</div>
-				</div>
-			{/if}
-			{#if selected.kind === 'Package' && categories(selected.meta).length}
-				<div class="inspector-section">
-					<h3>Category</h3>
-					<div class="inspector-card category-card">
-						{#each categories(selected.meta) as category}<div>{category}</div>{/each}
-					</div>
-				</div>
-			{/if}
-			{#if selected.kind === 'Option'}
-				<div class="inspector-section">
-					<h3>Value</h3>
-					<div class="inspector-card">
-						{#if selected.meta.default !== undefined}<div>
-								Default: <code>{String(selected.meta.default)}</code>
-							</div>{/if}
-						<label>Value for scratchpad<input bind:value={optionValue} placeholder="true" /></label>
-					</div>
 				</div>
 			{/if}
 			{#if selected.kind === 'Maintainer' && selected.meta.github}

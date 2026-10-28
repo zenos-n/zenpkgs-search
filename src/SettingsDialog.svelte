@@ -31,22 +31,28 @@
 		</div>
 		<label class="legacy-row switch-row">
 			<strong>Dark Mode</strong>
-			<input
-				class="switch-input"
-				type="checkbox"
-				checked={preferences.theme === 'dark'}
-				onchange={(event) =>
-					updatePreference('theme', event.currentTarget.checked ? 'dark' : 'light')}
-			/>
+			<span class="switch-control">
+				<input
+					class="switch-input"
+					type="checkbox"
+					checked={preferences.theme === 'dark'}
+					onchange={(event) =>
+						updatePreference('theme', event.currentTarget.checked ? 'dark' : 'light')}
+				/>
+				<span class="switch-toggle" aria-hidden="true"></span>
+			</span>
 		</label>
 		<label class="legacy-row switch-row">
 			<strong>Reduced Motion</strong>
-			<input
-				class="switch-input"
-				type="checkbox"
-				checked={preferences.reduceMotion}
-				onchange={(event) => updatePreference('reduceMotion', event.currentTarget.checked)}
-			/>
+			<span class="switch-control">
+				<input
+					class="switch-input"
+					type="checkbox"
+					checked={preferences.reduceMotion}
+					onchange={(event) => updatePreference('reduceMotion', event.currentTarget.checked)}
+				/>
+				<span class="switch-toggle" aria-hidden="true"></span>
+			</span>
 		</label>
 		<label class="legacy-row stacked-row">
 			<span><strong>Transparency</strong></span>
@@ -78,12 +84,15 @@
 		</label>
 		<label class="legacy-row switch-row">
 			<strong>Advanced Scratchpad (Badges)</strong>
-			<input
-				class="switch-input"
-				type="checkbox"
-				checked={preferences.advancedScratchpad ?? false}
-				onchange={(event) => updatePreference('advancedScratchpad', event.currentTarget.checked)}
-			/>
+			<span class="switch-control">
+				<input
+					class="switch-input"
+					type="checkbox"
+					checked={preferences.advancedScratchpad ?? false}
+					onchange={(event) => updatePreference('advancedScratchpad', event.currentTarget.checked)}
+				/>
+				<span class="switch-toggle" aria-hidden="true"></span>
+			</span>
 		</label>
 	</div>
 

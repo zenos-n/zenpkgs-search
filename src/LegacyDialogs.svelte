@@ -135,7 +135,7 @@
 	export let aboutLinks: LegacyAboutLinks = {
 		registry: 'https://github.com/zenos-n/zenpkgs',
 		website: 'https://github.com/zenos-n/zenpkgs-search',
-		license: 'https://github.com/zenos-n/zenpkgs-search/blob/main/LICENSE'
+		license: 'https://github.com/negative-zero-inft/nap-license/blob/master/LICENSE'
 	};
 	export let onclose: () => void = () => {};
 	export let onpreferenceschange: (preferences: LegacyPreferences) => void = () => {};
@@ -187,7 +187,7 @@
 			? aboutPage === 'main'
 				? 'About'
 				: aboutPage === 'legal'
-					? 'Legal'
+					? 'NAP License'
 					: 'Credits'
 			: open === 'news'
 				? newsPage === 'latest'
@@ -223,7 +223,6 @@
 		transition:modalBackdrop
 	>
 		<div
-			class:about-wide={open === 'about' && aboutPage !== 'main'}
 			class="legacy-window legacy-window--{open}"
 			role="dialog"
 			aria-modal="true"

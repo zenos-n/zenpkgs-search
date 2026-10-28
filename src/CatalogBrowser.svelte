@@ -1,10 +1,22 @@
 <script lang="ts">
 	import type { Entry, TreeEntry, Section } from './lib/types';
-	import { flip } from 'svelte/animate';
+	import OptionTree from './OptionTree.svelte';
+
+	let treeAnimating = false;
+	let animationTimer: ReturnType<typeof setTimeout>;
+	function activate(entry: Entry) {
+		if (isTreeEntry(entry) && entry.branch) {
+			treeAnimating = true;
+			clearTimeout(animationTimer);
+			animationTimer = setTimeout(() => (treeAnimating = false), 260);
+		}
+		onactivate(entry);
+	}
 	export let section: Section;
 	export let query: string;
-	export let optionRows: TreeEntry[];
+	export let optionEntries: Entry[];
 	export let expanded: Set<string>;
+	export let treeFold: { anchor: number; size: number };
 	export let shown: Entry[];
 	export let visible: Entry[];
 	export let selected: Entry | null;
@@ -26,22 +38,23 @@
 	function isTreeEntry(entry: Entry): entry is TreeEntry {
 		return 'depth' in entry && 'path' in entry;
 	}
+	function revealRow(node: HTMLElement) {
+		if (!treeAnimating || query) return { duration: 0 };
+		const { anchor, size } = treeFold;
+		const top = Number.parseFloat(node.style.top);
+		return {
+			duration: 250,
+			css: (t: number) =>
+				`clip-path: inset(0 0 ${Math.min(rowHeight, Math.max(0, top + rowHeight - anchor - size * t))}px 0);`
+		};
+	}
 </script>
 
 <main class="browser">
 	{#if section === 'Packages' && !query}<div class="home-groups">
 			<div class="group-label">Nix Options</div>
 			<div class="home-group">
-				{#each optionRows as row (row.path)}<button
-						onclick={() => onactivate(row)}
-						animate:flip={{ duration: 250 }}
-						style:padding-left={`${24 + row.depth * 20}px`}
-						><span
-							class="group-chevron"
-							class:expanded={row.branch && expanded.has(`${row.kind}:${row.path}`)}
-							>{row.branch ? '▸' : '•'}</span
-						>{row.label}</button
-					>{/each}
+				<OptionTree entries={optionEntries} {expanded} onactivate={activate} />
 			</div>
 		</div>{/if}
 	<div class="section-heading">
@@ -66,6 +79,7 @@
 		</div>{:else}
 		<div
 			class="tree-scroll"
+			class:tree-animating={treeAnimating}
 			bind:this={scroller}
 			use:observeScroller
 			onscroll={(e) => (scrollTop = e.currentTarget.scrollTop)}
@@ -73,13 +87,15 @@
 			aria-label={`${section} registry`}
 		>
 			<div class="virtual-space" style:height={`${shown.length * rowHeight}px`}>
-				{#each visible as entry (entry.kind + entry.id)}<button
+				{#each visible as entry (entry.kind + (isTreeEntry(entry) ? entry.path : entry.id))}<button
 						class:selected={selected?.id === entry.id}
 						class="tree-row"
 						style:top={`${shown.indexOf(entry) * rowHeight}px`}
 						role="option"
 						aria-selected={selected?.id === entry.id}
-						onclick={() => onactivate(entry)}
+						onclick={() => activate(entry)}
+						in:revealRow
+						out:revealRow
 						><span
 							class="row-icon"
 							class:expanded={isTreeEntry(entry) &&
