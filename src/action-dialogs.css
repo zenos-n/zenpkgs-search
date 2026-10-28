@@ -1,0 +1,8 @@
+.command-overlay { position: fixed; inset: 0; z-index: 100; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,.6); backdrop-filter: blur(20px); }
+.command-window { display: flex; flex-direction: column; width: min(600px, 90vw); max-height: 500px; overflow: hidden; border-radius: 14px; background: var(--bg-modal); box-shadow: var(--window-outline); }
+.command-input-wrapper { flex: none; padding: 12px; border-bottom: 1px solid var(--border-color); }
+.command-input-wrapper input { display: block; width: 100%; border: 0; outline: 0; background: transparent; color: var(--text-color); font-size: 1.1rem; font-weight: 500; }
+.command-list { flex: 1; min-height: 0; overflow-y: auto; padding: 6px; }
+.command-list button { display: flex; align-items: center; width: 100%; min-height: 41px; padding: 10px 12px; border: 0; border-radius: 6px; background: transparent; color: var(--text-color); text-align: left; font-size: .95rem; font-weight: 500; cursor: pointer; }
+.command-list button:hover, .command-list button.active { background: var(--accent-bg); color: var(--accent-fg); }
+.command-list p { margin: 12px; color: var(--dim-label); }

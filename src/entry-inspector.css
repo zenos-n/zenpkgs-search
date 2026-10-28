@@ -1,0 +1,23 @@
+.inspector .inspector-inner { padding: 0 0 24px; }
+.inspector .identifier-heading { height: 34px; margin: 12px 24px 8px; }
+.inspector .identifier-heading .eyebrow { margin: 0; }
+.inspector .identifier-heading button { font-size: 20px; }
+.identifier-card { display: flex; flex-direction: column; gap: 12px; min-height: 85px; margin: 0 13px 24px; padding: 12px 13px; border-radius: 12px; background: var(--card-bg); }
+.inspector-inner .identifier-card .entry-id { margin: 0; padding: 0 3px; border-radius: 0; background: none; color: var(--text-color); font: .85rem var(--font-mono); overflow-wrap: anywhere; }
+.inspector-inner .identifier-card .inspector-actions { display: flex; gap: 8px; margin: 0; padding: 0; background: none; }
+.inspector-inner .identifier-card .inspector-actions button { flex: 1; min-width: 0; min-height: 32px; padding: 0 6px; border-radius: 99px; background: var(--accent-bg); color: var(--accent-fg); font-size: .78rem; font-weight: 700; }
+.inspector-inner .identifier-card .inspector-actions button:last-child { flex: 0 0 100px; }
+.inspector-section { margin: 0 13px 24px; }
+.inspector-section h3 { margin: 0 11px 8px; color: var(--dim-label); font-size: .75rem; font-weight: 800; letter-spacing: 1px; line-height: 16px; text-transform: uppercase; }
+.inspector-section h3 span { font-size: .6em; opacity: .7; }
+.inspector-card { padding: 16px; border-radius: 12px; background: var(--card-bg); color: var(--text-color); font-size: .9rem; line-height: 1.5; overflow-wrap: anywhere; }
+.inspector-card.markdown { color: var(--secondary-label); line-height: 1.6; }
+.inspector-card.markdown p { margin: 0; }
+.inspector-card.markdown p + p { margin-top: 1em; }
+.maintainer-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.maintainer-chip { display: inline-flex; align-items: center; height: 32px; padding: 6px 14px; border: 0; border-radius: 99px; background: color-mix(in srgb, var(--accent-bg) 15%, var(--bg-modal)); color: var(--link-color); font-size: .85rem; font-weight: 700; transition: opacity .2s; }
+.maintainer-chip:hover { opacity: .8; }
+.category-card { padding: 16px; }
+.inspector-card label { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; }
+.inspector-card input { min-width: 0; padding: 8px; border: 1px solid var(--border-color); border-radius: 8px; background: var(--bg-tree); color: var(--text-color); }
+.ai-card button { width: 100%; border: 0; background: transparent; color: var(--text-color); font-weight: 800; }

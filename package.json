@@ -8,7 +8,7 @@
     "check": "svelte-check --tsconfig ./tsconfig.json",
     "test": "node --test tests/catalog.test.mjs tests/registry.test.mjs",
     "test:browser": "playwright test",
-    "format:check": "prettier --check src/App.svelte src/lib/*.ts src/main.ts tests/browser/search.spec.ts"
+    "format:check": "prettier --check 'src/**/*.{svelte,ts}' tests/browser/search.spec.ts"
   },
   "dependencies": {
     "dompurify": "^3.4.17",

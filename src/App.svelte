@@ -1,36 +1,30 @@
 <script lang="ts">
 	import { onMount, tick } from 'svelte';
-	import { marked } from 'marked';
-	import DOMPurify from 'dompurify';
+	import { fly } from 'svelte/transition';
 	import localforage from 'localforage';
 	import {
 		normalize,
 		matches,
-		categories,
 		flattenOptions,
 		type Catalog,
 		type CatalogMeta
 	} from './lib/catalog';
-	import { loadLatest, loadVersion, listVersions } from './lib/registry';
-
-	type Entry = {
-		id: string;
-		kind: 'Package' | 'Option' | 'Maintainer';
-		meta: CatalogMeta;
-		node?: unknown;
-	};
-	type Version = { id: string; label: string };
-	type Preferences = {
-		theme: 'system' | 'light' | 'dark';
-		accent: string;
-		reduceMotion: boolean;
-		customCss: string;
-		githubToken: string;
-		geminiKey: string;
-	};
+	import { clearRegistryCache, loadLatest, loadVersion, listVersions } from './lib/registry';
+	import { loadNewsFile, listNewsFiles, type NewsItem } from './lib/news';
+	import type { Entry, TreeEntry, Version, Preferences, Section, Dialog } from './lib/types';
+	import BrowserHeader from './BrowserHeader.svelte';
+	import CatalogBrowser from './CatalogBrowser.svelte';
+	import EntryInspector from './EntryInspector.svelte';
+	import LegacyDialogs, {
+		legacyKeybindDefaults,
+		type LegacyDialogKind
+	} from './LegacyDialogs.svelte';
+	import ScratchpadPanel from './ScratchpadPanel.svelte';
+	import ActionDialogs from './ActionDialogs.svelte';
+	import MaintainerPopover from './MaintainerPopover.svelte';
 	const defaults: Preferences = {
 		theme: 'dark',
-		accent: '#9b75d6',
+		accent: '#9141ac',
 		reduceMotion: false,
 		customCss: '',
 		githubToken: '',
@@ -60,8 +54,9 @@
 	);
 	let catalog: Catalog | null = null;
 	let entries: Entry[] = [];
+	let optionRows: TreeEntry[] = [];
 	let query = '';
-	let section: 'Packages' | 'Options' | 'Maintainers' | 'Favorites' | 'Recent' = 'Packages';
+	let section: Section = 'Packages';
 	let selected: Entry | null = null;
 	let loading = true;
 	let error = '';
@@ -76,19 +71,26 @@
 	let viewportHeight = 600;
 	let scroller: HTMLDivElement;
 	let searchInput: HTMLInputElement;
-	let modal: '' | 'settings' | 'about' | 'news' | 'palette' | 'scratchpad' | 'diff' = '';
+	let modal: Dialog = '';
+	let scratchpadOpen = false;
+	let keybinds = read<Record<string, string>>('zenpkgs-search-keybinds', legacyKeybindDefaults);
 	let paletteQuery = '';
 	let versions: Version[] = [];
 	let currentVersion = 'Latest Commit';
 	let versionOpen = false;
 	let diffBase: Catalog | null = null;
 	let diffLabel = '';
-	let news: Array<{ title?: string; body?: string; date?: string; url?: string }> = [];
+	let news: NewsItem[] = [];
+	let newsLoading = false;
 	let aiText = '';
 	let aiBusy = false;
-	let mobileSidebar = false;
+	let searchOpen = false;
+	let menuOpen = false;
+	let newsUnread = true;
+	let expanded = new Set<string>();
 	let searchHistory = read<string[]>('zenpkgs-search-searches', []);
 	let optionValue = '';
+	let maintainerPopup: { name: string; data: CatalogMeta; anchor: HTMLElement } | null = null;
 	const legacyAccent: Record<string, string> = {
 		blue: '#3584e4',
 		teal: '#2190a4',
@@ -101,27 +103,86 @@
 		slate: '#6f8396'
 	};
 
-	$: shown = entries.filter((e) => {
+	function treeRows(kind: 'Package' | 'Option', open: Set<string>, source: Entry[]): TreeEntry[] {
+		type Branch = { children: Map<string, Branch>; entry?: Entry };
+		const root: Branch = { children: new Map() };
+		for (const entry of source.filter((e) => e.kind === kind)) {
+			const parts = (kind === 'Package' ? entry.id.slice(5) : entry.id).split('.');
+			let node = root;
+			for (const part of parts) {
+				if (!node.children.has(part)) node.children.set(part, { children: new Map() });
+				node = node.children.get(part)!;
+			}
+			node.entry = entry;
+		}
+		const rows: TreeEntry[] = [];
+		function visit(node: Branch, prefix: string[], depth: number) {
+			for (const [label, child] of [...node.children].sort(([a], [b]) => a.localeCompare(b))) {
+				const path = [...prefix, label].join('.');
+				const branch = child.children.size > 0;
+				const id = kind === 'Package' ? `pkgs.${path}` : path;
+				rows.push({ ...(child.entry || { id, kind, meta: {} }), label, depth, branch, path });
+				if (branch && open.has(`${kind}:${path}`)) visit(child, [...prefix, label], depth + 1);
+			}
+		}
+		visit(root, [], 0);
+		return rows;
+	}
+	$: shown = (
+		query ? entries : section === 'Options' ? treeRows('Option', expanded, entries) : entries
+	).filter((e) => {
 		if (section === 'Favorites' && !favorites.includes(e.id)) return false;
 		if (section === 'Recent' && !recents.includes(e.id)) return false;
-		if (section === 'Packages' && e.kind !== 'Package') return false;
-		if (section === 'Options' && e.kind !== 'Option') return false;
+		if (!query && section === 'Packages' && e.kind !== 'Package') return false;
+		if (!query && section === 'Options' && e.kind !== 'Option') return false;
 		if (section === 'Maintainers' && e.kind !== 'Maintainer') return false;
 		return !query || matches(e.id, { meta: e.meta }, query);
 	});
+	$: optionRows = treeRows('Option', expanded, entries);
+	function activate(entry: Entry | TreeEntry) {
+		if ('branch' in entry && entry.branch && !query) {
+			const key = `${entry.kind}:${entry.path}`;
+			expanded = new Set(expanded);
+			if (expanded.has(key)) expanded.delete(key);
+			else expanded.add(key);
+			return;
+		}
+		select(entry);
+	}
 	$: visibleStart = Math.max(0, Math.floor(scrollTop / rowHeight) - 8);
 	$: visibleEnd = Math.min(shown.length, Math.ceil((scrollTop + viewportHeight) / rowHeight) + 8);
 	$: visible = shown.slice(visibleStart, visibleEnd);
 	$: paletteItems = [
-		{ label: 'Search registry', action: () => focusSearch() },
+		{ label: 'Add to Scratchpad', action: () => addToScratchpad() },
+		{ label: 'Change Version', action: () => (versionOpen = true) },
+		{ label: 'Clear Registry Cache', action: () => clearCache() },
+		{ label: 'Collapse Tree', action: () => (expanded = new Set()) },
+		{ label: 'Command List', action: () => (modal = 'keybinds') },
+		{
+			label: 'Copy Description',
+			action: () => void copy(String(selected?.meta.summary || selected?.meta.description || ''))
+		},
+		{
+			label: 'Copy Documentation',
+			action: () =>
+				void copy(String(selected?.meta.description || selected?.meta.longDescription || ''))
+		},
+		{ label: 'Copy Identifier', action: () => void copy(selected?.id || '') },
+		{ label: 'Open About', action: () => (modal = 'about') },
+		{
+			label: 'Open GitHub Repo',
+			action: () =>
+				window.open('https://github.com/zenos-n/zenpkgs-search', '_blank', 'noopener,noreferrer')
+		},
+		{ label: 'Open Settings', action: () => (modal = 'settings') },
+		{ label: 'Search Registry', action: () => focusSearch() },
 		{ label: 'Packages', action: () => chooseSection('Packages') },
 		{ label: 'Options', action: () => chooseSection('Options') },
 		{ label: 'Maintainers', action: () => chooseSection('Maintainers') },
 		{ label: 'Favorites', action: () => chooseSection('Favorites') },
 		{ label: 'Recent', action: () => chooseSection('Recent') },
-		{ label: 'Config scratchpad', action: () => (modal = 'scratchpad') },
-		{ label: 'Settings', action: () => (modal = 'settings') },
-		{ label: 'Developer news', action: () => openNews() }
+		{ label: 'Config Scratchpad', action: () => (scratchpadOpen = true) },
+		{ label: 'Developer News', action: () => openNews() }
 	].filter((item) => item.label.toLowerCase().includes(paletteQuery.toLowerCase()));
 
 	function flatten(data: Catalog): Entry[] {
@@ -156,7 +217,6 @@
 		}
 		loading = false;
 		error = '';
-		announce(`${entries.length.toLocaleString()} entries loaded`);
 	}
 	async function refresh() {
 		loading = true;
@@ -195,8 +255,22 @@
 		section = value;
 		query = '';
 		resetScroll();
-		mobileSidebar = false;
 		modal = '';
+	}
+	function navigateBreadcrumb(kind: Entry['kind'], path: string) {
+		const id = kind === 'Package' ? `pkgs.${path}` : path;
+		const entry = entries.find((item) => item.kind === kind && item.id === id);
+		if (entry) select(entry);
+		else if (kind === 'Option') {
+			section = 'Options';
+			expanded = new Set([...expanded, `Option:${path}`]);
+		}
+	}
+	function showMaintainer(name: string, anchor: HTMLElement) {
+		const data = (catalog?.maintainers as Record<string, CatalogMeta> | undefined)?.[name] || {
+			name
+		};
+		maintainerPopup = { name, data, anchor };
 	}
 	function resetScroll() {
 		scrollTop = 0;
@@ -214,7 +288,6 @@
 		recents = [entry.id, ...recents.filter((id) => id !== entry.id)].slice(0, 30);
 		save('zenpkgs-search-recents', recents);
 		aiText = '';
-		mobileSidebar = false;
 	}
 	function toggleFavorite() {
 		if (!selected) return;
@@ -230,6 +303,7 @@
 	}
 	function focusSearch() {
 		modal = '';
+		searchOpen = true;
 		tick().then(() => searchInput?.focus());
 	}
 	function randomEntry() {
@@ -243,6 +317,18 @@
 	function applyPrefs() {
 		document.documentElement.dataset.theme = prefs.theme;
 		document.documentElement.style.setProperty('--accent', prefs.accent);
+		document.documentElement.style.setProperty(
+			'--card-opacity',
+			String(prefs.transparency ?? 0.06)
+		);
+		document.documentElement.style.setProperty(
+			'--font-ui',
+			prefs.customFont || "'Atkinson Hyperlegible Next', sans-serif"
+		);
+		document.documentElement.style.setProperty(
+			'--font-mono',
+			prefs.customFont || "'Atkinson Hyperlegible Mono', monospace"
+		);
 		document.documentElement.classList.toggle('reduce-motion', prefs.reduceMotion);
 		let style = document.getElementById('custom-css') as HTMLStyleElement | null;
 		if (!style) {
@@ -274,25 +360,38 @@
 		else scratchpad += `\n${line}\n`;
 		save('zenpkgs-search-scratchpad', scratchpad);
 		announce('Added to scratchpad');
-		modal = 'scratchpad';
+		scratchpadOpen = true;
 	}
 	async function loadNews() {
-		if (news.length) return;
+		if (newsLoading || news.length) return;
+		newsLoading = true;
 		try {
-			const response = await fetch(
-				'https://raw.githubusercontent.com/zenos-n/zenpkgs/news/latest.json'
-			);
-			if (response.ok) {
-				const body = await response.json();
-				news = Array.isArray(body)
-					? body
-					: [{ title: body.title, body: body.content, date: body.date }];
-			}
+			const [latest, archive] = await Promise.all([
+				loadNewsFile(),
+				listNewsFiles(prefs.githubToken)
+			]);
+			news = [latest, ...archive.map((name) => ({ id: name, title: name.replace(/\.json$/, '') }))];
 		} catch {
 			announce('News is unavailable right now');
+		} finally {
+			newsLoading = false;
+		}
+	}
+	async function selectNewsEntry(index: number) {
+		const item = news[index];
+		if (!item?.id || item.content || item.body) return;
+		newsLoading = true;
+		try {
+			const loaded = await loadNewsFile(item.id);
+			news = news.map((entry, position) => (position === index ? loaded : entry));
+		} catch {
+			announce('Could not load that news article');
+		} finally {
+			newsLoading = false;
 		}
 	}
 	function openNews() {
+		newsUnread = false;
 		modal = 'news';
 		void loadNews();
 	}
@@ -365,8 +464,9 @@
 		}
 		if (event.key === 'Escape') {
 			modal = '';
+			maintainerPopup = null;
 			versionOpen = false;
-			mobileSidebar = false;
+			scratchpadOpen = false;
 			return;
 		}
 		if (typing) return;
@@ -384,6 +484,15 @@
 			const i = shown.findIndex((e) => e.id === selected?.id);
 			select(shown[Math.max(0, i - 1)]);
 		}
+	}
+	function reloadVersions() {
+		versionOpen = false;
+		listVersions({ token: prefs.githubToken }).then((value) => (versions = value));
+	}
+	function clearCache() {
+		clearRegistryCache()
+			.then(() => announce('Registry cache cleared'))
+			.catch((error) => announce(`Could not clear cache: ${String(error)}`));
 	}
 	async function migrateLegacySettings() {
 		const store = localforage.createInstance({ name: 'settings' });
@@ -447,396 +556,140 @@
 				.then((v) => (versions = v))
 				.catch(() => {});
 		});
-		const resize = new ResizeObserver(() => {
-			if (scroller) viewportHeight = scroller.clientHeight;
-		});
-		if (scroller) resize.observe(scroller);
 		window.addEventListener('keydown', onKey);
+		const closePopovers = (event: PointerEvent) => {
+			if (!(event.target as Element).closest('.nav-menu, .mobile-menu')) menuOpen = false;
+			if (!(event.target as Element).closest('.version-wrap')) versionOpen = false;
+		};
+		window.addEventListener('pointerdown', closePopovers);
 		return () => {
-			resize.disconnect();
 			clearTimeout(statusTimer);
 			window.removeEventListener('keydown', onKey);
+			window.removeEventListener('pointerdown', closePopovers);
 		};
 	});
 </script>
 
 <svelte:head><title>{selected ? `${selected.id} · ZenPkgs` : 'ZenPkgs Search'}</title></svelte:head>
 <div class="app">
-	<header class="topbar">
-		<button class="icon-button search-toggle" aria-label="Focus search" onclick={focusSearch}
-			><svg
-				width="16"
-				height="16"
-				viewBox="0 0 24 24"
-				fill="none"
-				stroke="currentColor"
-				stroke-width="2.5"
-				aria-hidden="true"><circle cx="11" cy="11" r="8" /><path d="m21 21-4.35-4.35" /></svg
-			></button
-		>
-		<button
-			class="icon-button mobile-menu"
-			aria-label="Open navigation"
-			onclick={() => (mobileSidebar = !mobileSidebar)}>☰</button
-		>
-		<div class="brand">
-			<svg
-				class="brand-mark"
-				width="16"
-				height="16"
-				viewBox="0 0 16 16"
-				fill="none"
-				stroke="currentColor"
-				stroke-width="1.5"
-				aria-hidden="true"
-				><circle cx="12.5" cy="3.5" r="2.75" /><circle cx="12.5" cy="12.5" r="2.75" /><circle
-					cx="3.5"
-					cy="8"
-					r="2.75"
-				/></svg
-			><span>ZenPkgs</span>
-		</div>
-		<div class="search-wrap">
-			<input
-				bind:this={searchInput}
-				bind:value={query}
-				oninput={resetScroll}
-				onkeydown={(e) => {
-					if (e.key === 'Enter') rememberSearch();
-				}}
-				type="search"
-				aria-label="Search registry"
-				placeholder={selected && !query
-					? `zenpkgs  ›  ${selected.kind.toLowerCase()}  ›  ${selected.id.replace(/^pkgs\./, '')}`
-					: 'zenpkgs'}
-			/><kbd>/</kbd>
-		</div>
-		<button
-			class="icon-button"
-			title="Surprise me"
-			aria-label="Random package"
-			onclick={randomEntry}>⤨</button
-		>
-		<div class="version-wrap">
-			<button
-				class="version-button"
-				onclick={() => (versionOpen = !versionOpen)}
-				aria-expanded={versionOpen}>{currentVersion} <span>⌄</span></button
-			>
-			{#if versionOpen}<div class="version-menu">
-					<button onclick={refresh}>Latest Commit</button>{#each versions as version}<button
-							onclick={() => selectVersion(version)}>{version.label}</button
-						>{/each}
-					<div class="version-actions">
-						<label class="button"
-							>Upload JSON<input
-								type="file"
-								accept=".json,application/json"
-								onchange={upload}
-								hidden
-							/></label
-						><button
-							onclick={() => {
-								versionOpen = false;
-								listVersions({ token: prefs.githubToken }).then((v) => (versions = v));
-							}}>Refresh</button
-						>
-					</div>
-					<p>Compare with:</p>
-					{#each versions as version}<button onclick={() => chooseDiffBase(version)}
-							>Diff vs {version.label}</button
-						>{/each}
-				</div>{/if}
-		</div>
-		<button
-			class="icon-button"
-			title="Command palette"
-			aria-label="Command palette"
-			onclick={() => (modal = 'palette')}>⌘</button
-		>
-		<button
-			class="icon-button"
-			title="Menu"
-			aria-label="Settings and news"
-			onclick={() => (modal = 'settings')}>☰</button
-		>
-	</header>
+	<BrowserHeader
+		bind:selected
+		bind:query
+		bind:searchOpen
+		bind:menuOpen
+		{newsUnread}
+		bind:versionOpen
+		bind:searchInput
+		{currentVersion}
+		{versions}
+		onfocusSearch={focusSearch}
+		onresetScroll={resetScroll}
+		onrememberSearch={rememberSearch}
+		onhome={() => {
+			selected = null;
+			resetScroll();
+		}}
+		onchooseSection={chooseSection}
+		onbreadcrumb={navigateBreadcrumb}
+		onrandomEntry={randomEntry}
+		onrefresh={refresh}
+		onselectVersion={selectVersion}
+		onupload={upload}
+		onreloadVersions={reloadVersions}
+		onchooseDiffBase={chooseDiffBase}
+		onopenNews={openNews}
+		onmodal={(dialog) => (modal = dialog)}
+	/>
 	<div class="workspace">
-		<aside class:open={mobileSidebar} class="sidebar">
-			<div class="sidebar-heading">Explore</div>
-			{#each ['Packages', 'Options', 'Maintainers', 'Favorites', 'Recent'] as item}<button
-					class:active={section === item}
-					onclick={() => chooseSection(item as typeof section)}
-					><span
-						>{item === 'Packages'
-							? '▦'
-							: item === 'Options'
-								? '⚙'
-								: item === 'Maintainers'
-									? '♙'
-									: item === 'Favorites'
-										? '☆'
-										: '◷'}</span
-					>{item}</button
-				>{/each}
-			<div class="sidebar-bottom">
-				<button onclick={() => (modal = 'scratchpad')}>✎ Config Scratchpad</button><button
-					onclick={openNews}>◉ Developer News</button
-				><button onclick={() => (modal = 'settings')}>⚙ Settings</button><button
-					onclick={() => (modal = 'about')}>ⓘ About</button
-				>
-			</div>
-		</aside>
-		<main class="browser">
-			{#if section === 'Packages' && !query}<div class="home-groups">
-					<div class="group-label">Nix Options</div>
-					<div class="home-group">
-						{#each ['desktops', 'legacy', 'system', 'users'] as root}<button
-								onclick={() => {
-									chooseSection('Options');
-									query = root + '.';
-								}}><span class="group-chevron">▸</span>{root}</button
-							>{/each}
-					</div>
-				</div>{/if}
-			<div class="section-heading">
-				<div>
-					<h1>{section}</h1>
-				</div>
-				<span class="count"
-					>{shown.length.toLocaleString()} {shown.length === 1 ? 'entry' : 'entries'}</span
-				>
-			</div>
-			{#if loading}<div class="empty">
-					<span class="spinner"></span>Fetching Registry…
-				</div>{:else if error}<div class="empty error" role="alert">
-					{error} <button onclick={refresh}>Retry</button>
-				</div>{:else if !shown.length}<div class="empty">
-					No matching entries. {#if query}<button
-							onclick={() => {
-								query = '';
-								resetScroll();
-							}}>Clear search</button
-						>{/if}
-				</div>{:else}
-				<div
-					class="tree-scroll"
-					bind:this={scroller}
-					onscroll={(e) => (scrollTop = e.currentTarget.scrollTop)}
-					role="listbox"
-					aria-label={`${section} registry`}
-				>
-					<div class="virtual-space" style:height={`${shown.length * rowHeight}px`}>
-						{#each visible as entry (entry.kind + entry.id)}<button
-								class:selected={selected?.id === entry.id}
-								class="tree-row"
-								style:top={`${shown.indexOf(entry) * rowHeight}px`}
-								role="option"
-								aria-selected={selected?.id === entry.id}
-								onclick={() => select(entry)}
-								><span class="row-icon"
-									>{entry.kind === 'Package' ? '•' : entry.kind === 'Option' ? '▸' : '•'}</span
-								><span class="row-label">{entry.id.replace(/^pkgs\./, '')}</span><span
-									class="row-type">{entry.kind}</span
-								></button
-							>{/each}
-					</div>
-				</div>
-			{/if}
-		</main>
-		<section class="inspector" aria-label="Entry details">
-			{#if selected}<div class="inspector-inner">
-					<div class="identifier-heading">
-						<div class="eyebrow">Identifier</div>
-						<button onclick={toggleFavorite} aria-label="Toggle favorite" title="Toggle favorite"
-							>{favorites.includes(selected.id) ? '★' : '☆'}</button
-						>
-					</div>
-					<h2>{selected.meta.name || selected.id}</h2>
-					<p class="entry-id">{selected.id}</p>
-					<div class="inspector-actions">
-						<button onclick={addToScratchpad}>+ Add to Scratchpad</button><button
-							onclick={() => selected && copy(selected.id)}>Copy ID</button
-						>
-					</div>
-					{#if selected.meta.summary}<div class="eyebrow">Description</div>
-						<p class="summary">{selected.meta.summary}</p>{/if}
-					{#if selected.meta.description}<div class="eyebrow">Documentation</div>
-						<div class="markdown">
-							{@html DOMPurify.sanitize(
-								marked.parse(String(selected.meta.description), { async: false }) as string
-							)}
-						</div>{/if}
-					{#if selected.kind === 'Package'}<div class="detail-block">
-							<h3>Install</h3>
-							<code>nix shell zenpkgs#{selected.id.replace(/^pkgs\./, '')}</code><button
-								onclick={() => copy(`nix shell zenpkgs#${selected?.id.replace(/^pkgs\./, '')}`)}
-								>Copy</button
-							>
-						</div>
-						{#if categories(selected.meta).length}<div class="detail-block">
-								<h3>Categories</h3>
-								{#each categories(selected.meta) as category}<p>{category}</p>{/each}
-							</div>{/if}{/if}
-					{#if selected.kind === 'Option'}<div class="detail-block">
-							<h3>Type</h3>
-							<p>{selected.meta.type || 'Unknown'}</p>
-							{#if selected.meta.default !== undefined}<h3>Default</h3>
-								<code>{String(selected.meta.default)}</code>{/if}<label
-								>Value for scratchpad<input bind:value={optionValue} placeholder="true" /></label
-							>
-						</div>{/if}
-					{#if selected.kind === 'Maintainer'}{#if selected.meta.github}<a
-								href={`https://github.com/${selected.meta.github}`}
-								target="_blank"
-								rel="noreferrer">GitHub: {selected.meta.github}</a
-							>{/if}{/if}
-					{#if diffBase}<div class="detail-block">
-							<h3>Compared with {diffLabel}</h3>
-							<p>{diffStatus(selected)}</p>
-						</div>{/if}
-					<div class="detail-block">
-						<button onclick={explain} disabled={aiBusy}
-							>✦ {aiBusy ? 'Explaining…' : 'Explain with AI'}</button
-						>{#if aiText}<div class="markdown">
-								{@html DOMPurify.sanitize(marked.parse(aiText, { async: false }) as string)}
-							</div>{/if}
-					</div>
-				</div>{:else}<div class="inspector-empty">
-					<span>ⓘ</span>
-					<h2>ZenPkgs Explorer</h2>
-					<p>Select an option to view details.</p>
-					<button class="news-preview" onclick={openNews}
-						><span>NEW</span><strong>{news[0]?.title || 'Developer News'}</strong
-						>{#if news[0]?.date}<time>{news[0].date}</time>{/if}<small>Read Article →</small
-						></button
-					>
-					<p class="keyboard-hint">Ctrl+F to search<br />ArrowUp/ArrowDown to navigate</p>
-				</div>{/if}
-		</section>
+		<CatalogBrowser
+			{section}
+			bind:query
+			{optionRows}
+			{expanded}
+			{shown}
+			{visible}
+			{selected}
+			{loading}
+			{error}
+			bind:scroller
+			bind:scrollTop
+			onscrollerresize={(height) => (viewportHeight = height)}
+			{rowHeight}
+			onactivate={activate}
+			onrefresh={refresh}
+			onresetScroll={resetScroll}
+		/>
+		<EntryInspector
+			{selected}
+			{favorites}
+			bind:optionValue
+			{aiBusy}
+			{aiText}
+			{news}
+			hasDiff={!!diffBase}
+			{diffLabel}
+			showAI={!!prefs.geminiKey}
+			ontoggleFavorite={toggleFavorite}
+			onaddToScratchpad={addToScratchpad}
+			oncopy={copy}
+			onexplain={explain}
+			onopenNews={openNews}
+			oncreatorclick={showMaintainer}
+			ondiffStatus={diffStatus}
+		/>
 	</div>
-	{#if status}<div class="status" role="status">{status}</div>{/if}
+	{#if status}<div class="status" role="status" transition:fly={{ y: 20, duration: 300 }}>
+			{status}
+		</div>{/if}
 </div>
 
-{#if modal}<div
-		class="modal-backdrop"
-		role="presentation"
-		onclick={(e) => {
-			if (e.target === e.currentTarget) modal = '';
-		}}
-	>
-		<div class="modal" role="dialog" aria-modal="true" aria-label={modal}>
-			<header>
-				<h2>
-					{modal === 'palette'
-						? 'Command Palette'
-						: modal === 'scratchpad'
-							? 'Config Scratchpad'
-							: modal === 'diff'
-								? 'Version Comparison'
-								: modal === 'news'
-									? 'Developer News'
-									: modal === 'settings'
-										? 'Settings'
-										: 'About ZenPkgs Search'}
-				</h2>
-				<button class="icon-button" aria-label="Close" onclick={() => (modal = '')}>×</button>
-			</header>
-			{#if modal === 'palette'}<input
-					bind:value={paletteQuery}
-					placeholder="Type a command…"
-					aria-label="Filter commands"
-				/>{#each paletteItems as item}<button
-						class="palette-item"
-						onclick={() => {
-							item.action();
-							if (modal === 'palette') modal = '';
-						}}>{item.label}</button
-					>{/each}{#if !paletteItems.length}<p>No commands found.</p>{/if}
-			{:else if modal === 'scratchpad'}<p>
-					Edit your Nix configuration. Changes save locally as you type.
-				</p>
-				<textarea
-					class="scratchpad"
-					bind:value={scratchpad}
-					oninput={() => save('zenpkgs-search-scratchpad', scratchpad)}
-					spellcheck="false"></textarea>
-				<div class="modal-actions">
-					<button onclick={() => copy(scratchpad)}>Copy Config</button><button
-						onclick={() => {
-							scratchpad = '';
-							save('zenpkgs-search-scratchpad', scratchpad);
-						}}>Clear</button
-					>
-				</div>
-			{:else if modal === 'settings'}<div class="settings-grid">
-					<label
-						>Theme<select bind:value={prefs.theme} onchange={persistPrefs}
-							><option value="system">System</option><option value="light">Light</option><option
-								value="dark">Dark</option
-							></select
-						></label
-					><label
-						>Accent color<input
-							type="color"
-							bind:value={prefs.accent}
-							oninput={persistPrefs}
-						/></label
-					><label class="check"
-						><input type="checkbox" bind:checked={prefs.reduceMotion} onchange={persistPrefs} /> Reduce
-						motion</label
-					><label
-						>Custom CSS<textarea bind:value={prefs.customCss} oninput={persistPrefs} rows="5"
-						></textarea></label
-					><label
-						>GitHub token<input
-							type="password"
-							bind:value={prefs.githubToken}
-							oninput={persistPrefs}
-							autocomplete="off"
-						/></label
-					><label
-						>Gemini API key<input
-							type="password"
-							bind:value={prefs.geminiKey}
-							oninput={persistPrefs}
-							autocomplete="off"
-						/></label
-					>
-				</div>
-				<p>Keyboard: / search, Ctrl+K commands, ↑/↓ entries, Esc close.</p>
-			{:else if modal === 'news'}{#if news.length}{#each news as item}<article class="news-item">
-							<h3>{item.title || 'Update'}</h3>
-							<small>{item.date || ''}</small>{#if item.body}<div class="markdown">
-									{@html DOMPurify.sanitize(marked.parse(item.body, { async: false }) as string)}
-								</div>{/if}{#if item.url}<a href={item.url} target="_blank" rel="noreferrer"
-									>Read more</a
-								>{/if}
-						</article>{/each}{:else}<p>No news available.</p>{/if}
-			{:else if modal === 'diff'}<p>
-					Comparing {currentVersion} with {diffLabel}. Select an entry to inspect changes.
-				</p>
-				<div class="modal-actions">
-					<button
-						onclick={() => {
-							diffBase = null;
-							modal = '';
-						}}>Clear comparison</button
-					>
-				</div>
-			{:else}<p>
-					ZenPkgs Search browses packages, options, and maintainers from the ZenPkgs registry.
-				</p>
-				<p>
-					<a href="https://github.com/zenos-n/zenpkgs-search" target="_blank" rel="noreferrer"
-						>Source code</a
-					>
-					·
-					<a
-						href="https://github.com/zenos-n/zenpkgs-search/blob/main/LICENSE"
-						target="_blank"
-						rel="noreferrer">License</a
-					>
-				</p>{/if}
-		</div>
-	</div>{/if}
+<LegacyDialogs
+	open={(['settings', 'about', 'news', 'keybinds'].includes(modal)
+		? modal
+		: '') as LegacyDialogKind}
+	preferences={prefs}
+	{keybinds}
+	{news}
+	{newsLoading}
+	onselectnews={selectNewsEntry}
+	oncreatorclick={showMaintainer}
+	onclose={() => {
+		modal = '';
+		maintainerPopup = null;
+	}}
+	onpreferenceschange={(value) => {
+		prefs = value;
+		persistPrefs();
+	}}
+	onkeybindschange={(value) => {
+		keybinds = value;
+		save('zenpkgs-search-keybinds', value);
+	}}
+	onclearcache={clearCache}
+/>
+{#if maintainerPopup}<MaintainerPopover
+		{...maintainerPopup}
+		onclose={() => (maintainerPopup = null)}
+	/>{/if}
+<ScratchpadPanel
+	bind:open={scratchpadOpen}
+	bind:value={scratchpad}
+	onchange={(value) => save('zenpkgs-search-scratchpad', value)}
+	oncopy={copy}
+/>
+<ActionDialogs
+	open={modal === 'palette' || modal === 'diff' ? modal : ''}
+	bind:paletteQuery
+	{paletteItems}
+	{currentVersion}
+	{diffLabel}
+	onclose={() => (modal = '')}
+	onselect={(item) => {
+		item.action();
+		if (modal === 'palette') modal = '';
+	}}
+	oncleardiff={() => {
+		diffBase = null;
+		modal = '';
+	}}
+/>

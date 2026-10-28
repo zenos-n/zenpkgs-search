@@ -73,7 +73,7 @@ test('latest registry falls back to the last valid catalog when offline', async 
 test('release tags fall back to cache on network failure, while abort propagates', async () => {
   const { cache, values } = fixture();
   const previous = globalThis.fetch;
-  globalThis.fetch = async () => Response.json([{ tag_name: 'v2' }, { tag_name: 'v1' }]);
+  globalThis.fetch = async () => Response.json([{ tag_name: 'v2' }, { tag_name: 'nzportable-maps-2026-10-28' }, { tag_name: 'v1' }]);
   try {
     const expected = [
       { id: 'latestCommit', label: 'Latest Commit' },

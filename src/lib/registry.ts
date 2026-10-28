@@ -98,14 +98,16 @@ export async function listVersions(options: RegistryOptions = {}): Promise<Versi
 		) {
 			throw new Error('Invalid releases JSON');
 		}
-		tags = value.map((item) => item.tag_name as string);
+		tags = value
+			.map((item) => item.tag_name as string)
+			.filter((tag) => !tag.startsWith('nzportable-maps-'));
 		options.signal?.throwIfAborted();
 		await cache.setItem('releases_list', tags);
 	} catch (error) {
 		options.signal?.throwIfAborted();
 		const saved = await cache.getItem<unknown>('releases_list');
 		if (!Array.isArray(saved) || !saved.every((tag) => typeof tag === 'string')) throw error;
-		tags = saved;
+		tags = saved.filter((tag) => !tag.startsWith('nzportable-maps-'));
 	}
 	return [{ id: 'latestCommit', label: 'Latest Commit' }, ...tags.map((id) => ({ id, label: id }))];
 }
