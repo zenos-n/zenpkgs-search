@@ -162,7 +162,7 @@
 		loading = true;
 		error = '';
 		try {
-			setCatalog(await loadLatest(), 'Latest Commit');
+			setCatalog(await loadLatest({ token: prefs.githubToken }), 'Latest Commit');
 		} catch (e) {
 			error = e instanceof Error ? e.message : String(e);
 			loading = false;
@@ -173,7 +173,7 @@
 		loading = true;
 		error = '';
 		try {
-			setCatalog(await loadVersion(version.id), version.label);
+			setCatalog(await loadVersion(version.id, { token: prefs.githubToken }), version.label);
 		} catch (e) {
 			error = e instanceof Error ? e.message : String(e);
 			loading = false;
@@ -329,7 +329,7 @@
 	}
 	async function chooseDiffBase(version: Version) {
 		try {
-			diffBase = await loadVersion(version.id);
+			diffBase = await loadVersion(version.id, { token: prefs.githubToken });
 			diffLabel = version.label;
 			modal = 'diff';
 			versionOpen = false;
@@ -433,11 +433,12 @@
 	}
 	onMount(() => {
 		applyPrefs();
-		migrateLegacySettings();
-		refresh();
-		listVersions()
-			.then((v) => (versions = v))
-			.catch(() => {});
+		void migrateLegacySettings().then(() => {
+			refresh();
+			listVersions({ token: prefs.githubToken })
+				.then((v) => (versions = v))
+				.catch(() => {});
+		});
 		const resize = new ResizeObserver(() => {
 			if (scroller) viewportHeight = scroller.clientHeight;
 		});
@@ -499,7 +500,7 @@
 						><button
 							onclick={() => {
 								versionOpen = false;
-								listVersions().then((v) => (versions = v));
+								listVersions({ token: prefs.githubToken }).then((v) => (versions = v));
 							}}>Refresh</button
 						>
 					</div>
