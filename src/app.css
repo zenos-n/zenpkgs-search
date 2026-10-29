@@ -390,3 +390,9 @@ a:hover { text-decoration: none; }
 .inspector .maintainer-chip { border-radius: 99px; padding: 6px 14px; min-height: 32px; background: color-mix(in srgb, var(--accent-bg) 15%, var(--bg-modal)); color: var(--link-color); font-size: .85rem; }
 .breadcrumbs:not(.hidden) { transition-delay: 0s; }
 .tree-animating .tree-row { transition: top .25s ease-out, background-color .1s; }
+
+.virtual-space > .registry-row { position: static; left: auto; right: auto; }
+.tree-scroll > .home-groups { flex: none; }
+
+/* One viewport owns both tree groups, preserving page-wide wheel scrolling. */
+.tree-scroll > .home-groups, .tree-scroll > .section-heading { width: 100%; }

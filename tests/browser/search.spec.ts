@@ -1,4 +1,6 @@
 import { expect, test } from '@playwright/test';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 
 const fixture = {
 	pkgs: {
@@ -44,6 +46,18 @@ const fixture = {
 };
 
 test.beforeEach(async ({ page }) => {
+	if (process.env.ZENPKGS_BROWSER_OFFLINE) {
+		await page.route('http://127.0.0.1:4173/**', async (route) => {
+			const name = new URL(route.request().url()).pathname;
+			const file = resolve('dist', name === '/' ? 'index.html' : name.slice(1));
+			const contentType = file.endsWith('.js')
+				? 'text/javascript'
+				: file.endsWith('.css')
+					? 'text/css'
+					: 'text/html';
+			await route.fulfill({ body: readFileSync(file), contentType });
+		});
+	}
 	await page.route(
 		'https://raw.githubusercontent.com/zenos-n/zenpkgs/json/latestCommit.json',
 		(route) => route.fulfill({ json: fixture })
@@ -111,24 +125,25 @@ test('large catalog keeps DOM rows bounded', async ({ page }) => {
 		.getByRole('button', { name: /Command Palette/ })
 		.click();
 	await page.locator('.command-list button').filter({ hasText: 'Options' }).click();
-	await page.locator('.tree-row').filter({ hasText: 'stress' }).click();
+	await page.locator('.registry-row').filter({ hasText: 'stress' }).click();
 	await page
-		.locator('.tree-row')
+		.locator('.registry-row')
 		.filter({ has: page.locator('.row-label:text-is("option")') })
 		.click();
-	await expect(page.locator('.virtual-space')).toHaveAttribute('style', /440088px/);
-	expect(await page.locator('.tree-row').count()).toBeLessThan(100);
+	await expect(page.locator('.virtual-space')).toHaveAttribute('style', /440000px/);
+  await expect.poll(() => page.locator('.virtual-space').evaluate(el => Math.round(el.parentElement!.getBoundingClientRect().height))).toBe(440000);
+	expect(await page.locator('.registry-row').count()).toBeLessThan(100);
 	await page
 		.locator('.tree-scroll')
 		.evaluate((element) => (element.scrollTop = element.scrollHeight));
-	await expect(page.locator('.tree-row').last()).toContainText('9999');
+	await expect(page.locator('.registry-row').last()).toContainText('9999');
 	await page.getByRole('button', { name: 'Focus search' }).click();
 	await page.getByRole('searchbox', { name: 'Search registry' }).fill('stress.option.1');
 	await expect(page.locator('.tree-row').first()).toContainText('stress.option.1');
 	await page.getByRole('searchbox', { name: 'Search registry' }).fill('');
 	await page.setViewportSize({ width: 1440, height: 1400 });
 	await page.locator('.tree-scroll').evaluate((element) => (element.scrollTop = 0));
-	await expect.poll(() => page.locator('.tree-row').count()).toBeGreaterThan(25);
+	await expect.poll(() => page.locator('.registry-row').count()).toBeGreaterThan(25);
 });
 
 test('news creator, archive navigation, and option breadcrumbs work', async ({ page }) => {
@@ -205,4 +220,24 @@ test('release picker fetches registry versions and loads the selected catalog', 
 	await expect(page.locator('.version-list')).not.toContainText('nzportable-maps-test');
 	await page.locator('.version-list').getByRole('button', { name: 'v1', exact: true }).click();
 	await expect(page.locator('.version-button')).toContainText('v1');
+});
+
+test('package and option branches share scrolling and transitions', async ({ page }) => {
+	await page.goto('/');
+	await page.locator('.tree-row').filter({ hasText: 'By category' }).click();
+	const packageBranch = page.locator('.option-children').last();
+	await expect(packageBranch).toBeVisible();
+	await page.locator('.home-group button').filter({ hasText: 'programs' }).click();
+	await expect(page.locator('.home-groups .option-children')).toBeVisible();
+	expect(await page.locator('.tree-scroll').count()).toBe(1);
+	await page.getByRole('button', { name: 'Open menu' }).click();
+	await page
+		.locator('.nav-menu')
+		.getByRole('button', { name: /Settings/ })
+		.click();
+	const padding = await page.locator('.legacy-header').evaluate((el) => {
+		const s = getComputedStyle(el);
+		return [s.paddingTop, s.paddingRight, s.paddingBottom, s.paddingLeft];
+	});
+	expect(new Set(padding).size).toBe(1);
 });

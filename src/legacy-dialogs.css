@@ -45,7 +45,7 @@
 	align-items: center;
 	flex: none;
 	min-height: 48px;
-	padding-left: 6px;
+	padding: 7px;
 	background: var(--bg-modal);
 }
 

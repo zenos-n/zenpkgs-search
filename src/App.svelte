@@ -90,7 +90,6 @@
 	let menuOpen = false;
 	let newsUnread = true;
 	let expanded = new Set<string>();
-	let treeFold = { anchor: 0, size: 0 };
 	let searchHistory = read<string[]>('zenpkgs-search-searches', []);
 	let maintainerPopup: { name: string; data: CatalogMeta; anchor: HTMLElement } | null = null;
 	const legacyAccent: Record<string, string> = {
@@ -152,13 +151,6 @@
 			const next = new Set(expanded);
 			if (next.has(key)) next.delete(key);
 			else next.add(key);
-			const nextRows =
-				entry.kind === 'Package' ? packageTree(entries, next) : treeRows('Option', next, entries);
-			const index = shown.findIndex((row) => 'path' in row && row.path === entry.path);
-			treeFold = {
-				anchor: (index + 1) * rowHeight,
-				size: Math.abs(nextRows.length - shown.length) * rowHeight
-			};
 			expanded = next;
 			return;
 		}
@@ -637,9 +629,9 @@
 		<CatalogBrowser
 			{section}
 			bind:query
+			{entries}
 			optionEntries={entries.filter((entry) => entry.kind === 'Option')}
 			{expanded}
-			{treeFold}
 			{shown}
 			{visible}
 			{selected}
@@ -651,7 +643,6 @@
 			{rowHeight}
 			onactivate={activate}
 			onrefresh={refresh}
-			onresetScroll={resetScroll}
 		/>
 		<EntryInspector
 			{selected}

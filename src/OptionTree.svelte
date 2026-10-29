@@ -2,6 +2,8 @@
 	import OptionBranch, { type OptionNode } from './OptionBranch.svelte';
 	import type { Entry, TreeEntry } from './lib/types';
 	export let entries: Entry[];
+	export let scroller: HTMLDivElement;
+	export let selected: Entry | null = null;
 	export let expanded: Set<string>;
 	export let onactivate: (entry: TreeEntry) => void;
 	function build(source: Entry[]) {
@@ -14,6 +16,7 @@
 					children.set(label, {
 						label,
 						path: parts.slice(0, index + 1).join('.'),
+						kind: entry.kind,
 						children: new Map()
 					});
 				const node = children.get(label)!;
@@ -26,4 +29,4 @@
 	$: nodes = build(entries);
 </script>
 
-<OptionBranch {nodes} {expanded} {onactivate} />
+<OptionBranch {nodes} {expanded} {onactivate} {scroller} {selected} />
