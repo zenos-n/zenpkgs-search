@@ -111,6 +111,14 @@
 					</div>
 				</div>
 			{/if}
+			{#if selected.meta.upstreamDescription && selected.meta.upstreamDescription !== longDescription}
+				<div class="inspector-section">
+					<h3>Upstream documentation</h3>
+					<div class="inspector-card markdown">
+						{@html markdown(selected.meta.upstreamDescription)}
+					</div>
+				</div>
+			{/if}
 			{#if hasDiff}<div class="inspector-section">
 					<h3>Compared with {diffLabel}</h3>
 					<div class="inspector-card">{ondiffStatus(selected)}</div>

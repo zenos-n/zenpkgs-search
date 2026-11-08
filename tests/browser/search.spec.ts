@@ -14,6 +14,10 @@ const fixture = {
 				binaryStatus: 'complete',
 				outputs: ['out', 'man'],
 				defaultOutput: 'out',
+				catalogDependents: 3,
+				repologyRepositories: 12,
+				nativeAttribute: 'select-for-figma',
+				upstreamDescription: 'Additional **upstream documentation**.',
 				license: 'MIT',
 				platforms: ['x86_64-linux'],
 				icon: 'https://example.test/icon.svg',
@@ -104,6 +108,9 @@ test('package details include searchable binaries, artwork, provenance and outpu
 	await expect(details.locator('code').filter({ hasText: /^figma-cli$/ })).toBeVisible();
 	await expect(details.getByText('1.2.3', { exact: true })).toBeVisible();
 	await expect(details.getByText('out, man', { exact: true })).toBeVisible();
+	await expect(details.getByText('Direct dependents in ZenPkgs', { exact: true })).toBeVisible();
+	await expect(details.getByText('Repositories on Repology', { exact: true })).toBeVisible();
+	await expect(details.getByText('upstream documentation', { exact: true })).toBeVisible();
 	await expect(details.locator('.package-heading img')).toBeVisible();
 	await expect(details.getByRole('link', { name: 'Flathub (2.0)' })).toBeVisible();
 	await expect(details.getByRole('link', { name: 'https://example.test/' })).toBeVisible();

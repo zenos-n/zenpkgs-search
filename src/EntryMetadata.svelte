@@ -1,5 +1,6 @@
 <script lang="ts">
 	import type { Entry } from './lib/types';
+	import { categories } from './lib/catalog';
 	import { documentedValue, label, strings, webUrl } from './lib/details';
 	export let entry: Entry;
 	export let oncopy: (value: string) => void | Promise<void>;
@@ -11,6 +12,10 @@
 		? meta.desktopEntries.filter((app) => app && typeof app === 'object' && !app.noDisplay)
 		: [];
 	$: icon = webUrl(meta.icon);
+	$: nativeAttribute = typeof meta.nativeAttribute === 'string' ? meta.nativeAttribute : '';
+	$: repologyUrl = nativeAttribute
+		? `https://repology.org/tools/project-by?repo=nix_unstable&name_type=srcname&target_page=project_versions&name=${encodeURIComponent(nativeAttribute)}`
+		: undefined;
 	$: licenseUrls = (Array.isArray(meta.license) ? meta.license : [meta.license]).flatMap(
 		(license) =>
 			license && typeof license === 'object' && 'url' in license ? strings(license.url) : []
@@ -35,14 +40,22 @@
 					],
 					['Outputs', meta.outputs],
 					['Default output', meta.defaultOutput],
+					['Indexed system', meta.system],
+					['Nixpkgs attribute', meta.nativeAttribute],
+					['Direct build inputs', meta.directBuildInputs],
+					['Direct dependents in ZenPkgs', meta.catalogDependents],
+					['Repositories on Repology', meta.repologyRepositories],
 					['License', meta.license],
 					['Platforms', meta.platforms],
 					['Main program', meta.mainProgram],
 					['Tags', meta.tags],
-					['Dependencies', meta.dependencies],
+					['Categories', categories(meta)],
+					['Aliases', meta.aliases],
+					['Declared dependencies', meta.dependencies],
 					['Broken', meta.broken],
 					['Insecure', meta.insecure],
 					['Known vulnerabilities', meta.knownVulnerabilities],
+					['Package notices', meta.problems],
 					['Unfree', meta.unfree]
 				]
 			: [];
@@ -147,10 +160,27 @@
 							<strong>{app.desktopName || app.name || app.id}</strong>{#if app.comment}<p>
 									{app.comment}
 								</p>{/if}
+							{#if app.genericName}<p>{app.genericName}</p>{/if}
+							{#if app.categories?.length}<small
+									>Categories: {strings(app.categories).join(', ')}</small
+								><br />{/if}
+							{#if app.keywords?.length}<small>Keywords: {strings(app.keywords).join(', ')}</small
+								><br />{/if}
 							{#if app.mimeTypes?.length}<small>{strings(app.mimeTypes).join(', ')}</small>{/if}
 						</li>
 					{/if}{/each}
 			</ul>
+		</div>
+	{/if}
+	{#if Array.isArray(meta.catalogDependencies) && meta.catalogDependencies.length}
+		<div class="inspector-section">
+			<h3>Dependencies in this catalog</h3>
+			<div class="inspector-card">
+				<details>
+					<summary>{meta.catalogDependencies.length} packages</summary>
+					<pre><code>{strings(meta.catalogDependencies).join('\n')}</code></pre>
+				</details>
+			</div>
 		</div>
 	{/if}
 	{#if meta.artworkStatus && meta.artworkStatus !== 'indexed'}
@@ -224,7 +254,7 @@
 	</div>
 {/if}
 
-{#each [['Homepage', meta.homepage], ['License terms', licenseUrls], ['Package source', meta.sourceRepository], ['Source archive', meta.sourceArchive], ['Definition', meta.sourceUrl], ['Upstream definition', meta.upstreamDefinition], ['Declarations', meta.declarations]] as [name, value]}
+{#each [['Homepage', meta.homepage], ['Changelog', meta.changelog], ['License terms', licenseUrls], ['Package source', meta.sourceRepository], ['Source archive', meta.sourceArchive], ['Definition', meta.sourceUrl], ['Upstream definition', meta.upstreamDefinition], ['Current Nixpkgs listing', nativeAttribute ? `https://search.nixos.org/packages?channel=unstable&show=${encodeURIComponent(nativeAttribute)}&query=${encodeURIComponent(nativeAttribute)}` : null], ['Repology', repologyUrl], ['Declarations', meta.declarations]] as [name, value]}
 	{@const urls = strings(value).filter((url) => webUrl(url))}
 	{#if urls.length}<div class="inspector-section">
 			<h3>{name}</h3>
