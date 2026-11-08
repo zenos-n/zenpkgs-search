@@ -7,6 +7,9 @@
 	let previewUrl = '';
 	let previewCaption = '';
 	$: meta = entry.meta;
+	$: desktopEntries = Array.isArray(meta.desktopEntries)
+		? meta.desktopEntries.filter((app) => app && typeof app === 'object' && !app.noDisplay)
+		: [];
 	$: icon = webUrl(meta.icon);
 	$: licenseUrls = (Array.isArray(meta.license) ? meta.license : [meta.license]).flatMap(
 		(license) =>
@@ -58,6 +61,17 @@
 			/>
 			<strong>{String(meta.name || meta.pname || entry.id)}</strong>
 		</div>{/if}
+	{#if meta.artworkReference && typeof meta.artworkReference === 'object' && 'url' in meta.artworkReference && webUrl(meta.artworkReference.url)}
+		<p class="inspector-section metadata-status">
+			Reference artwork from <a
+				href={webUrl(meta.artworkReference.url)}
+				target="_blank"
+				rel="noreferrer"
+				>Flathub{#if 'version' in meta.artworkReference && meta.artworkReference.version}{' '}
+					({String(meta.artworkReference.version)}){/if}</a
+			>.
+		</p>
+	{/if}
 	{#if screenshots.length}
 		<div class="inspector-section">
 			<h3>Screenshots</h3>
@@ -124,11 +138,11 @@
 				</p>{/if}
 		</div>
 	</div>
-	{#if Array.isArray(meta.desktopEntries) && meta.desktopEntries.length}
+	{#if desktopEntries.length}
 		<div class="inspector-section">
 			<h3>Desktop applications</h3>
 			<ul class="inspector-card metadata-list">
-				{#each meta.desktopEntries as app}{#if app && typeof app === 'object' && !app.noDisplay}
+				{#each desktopEntries as app}{#if app && typeof app === 'object' && !app.noDisplay}
 						<li>
 							<strong>{app.desktopName || app.name || app.id}</strong>{#if app.comment}<p>
 									{app.comment}

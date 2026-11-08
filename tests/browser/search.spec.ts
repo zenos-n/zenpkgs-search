@@ -17,6 +17,7 @@ const fixture = {
 				license: 'MIT',
 				platforms: ['x86_64-linux'],
 				icon: 'https://example.test/icon.svg',
+				artworkReference: { url: 'https://flathub.org/apps/com.example.Editor', version: '2.0' },
 				screenshots: [{ url: 'https://example.test/screenshot.svg', caption: 'The Figma editor' }],
 				homepage: ['https://example.test/', 'javascript:alert(1)'],
 				sourceUrl: 'https://github.com/zenos-n/zenpkgs/blob/main/pkgs/figma.zpkg',
@@ -104,6 +105,7 @@ test('package details include searchable binaries, artwork, provenance and outpu
 	await expect(details.getByText('1.2.3', { exact: true })).toBeVisible();
 	await expect(details.getByText('out, man', { exact: true })).toBeVisible();
 	await expect(details.locator('.package-heading img')).toBeVisible();
+	await expect(details.getByRole('link', { name: 'Flathub (2.0)' })).toBeVisible();
 	await expect(details.getByRole('link', { name: 'https://example.test/' })).toBeVisible();
 	await expect(details.locator('a[href^="javascript:"]')).toHaveCount(0);
 	await details.getByRole('button', { name: 'The Figma editor' }).click();
