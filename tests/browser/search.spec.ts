@@ -17,6 +17,15 @@ const fixture = {
 				catalogDependents: 3,
 				repologyRepositories: 12,
 				nativeAttribute: 'select-for-figma',
+				desktopEntries: [
+					{
+						desktopName: 'Editor launcher',
+						genericName: 'Design editor',
+						categories: ['Graphics'],
+						iconUrl: 'https://example.test/icon.svg'
+					},
+					{ desktopName: 'Hidden helper', noDisplay: true }
+				],
 				upstreamDescription: 'Additional **upstream documentation**.',
 				license: 'MIT',
 				platforms: ['x86_64-linux'],
@@ -110,6 +119,9 @@ test('package details include searchable binaries, artwork, provenance and outpu
 	await expect(details.getByText('out, man', { exact: true })).toBeVisible();
 	await expect(details.getByText('Direct dependents in ZenPkgs', { exact: true })).toBeVisible();
 	await expect(details.getByText('Repositories on Repology', { exact: true })).toBeVisible();
+	await expect(details.getByText('Design editor', { exact: true })).toBeVisible();
+	await expect(details.getByText('Categories: Graphics', { exact: true })).toBeVisible();
+	await expect(details.getByText('Hidden helper', { exact: true })).toHaveCount(0);
 	await expect(details.getByText('upstream documentation', { exact: true })).toBeVisible();
 	await expect(details.locator('.package-heading img')).toBeVisible();
 	await expect(details.getByRole('link', { name: 'Flathub (2.0)' })).toBeVisible();
@@ -132,6 +144,19 @@ test('option details preserve false defaults, literal examples and declarations'
 	await expect(details.locator('code').filter({ hasText: /^false$/ })).toBeVisible();
 	await expect(details.locator('code').filter({ hasText: /^true$/ })).toBeVisible();
 	await expect(details.getByRole('link', { name: /modules\/gnosis.zmdl/ })).toBeVisible();
+});
+
+test('an unavailable screenshot leaves no broken image or empty gallery', async ({ page }) => {
+	await page.route('https://example.test/screenshot.svg', (route) =>
+		route.fulfill({ status: 404, body: '' })
+	);
+	await page.goto('/#pkgs:com.neg-zero.select-for-figma');
+	await expect(
+		page
+			.getByRole('region', { name: 'Entry details' })
+			.getByRole('heading', { name: 'Package details', exact: true })
+	).toBeVisible();
+	await expect(page.locator('.screenshot-gallery')).toHaveCount(0);
 });
 
 test('canonical package, search, scratchpad, and settings work without page errors', async ({

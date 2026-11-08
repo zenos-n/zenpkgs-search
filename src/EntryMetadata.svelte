@@ -7,6 +7,8 @@
 	let preview: HTMLDialogElement;
 	let previewUrl = '';
 	let previewCaption = '';
+	let failedImages = new Set<string>();
+	$: if (entry) failedImages = new Set<string>();
 	$: meta = entry.meta;
 	$: desktopEntries = Array.isArray(meta.desktopEntries)
 		? meta.desktopEntries.filter((app) => app && typeof app === 'object' && !app.noDisplay)
@@ -26,7 +28,7 @@
 				.map((item) => (typeof item === 'string' ? { url: item } : item))
 				.filter(
 					(item): item is { url: string; thumbnail?: string; caption?: string; source?: string } =>
-						!!item && typeof item === 'object' && !!webUrl(item.url)
+						!!item && typeof item === 'object' && !!webUrl(item.url) && !failedImages.has(item.url)
 				)
 		: [];
 	$: facts =
@@ -109,8 +111,7 @@
 									if (figure) figure.hidden = false;
 								}}
 								onerror={(event) => {
-									const figure = event.currentTarget.closest('figure');
-									if (figure) figure.hidden = true;
+									failedImages = new Set([...failedImages, shot.url]);
 								}}
 							/>
 						</button>
@@ -157,6 +158,16 @@
 			<ul class="inspector-card metadata-list">
 				{#each desktopEntries as app}{#if app && typeof app === 'object' && !app.noDisplay}
 						<li>
+							{#if webUrl(app.iconUrl)}<img
+									src={webUrl(app.iconUrl)}
+									alt=""
+									width="24"
+									height="24"
+									loading="lazy"
+									referrerpolicy="no-referrer"
+									onerror={(event) => event.currentTarget.setAttribute('hidden', '')}
+									onload={(event) => event.currentTarget.removeAttribute('hidden')}
+								/>{/if}
 							<strong>{app.desktopName || app.name || app.id}</strong>{#if app.comment}<p>
 									{app.comment}
 								</p>{/if}
@@ -172,6 +183,11 @@
 			</ul>
 		</div>
 	{/if}
+	{#if meta.desktopStatus && meta.desktopStatus !== 'complete'}<p
+			class="inspector-section metadata-status"
+		>
+			Desktop launcher details are incomplete in this snapshot.
+		</p>{/if}
 	{#if Array.isArray(meta.catalogDependencies) && meta.catalogDependencies.length}
 		<div class="inspector-section">
 			<h3>Dependencies in this catalog</h3>
@@ -254,7 +270,7 @@
 	</div>
 {/if}
 
-{#each [['Homepage', meta.homepage], ['Changelog', meta.changelog], ['License terms', licenseUrls], ['Package source', meta.sourceRepository], ['Source archive', meta.sourceArchive], ['Definition', meta.sourceUrl], ['Upstream definition', meta.upstreamDefinition], ['Current Nixpkgs listing', nativeAttribute ? `https://search.nixos.org/packages?channel=unstable&show=${encodeURIComponent(nativeAttribute)}&query=${encodeURIComponent(nativeAttribute)}` : null], ['Repology', repologyUrl], ['Declarations', meta.declarations]] as [name, value]}
+{#each [['Homepage', meta.homepage], ['Changelog', meta.changelog], ['License terms', licenseUrls], ['Package source', meta.sourceRepository], ['Source archive', meta.sourceArchive], ['Definition', meta.sourceUrl], ['Upstream definition', meta.upstreamDefinition], ['Current Nixpkgs listing', nativeAttribute ? `https://search.nixos.org/packages?channel=unstable&show=${encodeURIComponent(nativeAttribute)}&query=${encodeURIComponent(nativeAttribute)}` : null], ['NixOS option search', nativeAttribute ? `https://search.nixos.org/options?channel=unstable&query=${encodeURIComponent(nativeAttribute)}` : null], ['Repology', repologyUrl], ['Declarations', meta.declarations]] as [name, value]}
 	{@const urls = strings(value).filter((url) => webUrl(url))}
 	{#if urls.length}<div class="inspector-section">
 			<h3>{name}</h3>
