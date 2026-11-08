@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { OptionNode } from './OptionBranch.svelte';
 	import type { Entry, TreeEntry } from './lib/types';
+	import { webUrl } from './lib/details';
 	export let node: OptionNode;
 	export let depth: number;
 	export let expanded: Set<string>;
@@ -28,9 +29,26 @@
 		>{branch ? '▸' : '•'}</span
 	>
 	<span class="row-label">{node.label}</span>
+	{#if !branch && webUrl(node.entry?.meta.icon)}
+		<img
+			class="row-icon"
+			src={webUrl(node.entry?.meta.icon)}
+			alt=""
+			width="24"
+			height="24"
+			loading="lazy"
+			referrerpolicy="no-referrer"
+			onerror={(event) => event.currentTarget.setAttribute('hidden', '')}
+			onload={(event) => event.currentTarget.removeAttribute('hidden')}
+		/>
+	{/if}
 </button>
 
 <style>
+	.row-icon {
+		margin-left: auto;
+		object-fit: contain;
+	}
 	.registry-row {
 		display: flex;
 		align-items: center;

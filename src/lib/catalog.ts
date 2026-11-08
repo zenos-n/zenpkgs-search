@@ -30,8 +30,9 @@ export function flattenOptions(
 		for (const [key, node] of Object.entries(children || {})) {
 			if (!node || typeof node !== 'object') continue;
 			const path = [...prefix, key];
-			if (node.sub && Object.keys(node.sub).length) visit(node.sub, path);
-			else if (node.meta) entries.push([path.join('.'), node]);
+			const children = node.sub && Object.keys(node.sub).length;
+			if (node.meta && (node.meta.isOption || !children)) entries.push([path.join('.'), node]);
+			if (children) visit(node.sub, path);
 		}
 	}
 	visit(nodes);
@@ -52,6 +53,10 @@ export function matches(key: string, node: CatalogNode | undefined, query: strin
 		meta.name,
 		meta.summary,
 		meta.description,
+		meta.longDescription,
+		meta.mainProgram,
+		...(Array.isArray(meta.tags) ? meta.tags : []),
+		...((Array.isArray(meta.programs) ? meta.programs : []) as unknown[]),
 		...categories(meta),
 		...(meta.aliases || [])
 	]

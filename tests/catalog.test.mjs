@@ -1,6 +1,16 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import * as catalog from '../src/lib/catalog.ts';
+import { webUrl, documentedValue, label } from '../src/lib/details.ts';
+
+test('binaries participate in search and metadata values stay safe and precise', () => {
+  assert.equal(catalog.matches('some-package', {meta: {programs: ['unrelated-command']}}, 'unrelated-command'), true);
+  for (const url of ['javascript:alert(1)', 'file:///etc/passwd', 'data:text/html,bad', 'folder-icon']) assert.equal(webUrl(url), undefined);
+  assert.equal(webUrl('https://example.org/icon.svg'), 'https://example.org/icon.svg');
+  for (const value of [false, null, 0, '']) assert.equal(documentedValue(value), JSON.stringify(value));
+  assert.equal(documentedValue({_type: 'literalExpression', text: 'config.other'}), 'config.other');
+  assert.equal(label({operator: 'AND', licenses: [{spdxId: 'MIT'}, {spdxId: 'GPL-3.0-only'}]}), '(MIT AND GPL-3.0-only)');
+});
 
 const id = 'pkgs.org.mozilla.firefox';
 const canonical = { meta: { id, kind: 'package', name: 'Firefox', summary: 'Web browser', categoryTarget: ['apps', 'browsers', 'firefox'] } };
@@ -56,5 +66,10 @@ test('nested production options become searchable leaves', () => {
   const entries = catalog.flattenOptions(options);
   assert.deepEqual(entries.map(([id]) => id), ['users.<name>.programs.gnosis.enable']);
   assert.equal(catalog.matches(entries[0][0], entries[0][1], 'GNOSIS'), true);
+});
+
+test('options with child schemas remain searchable themselves', () => {
+  const result = catalog.flattenOptions({settings: {meta: {isOption: true, description: 'Settings map'}, sub: {enable: {meta: {type: 'boolean'}}}}});
+  assert.deepEqual(result.map(([id]) => id), ['settings', 'settings.enable']);
 });
 

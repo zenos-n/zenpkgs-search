@@ -28,6 +28,7 @@
 	}
 	import OptionBranch, { type OptionNode } from './OptionBranch.svelte';
 	import { categories } from './lib/catalog';
+	import { webUrl } from './lib/details';
 	function packageNodes(entries: Entry[]) {
 		const rdns: OptionNode = {
 			label: 'By reverse DNS notation',
@@ -120,6 +121,16 @@
 						style:top={`${shown.indexOf(entry) * rowHeight}px`}
 						onclick={() => onactivate(entry)}
 					>
+						{#if webUrl(entry.meta.icon)}<img
+								src={webUrl(entry.meta.icon)}
+								alt=""
+								width="24"
+								height="24"
+								loading="lazy"
+								referrerpolicy="no-referrer"
+								onerror={(event) => event.currentTarget.setAttribute('hidden', '')}
+								onload={(event) => event.currentTarget.removeAttribute('hidden')}
+							/>{/if}
 						<span class="row-label">{entry.id.replace(/^pkgs\./, '')}</span><span class="row-type"
 							>{entry.kind}</span
 						>

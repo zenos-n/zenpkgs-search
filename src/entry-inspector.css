@@ -21,3 +21,22 @@
 .inspector-card label { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; }
 .inspector-card input { min-width: 0; padding: 8px; border: 1px solid var(--border-color); border-radius: 8px; background: var(--bg-tree); color: var(--text-color); }
 .ai-card button { width: 100%; border: 0; background: transparent; color: var(--text-color); font-weight: 800; }
+.package-heading { display: flex; align-items: center; gap: 16px; }
+.package-heading img { object-fit: contain; }
+.metadata-facts { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 8px 16px; }
+.metadata-facts dt { color: var(--dim-label); }
+.metadata-facts dd { margin: 0; white-space: pre-wrap; }
+.metadata-list { list-style: none; }
+.metadata-list li + li { margin-top: 12px; }
+.metadata-list p { margin: 4px 0; }
+.inspector-card pre { overflow: auto; margin: 0 0 8px; white-space: pre-wrap; }
+.binary-list { display: flex; flex-wrap: wrap; gap: 8px 16px; }
+.metadata-status { color: var(--dim-label); font-size: .8rem; }
+.screenshot-gallery { display: grid; gap: 16px; }
+.screenshot-gallery figure { margin: 0; }
+.screenshot-button { display: block; width: 100%; padding: 0; background: none; border: 0; cursor: zoom-in; }
+.screenshot-button img { display: block; width: 100%; border-radius: 12px; }
+.screenshot-gallery figcaption { margin: 8px 0; }
+.screenshot-preview { max-width: min(90vw, 1200px); max-height: 90vh; padding: 16px; border: 1px solid var(--border-color); border-radius: 12px; background: var(--bg-modal); color: var(--text-color); }
+.screenshot-preview::backdrop { background: #000b; }
+.screenshot-preview img { display: block; max-width: 100%; max-height: 75vh; object-fit: contain; }

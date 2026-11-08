@@ -2,6 +2,8 @@
 	import { marked } from 'marked';
 	import DOMPurify from 'dompurify';
 	import type { Entry } from './lib/types';
+	import EntryMetadata from './EntryMetadata.svelte';
+	import { documentedValue } from './lib/details';
 	import './entry-inspector.css';
 
 	export let selected: Entry | null;
@@ -33,9 +35,8 @@
 <section class="inspector" aria-label="Entry details">
 	{#if selected}
 		{@const shortDescription = selected.meta.summary || selected.meta.description}
-		{@const longDescription = selected.meta.summary
-			? selected.meta.description
-			: selected.meta.longDescription}
+		{@const longDescription =
+			selected.meta.longDescription || (selected.meta.summary ? selected.meta.description : null)}
 		<div class="inspector-inner">
 			<div class="identifier-heading">
 				<div class="eyebrow">Identifier</div>
@@ -55,7 +56,10 @@
 				<div class="inspector-section">
 					<h3>Type</h3>
 					<div class="inspector-card">
-						{typeof selected.meta.type === 'string' ? selected.meta.type : 'Complex'}
+						{selected.meta.typeDescription ||
+							(typeof selected.meta.type === 'string'
+								? selected.meta.type
+								: documentedValue(selected.meta.type))}
 					</div>
 				</div>
 			{/if}
@@ -76,6 +80,7 @@
 					<div class="inspector-card description-card">{String(shortDescription)}</div>
 				</div>
 			{/if}
+			<EntryMetadata entry={selected} {oncopy} />
 			{#if Array.isArray(selected.meta.maintainers) && selected.meta.maintainers.length}
 				<div class="inspector-section">
 					<h3>Maintainers</h3>

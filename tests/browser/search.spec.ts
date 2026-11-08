@@ -9,6 +9,17 @@ const fixture = {
 				id: 'pkgs.com.neg-zero.select-for-figma',
 				kind: 'package',
 				name: 'Select for Figma',
+				version: '1.2.3',
+				programs: ['figma-cli', 'select-for-figma'],
+				binaryStatus: 'complete',
+				outputs: ['out', 'man'],
+				defaultOutput: 'out',
+				license: 'MIT',
+				platforms: ['x86_64-linux'],
+				icon: 'https://example.test/icon.svg',
+				screenshots: [{ url: 'https://example.test/screenshot.svg', caption: 'The Figma editor' }],
+				homepage: ['https://example.test/', 'javascript:alert(1)'],
+				sourceUrl: 'https://github.com/zenos-n/zenpkgs/blob/main/pkgs/figma.zpkg',
 				description: 'Native Figma client',
 				categoryTarget: ['apps', 'graphics', 'select-for-figma']
 			}
@@ -35,7 +46,15 @@ const fixture = {
 				gnosis: {
 					sub: {
 						enable: {
-							meta: { type: 'boolean', default: false, description: 'Install Gnosis' }
+							meta: {
+								type: 'boolean',
+								typeDescription: 'boolean',
+								default: false,
+								defaultStatus: 'value',
+								example: { _type: 'literalExpression', text: 'true' },
+								declarations: ['https://github.com/zenos-n/zenpkgs/blob/main/modules/gnosis.zmdl'],
+								description: 'Install Gnosis'
+							}
 						}
 					}
 				}
@@ -46,6 +65,12 @@ const fixture = {
 };
 
 test.beforeEach(async ({ page }) => {
+	await page.route('https://example.test/**', (route) =>
+		route.fulfill({
+			contentType: 'image/svg+xml',
+			body: '<svg xmlns="http://www.w3.org/2000/svg" width="400" height="200"><rect width="400" height="200" fill="purple"/></svg>'
+		})
+	);
 	if (process.env.ZENPKGS_BROWSER_OFFLINE) {
 		await page.route('http://127.0.0.1:4173/**', async (route) => {
 			const name = new URL(route.request().url()).pathname;
@@ -65,6 +90,39 @@ test.beforeEach(async ({ page }) => {
 	await page.route('https://api.github.com/repos/zenos-n/zenpkgs/releases', (route) =>
 		route.fulfill({ json: [] })
 	);
+});
+
+test('package details include searchable binaries, artwork, provenance and outputs', async ({
+	page
+}) => {
+	await page.goto('/');
+	await page.getByRole('button', { name: 'Focus search' }).click();
+	await page.getByRole('searchbox', { name: 'Search registry' }).fill('figma-cli');
+	await page.locator('.tree-row').click();
+	const details = page.getByRole('region', { name: 'Entry details' });
+	await expect(details.locator('code').filter({ hasText: /^figma-cli$/ })).toBeVisible();
+	await expect(details.getByText('1.2.3', { exact: true })).toBeVisible();
+	await expect(details.getByText('out, man', { exact: true })).toBeVisible();
+	await expect(details.locator('.package-heading img')).toBeVisible();
+	await expect(details.getByRole('link', { name: 'https://example.test/' })).toBeVisible();
+	await expect(details.locator('a[href^="javascript:"]')).toHaveCount(0);
+	await details.getByRole('button', { name: 'The Figma editor' }).click();
+	await expect(page.getByRole('dialog', { name: 'Screenshot preview' })).toBeVisible();
+	await page.keyboard.press('Escape');
+	await expect(page.getByRole('dialog', { name: 'Screenshot preview' })).not.toBeVisible();
+});
+
+test('option details preserve false defaults, literal examples and declarations', async ({
+	page
+}) => {
+	await page.goto('/');
+	await page.getByRole('button', { name: 'Focus search' }).click();
+	await page.getByRole('searchbox', { name: 'Search registry' }).fill('Install Gnosis');
+	await page.getByRole('button', { name: 'programs.gnosis.enable', exact: true }).click();
+	const details = page.getByRole('region', { name: 'Entry details' });
+	await expect(details.locator('code').filter({ hasText: /^false$/ })).toBeVisible();
+	await expect(details.locator('code').filter({ hasText: /^true$/ })).toBeVisible();
+	await expect(details.getByRole('link', { name: /modules\/gnosis.zmdl/ })).toBeVisible();
 });
 
 test('canonical package, search, scratchpad, and settings work without page errors', async ({
@@ -131,7 +189,13 @@ test('large catalog keeps DOM rows bounded', async ({ page }) => {
 		.filter({ has: page.locator('.row-label:text-is("option")') })
 		.click();
 	await expect(page.locator('.virtual-space')).toHaveAttribute('style', /440000px/);
-  await expect.poll(() => page.locator('.virtual-space').evaluate(el => Math.round(el.parentElement!.getBoundingClientRect().height))).toBe(440000);
+	await expect
+		.poll(() =>
+			page
+				.locator('.virtual-space')
+				.evaluate((el) => Math.round(el.parentElement!.getBoundingClientRect().height))
+		)
+		.toBe(440000);
 	expect(await page.locator('.registry-row').count()).toBeLessThan(100);
 	await page
 		.locator('.tree-scroll')
